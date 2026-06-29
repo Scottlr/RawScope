@@ -20,6 +20,8 @@ Use this skill before changing Rust file layout, adding modules, splitting files
 - Use `pub use` intentionally to expose a narrow public facade.
 - Keep concepts that change together near each other.
 - Keep large behavioral and integration tests out of production files.
+- Name non-trivial loop ranges immediately before the loop that uses them when practical.
+- Do not bury range arithmetic or domain boundaries inside `for`, `if`, `while`, or `match` headers.
 - Before creating a new module, check whether an existing domain owner should be extended.
 
 ## Good patterns
@@ -81,6 +83,17 @@ It is acceptable for a packet/domain file to own:
 
 Large behavioral or integration tests belong under `tests/`.
 
+Name derived ranges before looping:
+
+```rust
+let stale_lane_start_row = spike_end_row;
+let stale_lane_end_row = stale_lane_start_row + stale_lane_count;
+let stale_lane_rows = stale_lane_start_row..stale_lane_end_row;
+for row_index in stale_lane_rows {
+    generate_stale_lane_event(row_index);
+}
+```
+
 ## Bad patterns
 
 Do not do this:
@@ -112,6 +125,14 @@ mod decode;
 pub use decode::{decode_client_packet, ClientDecodeRoute};
 ```
 
+Do not hide domain boundaries in the loop header:
+
+```rust
+for row_index in (background_count + spike_count)..(background_count + spike_count + stale_count) {
+    generate_stale_lane_event(row_index);
+}
+```
+
 ## Checklist before editing
 
 - Which domain owns this behavior?
@@ -120,6 +141,7 @@ pub use decode::{decode_client_packet, ClientDecodeRoute};
 - Are `lib.rs`, `main.rs`, or `mod.rs` staying thin?
 - Are public exports intentional and minimal?
 - Does any file over roughly 400 lines need a split plan?
+- Are derived ranges and non-trivial branch predicates named near their use?
 - Are tests located where they prove behavior without bloating production files?
 
 ## Checklist before final response

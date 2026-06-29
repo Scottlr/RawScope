@@ -107,7 +107,8 @@ impl GpuContext {
     pub fn resize(&mut self, size: PhysicalSize<u32>) -> ClearFrameStatus {
         self.size = size;
 
-        if size.width == 0 || size.height == 0 {
+        let surface_is_zero_sized = size.width == 0 || size.height == 0;
+        if surface_is_zero_sized {
             return ClearFrameStatus::SkippedZeroSizedSurface;
         }
 
@@ -119,7 +120,8 @@ impl GpuContext {
 
     /// Clears and presents one frame with the provided colour.
     pub fn clear_frame(&mut self, clear_color: wgpu::Color) -> Result<ClearFrameStatus, GpuError> {
-        if self.size.width == 0 || self.size.height == 0 {
+        let surface_is_zero_sized = self.size.width == 0 || self.size.height == 0;
+        if surface_is_zero_sized {
             return Ok(ClearFrameStatus::SkippedZeroSizedSurface);
         }
 

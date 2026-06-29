@@ -72,7 +72,8 @@ pub fn generate_synthetic_points(config: SyntheticPointConfig) -> SyntheticPoint
 
     let mut points = Vec::with_capacity(config.row_count);
 
-    for row_index in 0..cluster_count {
+    let cluster_rows = 0..cluster_count;
+    for row_index in cluster_rows {
         points.push(SyntheticPointRecord {
             row_id: RowId(row_index as u64),
             x: sample_cluster_value(&mut rng, config.x_range, CLUSTER_X_CENTER, CLUSTER_SPREAD),
@@ -81,7 +82,10 @@ pub fn generate_synthetic_points(config: SyntheticPointConfig) -> SyntheticPoint
         });
     }
 
-    for row_index in cluster_count..(cluster_count + background_count) {
+    let background_start = cluster_count;
+    let background_end = background_start + background_count;
+    let background_rows = background_start..background_end;
+    for row_index in background_rows {
         points.push(SyntheticPointRecord {
             row_id: RowId(row_index as u64),
             x: rng.f32_in_range(config.x_range.min, config.x_range.max),
@@ -90,7 +94,8 @@ pub fn generate_synthetic_points(config: SyntheticPointConfig) -> SyntheticPoint
         });
     }
 
-    for row_index in (cluster_count + background_count)..config.row_count {
+    let outlier_rows = background_end..config.row_count;
+    for row_index in outlier_rows {
         let (x, y) = sample_outlier(&mut rng, config.x_range, config.y_range);
         points.push(SyntheticPointRecord {
             row_id: RowId(row_index as u64),

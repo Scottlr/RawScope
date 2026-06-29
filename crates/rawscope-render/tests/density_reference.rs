@@ -11,7 +11,10 @@ fn sum_timeline_bins(
     lane_count: u32,
 ) -> u32 {
     x_bins
-        .flat_map(|x_bin| (0..lane_count).map(move |lane_bin| grid.bin(x_bin, lane_bin).row_count))
+        .flat_map(|x_bin| {
+            let lane_bins = 0..lane_count;
+            lane_bins.map(move |lane_bin| grid.bin(x_bin, lane_bin).row_count)
+        })
         .sum()
 }
 
@@ -139,10 +142,13 @@ fn injected_timeline_patterns_are_visible_in_expected_bins() {
 
     let stale_lane_y_bin = dataset.lane_count - 1;
     let late_time_x_bin = 40;
+    let spike_window_bins = 23..=25;
+    let before_spike_window_bins = 20..=22;
+    let gap_window_bins = 11..=13;
 
-    let spike_total = sum_timeline_bins(&grid, 23..=25, dataset.lane_count);
-    let before_spike_total = sum_timeline_bins(&grid, 20..=22, dataset.lane_count);
-    let gap_total = sum_timeline_bins(&grid, 11..=13, dataset.lane_count);
+    let spike_total = sum_timeline_bins(&grid, spike_window_bins, dataset.lane_count);
+    let before_spike_total = sum_timeline_bins(&grid, before_spike_window_bins, dataset.lane_count);
+    let gap_total = sum_timeline_bins(&grid, gap_window_bins, dataset.lane_count);
     let stale_lane_late_total: u32 = grid.bin(late_time_x_bin, stale_lane_y_bin).row_count;
 
     assert!(spike_total > before_spike_total);

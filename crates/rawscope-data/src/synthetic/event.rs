@@ -82,7 +82,8 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
 
     let mut events = Vec::with_capacity(config.row_count);
 
-    for row_index in 0..background_count {
+    let background_rows = 0..background_count;
+    for row_index in background_rows {
         events.push(SyntheticEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_time_outside_gap(&mut rng, config.time_range),
@@ -92,7 +93,10 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
         });
     }
 
-    for row_index in background_count..(background_count + spike_count) {
+    let spike_start_row = background_count;
+    let spike_end_row = spike_start_row + spike_count;
+    let spike_rows = spike_start_row..spike_end_row;
+    for row_index in spike_rows {
         events.push(SyntheticEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_window_time(&mut rng, config.time_range, SPIKE_START, SPIKE_END),
@@ -102,9 +106,10 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
         });
     }
 
-    for row_index in
-        (background_count + spike_count)..(background_count + spike_count + stale_lane_count)
-    {
+    let stale_lane_start_row = spike_end_row;
+    let stale_lane_end_row = stale_lane_start_row + stale_lane_count;
+    let stale_lane_rows = stale_lane_start_row..stale_lane_end_row;
+    for row_index in stale_lane_rows {
         events.push(SyntheticEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_window_time(
@@ -119,11 +124,13 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
         });
     }
 
-    for row_index in (background_count + spike_count + stale_lane_count)..config.row_count {
-        let lane = if anomaly_lane_limit == 0 {
-            0
-        } else {
+    let anomaly_rows = stale_lane_end_row..config.row_count;
+    for row_index in anomaly_rows {
+        let anomaly_lanes_available = anomaly_lane_limit > 0;
+        let lane = if anomaly_lanes_available {
             rng.u32_in_range(0, anomaly_lane_limit + 1)
+        } else {
+            0
         };
         events.push(SyntheticEventRecord {
             row_id: RowId(row_index as u64),
@@ -152,17 +159,20 @@ fn sample_time_outside_gap(rng: &mut SyntheticRng, time_range: U64Range) -> u64 
     } else {
         time_range.max.saturating_sub(late_min) + 1
     };
+    let has_no_early_gap_head = early_span == 0;
+    let has_no_late_gap_tail = late_span == 0;
 
-    if early_span == 0 {
+    if has_no_early_gap_head {
         return rng.u64_in_range(late_min, time_range.max + 1);
     }
 
-    if late_span == 0 {
+    if has_no_late_gap_tail {
         return rng.u64_in_range(early_min, early_max + 1);
     }
 
     let total_span = early_span + late_span;
-    if rng.u64_in_range(0, total_span) < early_span {
+    let use_early_gap_head = rng.u64_in_range(0, total_span) < early_span;
+    if use_early_gap_head {
         rng.u64_in_range(early_min, early_max + 1)
     } else {
         rng.u64_in_range(late_min, time_range.max + 1)

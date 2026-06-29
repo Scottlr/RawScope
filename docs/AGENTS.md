@@ -25,6 +25,7 @@ Core promise: pixels should be explainable back to rows.
 - Keep code simple and idiomatic Rust.
 - Keep APIs boring and explicit.
 - Prefer small vertical slices over broad abstractions.
+- Give derived ranges, thresholds, and predicates meaningful names near the loops or branches that use them.
 - Prefer small crates and clean ownership boundaries.
 - Keep data, GPU, render, and UI layers separate.
 - Use egui/eframe first when the native app UI begins.

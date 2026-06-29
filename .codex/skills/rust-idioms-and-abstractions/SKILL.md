@@ -23,6 +23,8 @@ Use this skill when shaping Rust APIs, domain types, ownership boundaries, abstr
 - Use typestate when it prevents a real invalid workflow.
 - Use `Cow`, borrowing, and `Arc` where they clarify ownership or reduce copying.
 - Prefer iterators where clearer and loops where clearer.
+- Name intermediate ranges, predicates, and thresholds near their use when they carry domain meaning.
+- Avoid clever inline arithmetic in control-flow headers.
 - Avoid unnecessary allocation, `clone`, `unwrap`, `expect`, global state, and mutable shared state.
 - Copy-minimising design is good; do not claim zero-copy unless it is technically exact.
 
@@ -99,6 +101,23 @@ render(rows);
 
 Use borrowing or shared ownership only when the ownership story requires it.
 
+Opaque control flow:
+
+```rust
+if rng.u64_in_range(0, total_span) < early_span {
+    sample_early_window()
+}
+```
+
+Clearer control flow:
+
+```rust
+let use_early_gap_head = rng.u64_in_range(0, total_span) < early_span;
+if use_early_gap_head {
+    sample_early_window()
+}
+```
+
 ## Checklist before editing
 
 - What invalid state can this API prevent?
@@ -107,6 +126,7 @@ Use borrowing or shared ownership only when the ownership story requires it.
 - Is a builder justified by optional fields or validation?
 - Can borrowing avoid allocation without making the API awkward?
 - Are errors domain-specific and contextual?
+- Are derived ranges, predicates, and thresholds named near their use when they carry meaning?
 - Is any `clone`, `unwrap`, or shared mutable state avoidable?
 - Is advanced Rust clarifying the code rather than decorating it?
 

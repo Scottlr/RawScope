@@ -31,6 +31,8 @@ Always consider these skills:
 - Public facades should be thin and use `pub use` intentionally.
 - Concepts that change together should usually live together.
 - Tests should not bloat production files.
+- Name non-trivial loop ranges and branch conditions near the loop or branch that uses them.
+- Do not hide arithmetic or multi-step state boundaries inside `for`, `if`, `while`, or `match` headers.
 - Do not create god files, god modules, `utils.rs`, `helpers.rs`, `common.rs`, `misc.rs`, or giant `types.rs`, `models.rs`, `contracts.rs`, `dto.rs`, or `packet.rs` dumping grounds.
 
 ## Testing Policy
@@ -69,6 +71,7 @@ Always consider these skills:
 
 - Prefer ownership-aware APIs and avoid unnecessary allocation.
 - Prefer iterators where clearer and loops where clearer.
+- Prefer named intermediate values for derived ranges, thresholds, and predicates, kept close to their use.
 - Use `Result` and domain errors for recoverable failures.
 - Use traits for real polymorphic seams, not speculative abstraction.
 - Use generics when they reduce duplication or encode constraints.
