@@ -90,3 +90,17 @@
 - Status: Accepted
 - Context: GPU-scale language is a product direction, not a measured result in the scaffold. Claims about speed, scale, or copy behavior need evidence.
 - Consequences: Documentation and pull requests should use careful language, prefer "copy-minimising" where accurate, and add benchmarks before optimization claims.
+
+## ADR-0011: Bytemuck For GPU Buffer Packing
+
+- Decision: Use `bytemuck` in `rawscope-render` for explicit POD structs passed to WGPU buffers.
+- Status: Accepted
+- Context: Milestone 3A needs deterministic scatter-density compute tests that upload point coordinates and uniform parameters with predictable layouts.
+- Consequences: GPU-facing structs must stay `#[repr(C)]` and derive `Pod`/`Zeroable`. This dependency is scoped to the render crate for now and does not imply a broader serialization or columnar memory model.
+
+## ADR-0012: Ignored Local GPU Correctness Tests
+
+- Decision: Keep GPU scatter-density correctness tests ignored by default and run them manually on machines with a reliable WGPU adapter.
+- Status: Accepted
+- Context: The CPU reference tests should remain stable in normal workspace test runs, while GPU adapter availability varies across CI and developer machines.
+- Consequences: `cargo test --workspace` validates non-GPU behavior and compiles ignored GPU tests. Run `cargo test -p rawscope-render --test gpu_scatter_density -- --ignored --nocapture` to compare GPU counts against CPU counts locally.

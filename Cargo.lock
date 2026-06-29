@@ -1386,8 +1386,12 @@ dependencies = [
 name = "rawscope-render"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "pollster",
  "rawscope-core",
  "rawscope-data",
+ "rawscope-gpu",
+ "wgpu",
 ]
 
 [[package]]

@@ -32,3 +32,29 @@ impl GpuDiagnostics {
         }
     }
 }
+
+/// Adapter and device diagnostics for headless compute contexts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComputeDiagnostics {
+    pub adapter_name: String,
+    pub backend: String,
+    pub device_type: String,
+    pub adapter_features: String,
+    pub adapter_limits: String,
+}
+
+impl ComputeDiagnostics {
+    pub(crate) fn from_parts(
+        adapter_info: wgpu::AdapterInfo,
+        adapter_features: wgpu::Features,
+        adapter_limits: wgpu::Limits,
+    ) -> Self {
+        Self {
+            adapter_name: adapter_info.name,
+            backend: format!("{:?}", adapter_info.backend),
+            device_type: format!("{:?}", adapter_info.device_type),
+            adapter_features: format!("{adapter_features:?}"),
+            adapter_limits: format!("{adapter_limits:?}"),
+        }
+    }
+}

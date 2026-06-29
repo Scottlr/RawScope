@@ -25,6 +25,7 @@
 - Purpose: prove that raw synthetic points can become density pixels.
 - Acceptance criteria: synthetic points upload to GPU resources, a GPU or GPU-assisted density view renders, basic zoom/pan works, frame timing is shown, and CPU reference comparison exists where practical.
 - Non-goals: generic scatter-plot feature breadth, external file support, and dashboard-style configuration.
+- Status note: Milestone 3A adds a correctness-first WGPU compute path for scatter-density counts and compares it against the CPU reference in ignored local-GPU tests. It does not yet render density pixels, add zoom/pan, or claim performance.
 
 ## Milestone 4: GPU Timeline Density
 

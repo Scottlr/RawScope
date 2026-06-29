@@ -49,6 +49,8 @@ large raw rows
 
 Many rows become bins, bins become density textures, textures become visual fields, and visual fields support drilldown back to rows.
 
+The current Milestone 3A slice keeps this narrower: `rawscope-render` owns a GPU scatter-density compute function that uploads synthetic point coordinates, bins counts with WGSL atomics, reads counts back, and compares them with the CPU reference. `rawscope-gpu` owns the reusable headless WGPU compute context. Row-id drilldown remains CPU-only until a later evidence-focused GPU design is added.
+
 ## Visual Query Concept
 
 A visual query describes the data fields, ranges, grouping, aggregation, filters, view transform, and selection state needed to render a view. It is not a general SQL replacement. It is the contract between data, render, UI, and evidence layers for answering a visual question.
@@ -65,8 +67,8 @@ Examples of future visual query inputs include:
 
 - `rawscope-core`: shared types, ranges, dimensions, view specs, selections, errors, and visual query definitions
 - `rawscope-data`: future columnar abstractions, dataset metadata, row ids, schema summaries, chunk store, and file readers later
-- `rawscope-gpu`: future WGPU device/session abstraction, buffer allocation, texture allocation, compute pipeline cache, shader loading, and GPU timing hooks
-- `rawscope-render`: future density renderers, heatmap renderers, timeline renderers, selection overlays, axes, grids, and crosshair helpers
+- `rawscope-gpu`: WGPU device/session abstraction, surface bootstrap, headless compute bootstrap, and future buffer allocation, texture allocation, compute pipeline cache, shader loading, and GPU timing hooks
+- `rawscope-render`: CPU density references, correctness-first GPU scatter-density compute, and future density renderers, heatmap renderers, timeline renderers, selection overlays, axes, grids, and crosshair helpers
 - `rawscope-egui`: future egui widgets, workbench panels, field picker, filter panel, row inspector integration, and view containers
 - `rawscope-workbench`: desktop app shell that eventually opens projects/datasets, hosts views, manages layout, coordinates interactions, and exports reports
 
