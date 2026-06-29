@@ -1,0 +1,12 @@
+[package]
+name = "rawscope-workbench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rawscope-core = { path = "../../crates/rawscope-core" }
+rawscope-data = { path = "../../crates/rawscope-data" }
+rawscope-egui = { path = "../../crates/rawscope-egui" }
+rawscope-gpu = { path = "../../crates/rawscope-gpu" }
+rawscope-render = { path = "../../crates/rawscope-render" }
