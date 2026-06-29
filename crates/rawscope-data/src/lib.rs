@@ -1,23 +1,16 @@
-//! Future dataset metadata and columnar abstractions for RawScope.
+//! Synthetic datasets and dataset metadata for RawScope.
 
-/// Minimal dataset summary used to mark the crate's intended ownership.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DatasetSummary {
-    pub name: String,
-    pub row_count: u64,
-}
+mod dataset;
+mod synthetic;
 
-impl DatasetSummary {
-    /// Creates a placeholder dataset summary for scaffold-time wiring.
-    pub fn new(name: impl Into<String>, row_count: u64) -> Self {
-        Self {
-            name: name.into(),
-            row_count,
-        }
-    }
-}
+pub use dataset::SyntheticDatasetMetadata;
+pub use synthetic::{
+    generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,
+    SyntheticEventDataset, SyntheticEventRecord, SyntheticEventType, SyntheticPointCategory,
+    SyntheticPointConfig, SyntheticPointDataset, SyntheticPointRecord,
+};
 
 /// Describes the role of this crate in the current scaffold.
 pub fn crate_purpose() -> &'static str {
-    "future columnar data abstractions, dataset metadata, and row ids"
+    "synthetic datasets, dataset metadata, and future columnar data abstractions"
 }

@@ -1,10 +1,14 @@
-//! Future GPU session and resource management for RawScope.
+//! WGPU device/session and surface bootstrap for RawScope.
 
-/// Placeholder marker for future GPU session ownership.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct GpuSessionMarker;
+mod context;
+mod diagnostics;
+mod error;
+
+pub use context::{ClearFrameStatus, GpuContext, DEFAULT_CLEAR_COLOR};
+pub use diagnostics::GpuDiagnostics;
+pub use error::GpuError;
 
 /// Describes the role of this crate in the current scaffold.
 pub fn crate_purpose() -> &'static str {
-    "future wgpu device/session, buffers, and shader loading"
+    "wgpu device/session, surface configuration, diagnostics, and clear-frame rendering"
 }

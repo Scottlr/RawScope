@@ -5,3 +5,5 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+rawscope-core = { path = "../rawscope-core" }
+rawscope-data = { path = "../rawscope-data" }

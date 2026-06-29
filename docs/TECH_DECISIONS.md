@@ -9,10 +9,10 @@
 
 ## ADR-0002: WGPU Later For GPU Compute And Rendering
 
-- Decision: Plan around `wgpu` for future compute and render pipelines, but do not introduce it in the initial scaffold.
+- Decision: Use `wgpu` for the first GPU bootstrap and future compute/render pipelines.
 - Status: Accepted
-- Context: The first pass is documentation and a compiling workspace. The first GPU work should happen after synthetic data and a CPU reference are stable.
-- Consequences: The crate layout reserves a GPU layer while keeping the current repository dependency-light.
+- Context: Milestone 1 established deterministic synthetic data and CPU reference density outputs. Milestone 2 needs a native GPU device/session and surface clear path before implementing density rendering.
+- Consequences: `rawscope-gpu` owns `wgpu`, adapter/device selection, surface configuration, resize handling, diagnostics, and clear-frame presentation. No visual analytics performance claims follow from this bootstrap.
 
 ## ADR-0003: WGSL For Shaders
 
@@ -27,6 +27,27 @@
 - Status: Accepted
 - Context: RawScope needs a native desktop workbench before it needs a webview shell or browser deployment story.
 - Consequences: UI integration should live in `rawscope-egui`, and application coordination should stay in `rawscope-workbench`.
+
+## ADR-0004A: Winit For Minimal Native Window Bootstrap
+
+- Decision: Use `winit` directly for the Milestone 2 native workbench window and event loop.
+- Status: Accepted
+- Context: The project needs to prove WGPU surface creation, resizing, and clear-frame presentation before adding egui or broader UI concerns.
+- Consequences: `rawscope-workbench` owns the `winit` event loop for now. egui remains deferred until the raw WGPU path is proven.
+
+## ADR-0004B: Pollster For Blocking WGPU Initialization
+
+- Decision: Use `pollster` in the workbench binary to block on async WGPU initialization.
+- Status: Accepted
+- Context: `wgpu` adapter/device requests are async, while Milestone 2 does not need an async runtime.
+- Consequences: The app avoids a runtime dependency and keeps initialization straightforward.
+
+## ADR-0004C: Tracing For Startup Diagnostics
+
+- Decision: Use `tracing` for structured GPU diagnostics and `tracing-subscriber` in the workbench binary to emit logs.
+- Status: Accepted
+- Context: Milestone 2 requires adapter/backend/features/limits diagnostics without ad-hoc production `println!` debugging.
+- Consequences: `rawscope-gpu` can emit structured diagnostics, and the workbench owns subscriber setup.
 
 ## ADR-0005: Tauri Deferred
 

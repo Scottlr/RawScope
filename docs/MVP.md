@@ -11,12 +11,14 @@
 - Purpose: create deterministic datasets and CPU-side reference outputs for future renderer tests.
 - Acceptance criteria: synthetic point data, synthetic event data, deterministic generation, CPU density binning reference, and tests proving determinism.
 - Non-goals: WGPU, UI polish, Parquet, CSV import, and external data connectors.
+- Status note: the repository now includes deterministic synthetic point/event generators, stable row ids, and CPU reference density binning. GPU bootstrap and render-surface work remain for Milestone 2.
 
 ## Milestone 2: WGPU Bootstrap
 
 - Purpose: create a GPU device/session and simple render surface.
 - Acceptance criteria: the app opens a native window, WGPU initializes, a clear screen or basic render pass works, and GPU diagnostics are visible or logged.
 - Non-goals: data rendering, advanced interaction, and production renderer architecture.
+- Status note: the workbench now initializes WGPU through `rawscope-gpu`, opens a native `winit` window, logs adapter diagnostics, handles resize, and clears the surface to a solid colour. Density rendering remains deferred to Milestone 3.
 
 ## Milestone 3: GPU Scatter Density
 
