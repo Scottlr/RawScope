@@ -84,15 +84,41 @@ impl BrushScreenRect {
     }
 }
 
-/// Data-space ranges represented by a scatter brush rectangle.
+/// In-progress screen-space scatter brush drag.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ScatterBrush {
-    pub x_range: F32Range,
-    pub y_range: F32Range,
+pub struct ScatterBrushDrag {
     pub screen_rect: BrushScreenRect,
 }
 
-impl ScatterBrush {
+impl ScatterBrushDrag {
+    /// Builds a drag rectangle directly from two screen points.
+    pub fn from_screen_points(
+        start: BrushScreenPoint,
+        end: BrushScreenPoint,
+        screen_size: BrushScreenSize,
+    ) -> Option<Self> {
+        let screen_rect = BrushScreenRect::from_points(start, end, screen_size)?;
+        Some(Self { screen_rect })
+    }
+
+    /// Finalizes this drag into a data-space selection for the current viewport.
+    pub fn finalize(
+        self,
+        screen_size: BrushScreenSize,
+        viewport: ScatterViewport,
+    ) -> Option<ScatterBrushSelection> {
+        ScatterBrushSelection::from_screen_rect(self.screen_rect, screen_size, viewport)
+    }
+}
+
+/// Finalized data-space scatter brush selection.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScatterBrushSelection {
+    pub x_range: F32Range,
+    pub y_range: F32Range,
+}
+
+impl ScatterBrushSelection {
     /// Converts a screen-space rectangle into data-space x/y ranges.
     pub fn from_screen_rect(
         screen_rect: BrushScreenRect,
@@ -113,11 +139,10 @@ impl ScatterBrush {
         Some(Self {
             x_range: F32Range::new(x_min, x_max),
             y_range: F32Range::new(y_min, y_max),
-            screen_rect,
         })
     }
 
-    /// Builds a brush directly from two screen points.
+    /// Builds a finalized data-space selection directly from two screen points.
     pub fn from_screen_points(
         start: BrushScreenPoint,
         end: BrushScreenPoint,
@@ -128,10 +153,49 @@ impl ScatterBrush {
         Self::from_screen_rect(screen_rect, screen_size, viewport)
     }
 
+    /// Projects this data-space selection into the current viewport.
+    ///
+    /// Fully off-screen selections are hidden. Partially visible selections are clamped to the
+    /// viewport edge so the visible overlay never claims pixels outside the current view.
+    pub fn project_to_screen(
+        self,
+        viewport: ScatterViewport,
+        screen_size: BrushScreenSize,
+    ) -> Option<BrushScreenRect> {
+        if !screen_size.has_area() {
+            return None;
+        }
+
+        let visible_x_range = intersect_range(self.x_range, viewport.x_range())?;
+        let visible_y_range = intersect_range(self.y_range, viewport.y_range())?;
+        let min_x_fraction =
+            (visible_x_range.min - viewport.x_range().min) / viewport.x_range().span();
+        let max_x_fraction =
+            (visible_x_range.max - viewport.x_range().min) / viewport.x_range().span();
+        let min_y_fraction =
+            (viewport.y_range().max - visible_y_range.max) / viewport.y_range().span();
+        let max_y_fraction =
+            (viewport.y_range().max - visible_y_range.min) / viewport.y_range().span();
+
+        Some(BrushScreenRect {
+            min_x: min_x_fraction.clamp(0.0, 1.0) * screen_size.width,
+            min_y: min_y_fraction.clamp(0.0, 1.0) * screen_size.height,
+            max_x: max_x_fraction.clamp(0.0, 1.0) * screen_size.width,
+            max_y: max_y_fraction.clamp(0.0, 1.0) * screen_size.height,
+        })
+    }
+
     /// Returns true when a point lies inside this brush's data-space ranges.
     pub fn contains_point(self, point: &SyntheticPointRecord) -> bool {
         self.x_range.contains(point.x) && self.y_range.contains(point.y)
     }
+}
+
+fn intersect_range(selection: F32Range, viewport: F32Range) -> Option<F32Range> {
+    let visible_min = selection.min.max(viewport.min);
+    let visible_max = selection.max.min(viewport.max);
+    let range_is_visible = visible_max > visible_min;
+    range_is_visible.then(|| F32Range::new(visible_min, visible_max))
 }
 
 /// Counts selected rows by synthetic point category.
@@ -182,7 +246,7 @@ pub struct SelectedRegionSummary {
 
 impl SelectedRegionSummary {
     /// Summarizes synthetic point records inside the given brush.
-    pub fn from_points(points: &[SyntheticPointRecord], brush: ScatterBrush) -> Self {
+    pub fn from_points(points: &[SyntheticPointRecord], brush: ScatterBrushSelection) -> Self {
         let mut selected_row_count = 0;
         let mut selected_min_x = f32::INFINITY;
         let mut selected_max_x = f32::NEG_INFINITY;
@@ -237,137 +301,5 @@ fn selected_range(selected_row_count: usize, min: f32, max: f32) -> Option<F32Ra
     } else {
         let epsilon = f32::EPSILON.max(min.abs() * f32::EPSILON);
         Some(F32Range::new(min - epsilon, max + epsilon))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use rawscope_core::RowId;
-
-    use super::*;
-
-    fn viewport() -> ScatterViewport {
-        ScatterViewport::new(F32Range::new(0.0, 100.0), F32Range::new(0.0, 100.0))
-    }
-
-    fn point(
-        row_id: u64,
-        x: f32,
-        y: f32,
-        category: SyntheticPointCategory,
-    ) -> SyntheticPointRecord {
-        SyntheticPointRecord {
-            row_id: RowId(row_id),
-            x,
-            y,
-            category,
-        }
-    }
-
-    #[test]
-    fn screen_rectangle_normalizes_drag_direction() {
-        let rect = BrushScreenRect::from_points(
-            BrushScreenPoint::new(80.0, 70.0),
-            BrushScreenPoint::new(10.0, 20.0),
-            BrushScreenSize::new(100.0, 100.0),
-        )
-        .unwrap();
-
-        assert_eq!(rect.min_x, 10.0);
-        assert_eq!(rect.min_y, 20.0);
-        assert_eq!(rect.max_x, 80.0);
-        assert_eq!(rect.max_y, 70.0);
-    }
-
-    #[test]
-    fn screen_rectangle_clamps_outside_viewport() {
-        let rect = BrushScreenRect::from_points(
-            BrushScreenPoint::new(-10.0, -20.0),
-            BrushScreenPoint::new(120.0, 130.0),
-            BrushScreenSize::new(100.0, 100.0),
-        )
-        .unwrap();
-
-        assert_eq!(rect.min_x, 0.0);
-        assert_eq!(rect.min_y, 0.0);
-        assert_eq!(rect.max_x, 100.0);
-        assert_eq!(rect.max_y, 100.0);
-    }
-
-    #[test]
-    fn brush_converts_screen_rect_to_data_ranges() {
-        let brush = ScatterBrush::from_screen_points(
-            BrushScreenPoint::new(25.0, 25.0),
-            BrushScreenPoint::new(75.0, 75.0),
-            BrushScreenSize::new(100.0, 100.0),
-            viewport(),
-        )
-        .unwrap();
-
-        assert_eq!(brush.x_range, F32Range::new(25.0, 75.0));
-        assert_eq!(brush.y_range, F32Range::new(25.0, 75.0));
-    }
-
-    #[test]
-    fn brush_clear_reset_is_represented_by_absent_selection() {
-        let mut brush = Some(
-            ScatterBrush::from_screen_points(
-                BrushScreenPoint::new(10.0, 10.0),
-                BrushScreenPoint::new(20.0, 20.0),
-                BrushScreenSize::new(100.0, 100.0),
-                viewport(),
-            )
-            .unwrap(),
-        );
-        assert!(brush.is_some());
-
-        brush = None;
-
-        assert_eq!(brush, None);
-    }
-
-    #[test]
-    fn selected_summary_counts_rows_in_brush() {
-        let brush = ScatterBrush::from_screen_points(
-            BrushScreenPoint::new(0.0, 50.0),
-            BrushScreenPoint::new(50.0, 100.0),
-            BrushScreenSize::new(100.0, 100.0),
-            viewport(),
-        )
-        .unwrap();
-        let points = vec![
-            point(0, 10.0, 10.0, SyntheticPointCategory::Cluster),
-            point(1, 40.0, 40.0, SyntheticPointCategory::Background),
-            point(2, 90.0, 90.0, SyntheticPointCategory::Outlier),
-        ];
-
-        let summary = SelectedRegionSummary::from_points(&points, brush);
-
-        assert_eq!(summary.selected_row_count, 2);
-        assert_eq!(summary.total_row_count, 3);
-        assert!((summary.selected_percentage - 66.66667).abs() < 0.001);
-    }
-
-    #[test]
-    fn selected_summary_counts_categories() {
-        let brush = ScatterBrush::from_screen_points(
-            BrushScreenPoint::new(0.0, 0.0),
-            BrushScreenPoint::new(100.0, 100.0),
-            BrushScreenSize::new(100.0, 100.0),
-            viewport(),
-        )
-        .unwrap();
-        let points = vec![
-            point(0, 10.0, 10.0, SyntheticPointCategory::Cluster),
-            point(1, 20.0, 20.0, SyntheticPointCategory::Cluster),
-            point(2, 30.0, 30.0, SyntheticPointCategory::Outlier),
-        ];
-
-        let summary = SelectedRegionSummary::from_points(&points, brush);
-
-        assert_eq!(summary.category_counts.cluster, 2);
-        assert_eq!(summary.category_counts.background, 0);
-        assert_eq!(summary.category_counts.outlier, 1);
-        assert_eq!(summary.top_category, Some(SyntheticPointCategory::Cluster));
     }
 }

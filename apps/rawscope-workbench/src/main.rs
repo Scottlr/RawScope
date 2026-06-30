@@ -1,6 +1,7 @@
 mod app;
 mod app_brush;
 mod app_events;
+mod app_render;
 mod demo;
 
 use std::error::Error;

@@ -3,6 +3,7 @@
 mod density_reference;
 mod gpu_scatter_density;
 mod scatter_brush;
+mod scatter_brush_overlay;
 mod scatter_density_renderer;
 mod scatter_viewport;
 
@@ -12,9 +13,10 @@ pub use gpu_scatter_density::{
     GpuScatterDensityGrid,
 };
 pub use scatter_brush::{
-    BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrush, SelectedCategoryCounts,
-    SelectedRegionSummary,
+    BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
+    SelectedCategoryCounts, SelectedRegionSummary,
 };
+pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
 pub use scatter_density_renderer::{
     log_density_intensity, ScatterDensityRenderDiagnostics, ScatterDensityRenderer,
     ScatterDensityRendererConfig,

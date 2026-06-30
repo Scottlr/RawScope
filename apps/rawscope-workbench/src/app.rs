@@ -4,10 +4,11 @@ use std::{error::Error, sync::Arc, time::Duration, time::Instant};
 
 use rawscope_data::SyntheticPointRecord;
 use rawscope_data::{generate_synthetic_points, SyntheticPointConfig};
-use rawscope_gpu::{ClearFrameStatus, GpuContext};
+use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    ScatterBrush, ScatterDensityRenderDiagnostics, ScatterDensityRenderer,
-    ScatterDensityRendererConfig, ScatterViewport, SelectedRegionSummary,
+    ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterDensityRenderDiagnostics, ScatterDensityRenderer, ScatterDensityRendererConfig,
+    ScatterViewport, SelectedRegionSummary,
 };
 use tracing::{error, info};
 use winit::{
@@ -28,7 +29,6 @@ const DEMO_GRID_WIDTH: u32 = 256;
 const DEMO_GRID_HEIGHT: u32 = 256;
 const WHEEL_ZOOM_IN_SCALE: f32 = 0.82;
 const WHEEL_ZOOM_OUT_SCALE: f32 = 1.22;
-const FRAME_DIAGNOSTIC_INTERVAL: u64 = 5_000;
 const PAN_DIAGNOSTIC_INTERVAL_MS: u128 = 250;
 
 /// Winit application state for the RawScope scatter-density demo.
@@ -36,7 +36,8 @@ const PAN_DIAGNOSTIC_INTERVAL_MS: u128 = 250;
 pub struct WorkbenchApp {
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
-    scatter_density_renderer: Option<ScatterDensityRenderer>,
+    pub(crate) scatter_density_renderer: Option<ScatterDensityRenderer>,
+    pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
     pub(crate) points: Vec<SyntheticPointRecord>,
     active_preset: PointCountPreset,
     pub(crate) viewport: Option<ScatterViewport>,
@@ -47,11 +48,12 @@ pub struct WorkbenchApp {
     pub(crate) last_drag_position: Option<PhysicalPosition<f64>>,
     pub(crate) modifiers: ModifiersState,
     pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
-    pub(crate) active_brush: Option<ScatterBrush>,
+    pub(crate) active_brush_drag: Option<ScatterBrushDrag>,
+    pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
     last_pan_diagnostic_at: Option<Instant>,
-    redraw_count: u64,
-    latest_frame_cpu_duration: Duration,
+    pub(crate) redraw_count: u64,
+    pub(crate) latest_frame_cpu_duration: Duration,
 }
 
 impl WorkbenchApp {
@@ -87,6 +89,8 @@ impl WorkbenchApp {
             &dataset.points,
             renderer_config,
         )?;
+        let scatter_brush_overlay_renderer =
+            ScatterBrushOverlayRenderer::new(gpu.device(), gpu.surface_format());
         let render_diagnostics = scatter_density_renderer.diagnostics();
         log_density_diagnostics("initial", viewport, render_diagnostics);
 
@@ -123,49 +127,10 @@ impl WorkbenchApp {
         self.adapter_name = Some(adapter_name);
         self.backend = Some(backend);
         self.scatter_density_renderer = Some(scatter_density_renderer);
+        self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
         self.update_window_title();
 
         Ok(())
-    }
-
-    pub(crate) fn render(&mut self, event_loop: &ActiveEventLoop) {
-        let frame_start = Instant::now();
-        let render_status = {
-            let Some(gpu) = self.gpu.as_mut() else {
-                return;
-            };
-            let Some(scatter_density_renderer) = self.scatter_density_renderer.as_ref() else {
-                return;
-            };
-
-            gpu.render_frame(|_device, _queue, target_view, encoder| {
-                scatter_density_renderer.render(encoder, target_view);
-            })
-        };
-
-        match render_status {
-            Ok(ClearFrameStatus::Presented) => {
-                self.redraw_count += 1;
-                self.latest_frame_cpu_duration = frame_start.elapsed();
-                let should_log_frame = self.redraw_count.is_multiple_of(FRAME_DIAGNOSTIC_INTERVAL);
-                if should_log_frame {
-                    info!(
-                        redraw_count = self.redraw_count,
-                        frame_cpu_ms = frame_start.elapsed().as_secs_f64() * 1000.0,
-                        "RawScope frame diagnostics"
-                    );
-                }
-                self.update_window_title();
-            }
-            Ok(ClearFrameStatus::SkippedZeroSizedSurface | ClearFrameStatus::SkippedOccluded) => {}
-            Ok(ClearFrameStatus::SkippedTimeout | ClearFrameStatus::Reconfigured) => {
-                self.request_redraw();
-            }
-            Err(err) => {
-                error!(error = %err, "failed to render clear frame");
-                event_loop.exit();
-            }
-        }
     }
 
     pub(crate) fn request_redraw(&self) {
@@ -274,7 +239,6 @@ impl WorkbenchApp {
         };
 
         viewport.reset();
-        self.clear_brush();
         if let Err(err) = self.recompute_density("reset") {
             error!(error = %err, "failed to recompute scatter density after reset");
         }
