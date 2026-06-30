@@ -1399,7 +1399,10 @@ name = "rawscope-workbench"
 version = "0.1.0"
 dependencies = [
  "pollster",
+ "rawscope-core",
+ "rawscope-data",
  "rawscope-gpu",
+ "rawscope-render",
  "tracing",
  "tracing-subscriber",
  "winit",

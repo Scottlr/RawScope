@@ -10,8 +10,8 @@ struct Params {
     y_max: f32,
     grid_width: u32,
     grid_height: u32,
-    point_count: u32,
-    padding: u32,
+    point_start: u32,
+    dispatch_point_count: u32,
 };
 
 @group(0) @binding(0)
@@ -35,11 +35,11 @@ fn bin_f32(value: f32, range_min: f32, range_max: f32, bin_count: u32) -> u32 {
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let point_index = global_id.x;
-    if point_index >= params.point_count {
+    if global_id.x >= params.dispatch_point_count {
         return;
     }
 
+    let point_index = params.point_start + global_id.x;
     let point = points[point_index];
     let point_is_outside_x = point.x < params.x_min || point.x > params.x_max;
     let point_is_outside_y = point.y < params.y_min || point.y > params.y_max;

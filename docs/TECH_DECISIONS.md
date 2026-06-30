@@ -104,3 +104,24 @@
 - Status: Accepted
 - Context: The CPU reference tests should remain stable in normal workspace test runs, while GPU adapter availability varies across CI and developer machines.
 - Consequences: `cargo test --workspace` validates non-GPU behavior and compiles ignored GPU tests. Run `cargo test -p rawscope-render --test gpu_scatter_density -- --ignored --nocapture` to compare GPU counts against CPU counts locally.
+
+## ADR-0013: Single Device For Workbench Scatter Density
+
+- Decision: Run the workbench scatter-density compute and render passes on the same WGPU device/queue owned by the window `GpuContext`.
+- Status: Accepted
+- Context: Milestone 3B needs a visible density view, but separate compute and render devices would add synchronization and ownership complexity before the rendering path is proven.
+- Consequences: `rawscope-gpu` exposes a small `render_frame` hook and read-only device/queue accessors. `rawscope-render` can build render resources against the window context while the headless `ComputeContext` remains available for ignored correctness tests.
+
+## ADR-0014: Log-Scaled Proof Colour Mapping
+
+- Decision: Use a simple log-scaled density colour ramp for the first visible scatter-density proof.
+- Status: Accepted
+- Context: Synthetic data has dense clusters plus sparse outliers, so linear scaling can wash out sparse regions or saturate clusters.
+- Consequences: The workbench view makes dense bins brighter while keeping sparse outliers faintly visible. This is a visualization choice for smoke validation, not a performance or perceptual-quality claim.
+
+## ADR-0015: CPU-Observed Interaction Diagnostics
+
+- Decision: Report scatter-density update and frame durations as CPU-observed timings in the workbench.
+- Status: Accepted
+- Context: Milestone 3C needs basic feedback while interacting, but proper GPU timestamp queries are not part of this slice.
+- Consequences: Logs label update/frame timings as CPU observations. They are useful smoke diagnostics, not GPU execution timings or benchmark evidence.

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use tracing::{info, warn};
-use wgpu::{CurrentSurfaceTexture, SurfaceTexture};
+use wgpu::{CurrentSurfaceTexture, SurfaceTexture, TextureView};
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{GpuDiagnostics, GpuError};
@@ -103,6 +103,21 @@ impl GpuContext {
         &self.diagnostics
     }
 
+    /// Returns the WGPU device selected for this window context.
+    pub fn device(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    /// Returns the WGPU queue selected for this window context.
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
+    /// Returns the configured surface format.
+    pub fn surface_format(&self) -> wgpu::TextureFormat {
+        self.config.format
+    }
+
     /// Reconfigures the surface after a window resize.
     pub fn resize(&mut self, size: PhysicalSize<u32>) -> ClearFrameStatus {
         self.size = size;
@@ -120,6 +135,16 @@ impl GpuContext {
 
     /// Clears and presents one frame with the provided colour.
     pub fn clear_frame(&mut self, clear_color: wgpu::Color) -> Result<ClearFrameStatus, GpuError> {
+        self.render_frame(|_device, _queue, view, encoder| {
+            clear_surface_view(view, encoder, clear_color);
+        })
+    }
+
+    /// Acquires, renders, submits, and presents one surface frame.
+    pub fn render_frame(
+        &mut self,
+        render: impl FnOnce(&wgpu::Device, &wgpu::Queue, &TextureView, &mut wgpu::CommandEncoder),
+    ) -> Result<ClearFrameStatus, GpuError> {
         let surface_is_zero_sized = self.size.width == 0 || self.size.height == 0;
         if surface_is_zero_sized {
             return Ok(ClearFrameStatus::SkippedZeroSizedSurface);
@@ -138,7 +163,7 @@ impl GpuContext {
             CurrentSurfaceTexture::Validation => return Err(GpuError::SurfaceValidation),
         };
 
-        self.clear_surface_texture(frame, clear_color);
+        self.render_surface_texture(frame, render);
         Ok(ClearFrameStatus::Presented)
     }
 
@@ -151,38 +176,48 @@ impl GpuContext {
         self.surface.configure(&self.device, &self.config);
     }
 
-    fn clear_surface_texture(&self, frame: SurfaceTexture, clear_color: wgpu::Color) {
+    fn render_surface_texture(
+        &self,
+        frame: SurfaceTexture,
+        render: impl FnOnce(&wgpu::Device, &wgpu::Queue, &TextureView, &mut wgpu::CommandEncoder),
+    ) {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("RawScope Clear Frame Encoder"),
+                label: Some("RawScope Surface Frame Encoder"),
             });
 
-        {
-            let _clear_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("RawScope Clear Frame Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    depth_slice: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(clear_color),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-        }
+        render(&self.device, &self.queue, &view, &mut encoder);
 
         self.queue.submit(Some(encoder.finish()));
         frame.present();
     }
+}
+
+fn clear_surface_view(
+    view: &TextureView,
+    encoder: &mut wgpu::CommandEncoder,
+    clear_color: wgpu::Color,
+) {
+    let _clear_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("RawScope Clear Frame Pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view,
+            resolve_target: None,
+            depth_slice: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(clear_color),
+                store: wgpu::StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
 }
 
 fn non_zero_size(size: PhysicalSize<u32>) -> PhysicalSize<u32> {

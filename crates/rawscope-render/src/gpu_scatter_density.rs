@@ -12,8 +12,18 @@ use rawscope_data::SyntheticPointRecord;
 use rawscope_gpu::ComputeContext;
 
 const WORKGROUP_SIZE: u32 = 64;
+const MAX_DISPATCH_WORKGROUPS_PER_DIMENSION: u32 = 65_535;
+const MAX_POINTS_PER_DISPATCH: u32 = WORKGROUP_SIZE * MAX_DISPATCH_WORKGROUPS_PER_DIMENSION;
 const EMPTY_BUFFER_SIZE_BYTES: u64 = 4;
 const SHADER_SOURCE: &str = include_str!("shaders/scatter_density.wgsl");
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ScatterDensityComputeConfig {
+    pub x_range: F32Range,
+    pub y_range: F32Range,
+    pub grid_width: u32,
+    pub grid_height: u32,
+}
 
 /// Flattened GPU scatter-density counts for a 2D grid.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +85,7 @@ impl GpuScatterDensityGrid {
 #[derive(Debug)]
 pub enum GpuScatterDensityError {
     PointCountTooLarge { point_count: usize },
+    MissingReadbackCounts,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
     DevicePoll(wgpu::PollError),
@@ -86,6 +97,10 @@ impl fmt::Display for GpuScatterDensityError {
             Self::PointCountTooLarge { point_count } => {
                 write!(f, "point count {point_count} exceeds u32::MAX")
             }
+            Self::MissingReadbackCounts => write!(
+                f,
+                "GPU scatter-density readback counts were requested but not returned"
+            ),
             Self::BufferMap(err) => write!(f, "failed to map GPU scatter-density readback: {err}"),
             Self::BufferMapCallbackDropped(err) => {
                 write!(
@@ -101,7 +116,7 @@ impl fmt::Display for GpuScatterDensityError {
 impl Error for GpuScatterDensityError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::PointCountTooLarge { .. } => None,
+            Self::PointCountTooLarge { .. } | Self::MissingReadbackCounts => None,
             Self::BufferMap(err) => Some(err),
             Self::BufferMapCallbackDropped(err) => Some(err),
             Self::DevicePoll(err) => Some(err),
@@ -115,6 +130,31 @@ impl Error for GpuScatterDensityError {
 /// reference until a later GPU milestone introduces an explicit row-evidence design.
 pub async fn gpu_scatter_density(
     context: &ComputeContext,
+    points: &[SyntheticPointRecord],
+    x_range: F32Range,
+    y_range: F32Range,
+    width: u32,
+    height: u32,
+) -> Result<GpuScatterDensityGrid, GpuScatterDensityError> {
+    gpu_scatter_density_on_device(
+        context.device(),
+        context.queue(),
+        points,
+        x_range,
+        y_range,
+        width,
+        height,
+    )
+    .await
+}
+
+/// Bins point records using an existing WGPU device and queue.
+///
+/// This is used by the workbench visual path to avoid creating a second headless
+/// compute device alongside the window rendering device.
+pub async fn gpu_scatter_density_on_device(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
     points: &[SyntheticPointRecord],
     x_range: F32Range,
     y_range: F32Range,
@@ -135,22 +175,43 @@ pub async fn gpu_scatter_density(
         ));
     }
 
-    let device = context.device();
-    let queue = context.queue();
-    let packed_points = pack_points(points);
-    let params = ScatterParams::new(x_range, y_range, width, height, point_count);
+    let compute_config = ScatterDensityComputeConfig {
+        x_range,
+        y_range,
+        grid_width: width,
+        grid_height: height,
+    };
+    let compute_output = dispatch_scatter_density(device, queue, points, compute_config, true)?;
+    let counts = compute_output
+        .counts
+        .ok_or(GpuScatterDensityError::MissingReadbackCounts)?;
+    Ok(GpuScatterDensityGrid::new(width, height, counts))
+}
 
+pub(crate) struct ScatterDensityComputeOutput {
+    pub count_buffer: wgpu::Buffer,
+    pub counts: Option<Vec<u32>>,
+}
+
+pub(crate) fn dispatch_scatter_density(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    points: &[SyntheticPointRecord],
+    config: ScatterDensityComputeConfig,
+    readback_counts: bool,
+) -> Result<ScatterDensityComputeOutput, GpuScatterDensityError> {
+    let point_count =
+        u32::try_from(points.len()).map_err(|_| GpuScatterDensityError::PointCountTooLarge {
+            point_count: points.len(),
+        })?;
+
+    let grid_bin_count = (config.grid_width as usize) * (config.grid_height as usize);
+    let packed_points = pack_points(points);
     let point_buffer = create_storage_upload_buffer(
         device,
         queue,
         "RawScope Scatter Point Buffer",
         bytemuck::cast_slice(&packed_points),
-    );
-    let params_buffer = create_uniform_upload_buffer(
-        device,
-        queue,
-        "RawScope Scatter Params Buffer",
-        bytemuck::bytes_of(&params),
     );
 
     let output_size_bytes = (grid_bin_count * std::mem::size_of::<u32>()) as u64;
@@ -176,14 +237,17 @@ pub async fn gpu_scatter_density(
         source: wgpu::ShaderSource::Wgsl(SHADER_SOURCE.into()),
     });
     let bind_group_layout = create_bind_group_layout(device);
-    let bind_group = create_bind_group(
+    let pipeline = create_compute_pipeline(device, &bind_group_layout, &shader);
+    let dispatch_chunks = scatter_dispatch_chunks(point_count);
+    let dispatch_bind_groups = create_dispatch_bind_groups(
         device,
+        queue,
         &bind_group_layout,
         &point_buffer,
-        &params_buffer,
         &output_buffer,
+        config,
+        &dispatch_chunks,
     );
-    let pipeline = create_compute_pipeline(device, &bind_group_layout, &shader);
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("RawScope Scatter Density Encoder"),
@@ -195,17 +259,46 @@ pub async fn gpu_scatter_density(
             timestamp_writes: None,
         });
         compute_pass.set_pipeline(&pipeline);
-        compute_pass.set_bind_group(0, &bind_group, &[]);
-
-        let workgroup_count = point_count.div_ceil(WORKGROUP_SIZE);
-        compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+        for dispatch_bind_group in &dispatch_bind_groups {
+            let chunk_workgroup_count = dispatch_bind_group
+                .chunk
+                .point_count
+                .div_ceil(WORKGROUP_SIZE);
+            compute_pass.set_bind_group(0, &dispatch_bind_group.bind_group, &[]);
+            compute_pass.dispatch_workgroups(chunk_workgroup_count, 1, 1);
+        }
     }
 
-    encoder.copy_buffer_to_buffer(&output_buffer, 0, &readback_buffer, 0, output_size_bytes);
+    if readback_counts {
+        encoder.copy_buffer_to_buffer(&output_buffer, 0, &readback_buffer, 0, output_size_bytes);
+    }
     queue.submit(Some(encoder.finish()));
 
-    let counts = readback_counts(device, &readback_buffer, grid_bin_count)?;
-    Ok(GpuScatterDensityGrid::new(width, height, counts))
+    let counts = if readback_counts {
+        Some(readback_counts_from_buffer(
+            device,
+            &readback_buffer,
+            grid_bin_count,
+        )?)
+    } else {
+        None
+    };
+
+    Ok(ScatterDensityComputeOutput {
+        count_buffer: output_buffer,
+        counts,
+    })
+}
+
+struct ScatterDispatchChunk {
+    point_start: u32,
+    point_count: u32,
+}
+
+struct ScatterDispatchBindGroup {
+    chunk: ScatterDispatchChunk,
+    _params_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
 }
 
 #[repr(C)]
@@ -224,8 +317,8 @@ struct ScatterParams {
     y_max: f32,
     grid_width: u32,
     grid_height: u32,
-    point_count: u32,
-    _padding: u32,
+    point_start: u32,
+    dispatch_point_count: u32,
 }
 
 impl ScatterParams {
@@ -234,7 +327,8 @@ impl ScatterParams {
         y_range: F32Range,
         grid_width: u32,
         grid_height: u32,
-        point_count: u32,
+        point_start: u32,
+        dispatch_point_count: u32,
     ) -> Self {
         Self {
             x_min: x_range.min,
@@ -243,8 +337,8 @@ impl ScatterParams {
             y_max: y_range.max,
             grid_width,
             grid_height,
-            point_count,
-            _padding: 0,
+            point_start,
+            dispatch_point_count,
         }
     }
 }
@@ -290,6 +384,69 @@ fn create_uniform_upload_buffer(
     });
     queue.write_buffer(&buffer, 0, bytes);
     buffer
+}
+
+fn scatter_dispatch_chunks(point_count: u32) -> Vec<ScatterDispatchChunk> {
+    let mut chunks = Vec::new();
+    let mut point_start = 0;
+
+    while point_start < point_count {
+        let remaining_point_count = point_count - point_start;
+        let chunk_point_count = remaining_point_count.min(MAX_POINTS_PER_DISPATCH);
+        chunks.push(ScatterDispatchChunk {
+            point_start,
+            point_count: chunk_point_count,
+        });
+        point_start += chunk_point_count;
+    }
+
+    chunks
+}
+
+fn create_dispatch_bind_groups(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    point_buffer: &wgpu::Buffer,
+    output_buffer: &wgpu::Buffer,
+    config: ScatterDensityComputeConfig,
+    dispatch_chunks: &[ScatterDispatchChunk],
+) -> Vec<ScatterDispatchBindGroup> {
+    dispatch_chunks
+        .iter()
+        .map(|chunk| {
+            let params = ScatterParams::new(
+                config.x_range,
+                config.y_range,
+                config.grid_width,
+                config.grid_height,
+                chunk.point_start,
+                chunk.point_count,
+            );
+            let params_buffer = create_uniform_upload_buffer(
+                device,
+                queue,
+                "RawScope Scatter Params Buffer",
+                bytemuck::bytes_of(&params),
+            );
+            let bind_group = create_bind_group(
+                device,
+                bind_group_layout,
+                point_buffer,
+                &params_buffer,
+                output_buffer,
+            );
+
+            ScatterDispatchBindGroup {
+                chunk: ScatterDispatchChunk {
+                    point_start: chunk.point_start,
+                    point_count: chunk.point_count,
+                },
+                _params_buffer: params_buffer,
+                bind_group,
+            }
+        })
+        .collect()
 }
 
 fn clear_output_buffer(queue: &wgpu::Queue, buffer: &wgpu::Buffer, output_size_bytes: u64) {
@@ -383,7 +540,7 @@ fn create_compute_pipeline(
     })
 }
 
-fn readback_counts(
+fn readback_counts_from_buffer(
     device: &wgpu::Device,
     readback_buffer: &wgpu::Buffer,
     grid_bin_count: usize,
@@ -409,4 +566,22 @@ fn readback_counts(
     readback_buffer.unmap();
 
     Ok(counts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{scatter_dispatch_chunks, MAX_POINTS_PER_DISPATCH};
+
+    #[test]
+    fn dispatch_chunks_keep_each_dispatch_within_wgpu_limit() {
+        let point_count = MAX_POINTS_PER_DISPATCH + 10;
+
+        let chunks = scatter_dispatch_chunks(point_count);
+
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].point_start, 0);
+        assert_eq!(chunks[0].point_count, MAX_POINTS_PER_DISPATCH);
+        assert_eq!(chunks[1].point_start, MAX_POINTS_PER_DISPATCH);
+        assert_eq!(chunks[1].point_count, 10);
+    }
 }

@@ -49,7 +49,7 @@ large raw rows
 
 Many rows become bins, bins become density textures, textures become visual fields, and visual fields support drilldown back to rows.
 
-The current Milestone 3A slice keeps this narrower: `rawscope-render` owns a GPU scatter-density compute function that uploads synthetic point coordinates, bins counts with WGSL atomics, reads counts back, and compares them with the CPU reference. `rawscope-gpu` owns the reusable headless WGPU compute context. Row-id drilldown remains CPU-only until a later evidence-focused GPU design is added.
+The current Milestone 3 slice keeps this narrower: `rawscope-render` owns GPU scatter-density compute, a simple presentation renderer, scatter-specific viewport math, and testable brush geometry plus CPU-side selected-region summaries for synthetic points. Compute uploads synthetic point coordinates, bins counts with WGSL atomics, and can read counts back for correctness or setup diagnostics. The native workbench renders those counts with the same WGPU device/queue used by the window surface, avoiding a separate compute device in the visual path. `rawscope-workbench` translates winit mouse/keyboard events into viewport updates, brush updates, deterministic point-count presets, and compact title-bar diagnostics, then asks the renderer to re-bin the visible range. `rawscope-gpu` owns both the reusable headless compute context for ignored correctness tests and the window surface context. GPU row-id preservation and row-level drilldown remain deferred until a later evidence-focused design.
 
 ## Visual Query Concept
 

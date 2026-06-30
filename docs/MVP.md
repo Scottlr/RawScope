@@ -26,6 +26,10 @@
 - Acceptance criteria: synthetic points upload to GPU resources, a GPU or GPU-assisted density view renders, basic zoom/pan works, frame timing is shown, and CPU reference comparison exists where practical.
 - Non-goals: generic scatter-plot feature breadth, external file support, and dashboard-style configuration.
 - Status note: Milestone 3A adds a correctness-first WGPU compute path for scatter-density counts and compares it against the CPU reference in ignored local-GPU tests. It does not yet render density pixels, add zoom/pan, or claim performance.
+- Status note: Milestone 3B renders deterministic synthetic scatter-density counts in the native workbench using the same WGPU device/queue for compute and presentation. The view is a simple visual proof with log-scaled colour, not a polished UI, benchmark, interaction model, or row-drilldown path.
+- Status note: Milestone 3C adds basic viewport interaction for the workbench scatter-density view: mouse-wheel zoom, mouse-drag pan, `R` reset, viewport re-binning, and CPU-observed diagnostics. It still excludes brushing, row drilldown, timeline density, egui, file import, Tauri, and performance claims.
+- Status note: Milestone 3D hardens the scatter-density demo with title-bar diagnostics, deterministic point-count presets from 20,000 to 5,000,000 points, throttled update/frame diagnostics, and documented controls. In-app screenshot capture remains deferred to avoid adding image encoding dependencies or a broader surface readback path.
+- Status note: Milestone 3E adds a basic scatter brush via right-drag or Shift + left-drag, CPU-side selected-region summaries over synthetic points, Escape-to-clear behavior, and title-bar/log reporting. The slice intentionally does not add a row table, GPU row-id preservation, screenshot readback, or a drawn brush overlay.
 
 ## Milestone 4: GPU Timeline Density
 
