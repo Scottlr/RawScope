@@ -108,10 +108,8 @@ impl WorkbenchApp {
         }
 
         let delta_x_fraction = (position.x - last_drag_position.x) / window_size.width as f64;
-        let current_time_span = viewport.time_range().span() as f64;
-        let time_delta = (-delta_x_fraction * current_time_span).round() as i64;
 
-        viewport.pan_by(time_delta);
+        viewport.pan_by_screen_fraction(delta_x_fraction);
         self.last_drag_position = Some(position);
         if let Err(err) = self.recompute_timeline_density("pan") {
             error!(error = %err, "failed to recompute timeline density after pan");

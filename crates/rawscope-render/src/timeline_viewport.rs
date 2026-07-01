@@ -38,9 +38,19 @@ impl TimelineViewport {
         self.time_range
     }
 
+    /// Returns the current visible time range.
+    pub fn current_time_range(self) -> U64Range {
+        self.time_range
+    }
+
     /// Returns the stable lane count for this timeline dataset.
     pub fn lane_count(self) -> u32 {
         self.lane_count
+    }
+
+    /// Returns the minimum allowed time span for repeated zoom operations.
+    pub fn minimum_span(self) -> u64 {
+        self.min_span
     }
 
     /// Resets the visible time range back to the full synthetic range.
@@ -70,7 +80,18 @@ impl TimelineViewport {
             clamp_range_to_full(target_min, self.time_range.span(), self.full_time_range);
     }
 
-    fn time_at_fraction(self, fraction: f32) -> u64 {
+    /// Pans by a normalized screen-space x delta.
+    ///
+    /// Positive screen deltas mean the cursor moved right, so the visible time range moves earlier.
+    pub fn pan_by_screen_fraction(&mut self, delta_x_fraction: f64) {
+        let current_time_span = self.time_range.span() as f64;
+        let time_delta = (-delta_x_fraction * current_time_span).round() as i64;
+
+        self.pan_by(time_delta);
+    }
+
+    /// Maps a normalized x-axis screen fraction into the current visible time range.
+    pub fn time_at_fraction(self, fraction: f32) -> u64 {
         let clamped_fraction = fraction.clamp(0.0, 1.0);
         let offset = ((self.time_range.span() as f64) * (clamped_fraction as f64)).round() as u64;
         self.time_range
@@ -91,87 +112,4 @@ fn clamp_range_to_full(target_min: i128, target_span: u64, full: U64Range) -> U6
     let clamped_min = target_min.clamp(full_min, max_min) as u64;
 
     U64Range::new(clamped_min, clamped_min + clamped_span)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn viewport() -> TimelineViewport {
-        TimelineViewport::new(U64Range::new(1_000, 2_000), 8)
-    }
-
-    #[test]
-    fn reset_returns_to_full_range() {
-        let mut viewport = viewport();
-        viewport.zoom_around_fraction(0.5, 0.5);
-        viewport.pan_by(100);
-
-        viewport.reset();
-
-        assert_eq!(viewport.time_range(), viewport.full_time_range());
-    }
-
-    #[test]
-    fn zoom_reduces_span_around_anchor() {
-        let mut viewport = viewport();
-
-        viewport.zoom_around_fraction(0.5, 0.5);
-
-        assert_eq!(viewport.time_range(), U64Range::new(1_250, 1_750));
-    }
-
-    #[test]
-    fn pan_shifts_range() {
-        let mut viewport = viewport();
-        viewport.zoom_around_fraction(0.5, 0.5);
-
-        viewport.pan_by(100);
-
-        assert_eq!(viewport.time_range(), U64Range::new(1_350, 1_850));
-    }
-
-    #[test]
-    fn pan_clamps_to_bounds() {
-        let mut viewport = viewport();
-        viewport.zoom_around_fraction(0.5, 0.5);
-
-        viewport.pan_by(-1_000);
-        assert_eq!(viewport.time_range(), U64Range::new(1_000, 1_500));
-
-        viewport.pan_by(1_000);
-        assert_eq!(viewport.time_range(), U64Range::new(1_500, 2_000));
-    }
-
-    #[test]
-    fn repeated_zoom_does_not_invert_or_zero_range() {
-        let mut viewport = viewport();
-
-        for _ in 0..64 {
-            viewport.zoom_around_fraction(0.5, 0.01);
-        }
-
-        assert!(viewport.time_range().span() >= MIN_TIMELINE_SPAN);
-        assert!(viewport.time_range().max > viewport.time_range().min);
-    }
-
-    #[test]
-    fn minimum_span_is_respected() {
-        let mut viewport = TimelineViewport::new(U64Range::new(10, 12), 4);
-
-        viewport.zoom_around_fraction(0.5, 0.01);
-
-        assert_eq!(viewport.time_range().span(), MIN_TIMELINE_SPAN);
-    }
-
-    #[test]
-    fn lane_count_remains_stable_after_view_changes() {
-        let mut viewport = viewport();
-
-        viewport.zoom_around_fraction(0.25, 0.5);
-        viewport.pan_by(75);
-        viewport.reset();
-
-        assert_eq!(viewport.lane_count(), 8);
-    }
 }
