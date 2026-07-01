@@ -33,8 +33,8 @@ cargo run -p rawscope-workbench -- --demo timeline
 
 Controls:
 
-- Mouse wheel: zoom the scatter-density viewport around the cursor.
-- Left or middle mouse drag: pan the current data viewport.
+- Mouse wheel: zoom the current viewport. Scatter zooms x/y around the cursor; timeline zooms the visible time range.
+- Left or middle mouse drag: pan the current data viewport. Timeline mode pans time while lane mapping remains stable.
 - Right mouse drag or Shift + left mouse drag: create or replace a visible rectangular brush selection.
 - `Escape`: clear the current brush selection.
 - `E`: export the latest finalized selection evidence to JSON and Markdown under `target/rawscope-exports/`.
@@ -47,7 +47,7 @@ Controls:
 
 The demo uses deterministic synthetic point data, recomputes GPU density counts for the current viewport, and shows compact diagnostics in the window title: point count, grid size, viewport ranges, max bin count, selected-region summary, redraw count, latest CPU-observed update/frame timings, and adapter/backend. The selected-region summary is computed on CPU from synthetic records and includes selected row count, percentage, brush x/y ranges, selected data extents, category counts, and top category. These diagnostics are smoke observations, not GPU benchmark results.
 
-Timeline demo note: `--demo timeline` uses deterministic synthetic event data and renders GPU timeline-density counts as a simple full-window view where x is time, y is lane/source, and intensity is event count. The injected spike, gap, and stale-lane patterns should be visible. Timeline rendering is a visual proof only: no axes, labels, brushing, row evidence, file import, or arbitrary timestamp normalization are included yet. The current GPU timeline path deliberately keeps the `u32` time-span guard from Milestone 4A.
+Timeline demo note: `--demo timeline` uses deterministic synthetic event data and renders GPU timeline-density counts as a simple full-window view where x is time, y is lane/source, and intensity is event count. Mouse wheel zooms time, left or middle drag pans time, and `R` resets to the full synthetic time range; each viewport change re-bins the visible time range while lane mapping remains stable. The injected spike, gap, and stale-lane patterns should be visible. Timeline rendering is a visual proof only: no axes, labels, brushing, row evidence, file import, or arbitrary timestamp normalization are included yet. The current GPU timeline path deliberately keeps the `u32` time-span guard from Milestone 4A.
 
 Brush overlay note: the current rectangle overlay is intentionally simple: a faint amber fill with a brighter border, rendered after the density pass. During drag, the rectangle follows screen-space mouse movement. Once finalized, the selection is anchored to data-space x/y ranges, and the overlay is projected back into the current viewport after zoom, pan, resize, or reset. Fully offscreen selections are hidden; partially visible selections are clamped to the viewport edge. Preset changes clear the brush because the synthetic dataset changes.
 

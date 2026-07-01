@@ -43,6 +43,7 @@
 - Non-goals: full time-series analysis tooling, annotation systems, and production evidence export.
 - Status note: Milestone 4A adds a correctness-first WGPU compute path for timeline-density counts and compares it against the CPU timeline reference in ignored local-GPU tests. It does not render timeline density, add workbench mode switching, timeline brushing, row evidence, file import, egui, Tauri, or performance claims.
 - Status note: Milestone 4B renders deterministic synthetic timeline-density counts in the native workbench via `--demo timeline`. The view is a simple full-window visual proof using the GPU timeline compute path and log-scaled colour; it preserves the current `u32` time-span guard and does not add timeline brushing, row evidence, file import, egui, Tauri, axes, labels, or benchmark claims.
+- Status note: Milestone 4C adds time-axis viewport interaction for the timeline demo: mouse-wheel zoom, left/middle-drag pan, `R` reset, viewport re-binning, stable lane mapping, and title/log diagnostics for current and full time ranges. It remains timeline-density rendering only and does not add timeline brushing, row evidence, file import, egui, Tauri, axes, labels, or timestamp-normalization redesign.
 
 ## Milestone 5: Linked Selection
 

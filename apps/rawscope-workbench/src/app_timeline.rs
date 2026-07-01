@@ -107,8 +107,7 @@ impl WorkbenchApp {
             return;
         }
 
-        let delta_x_fraction =
-            (position.x - last_drag_position.x) as f64 / window_size.width as f64;
+        let delta_x_fraction = (position.x - last_drag_position.x) / window_size.width as f64;
         let current_time_span = viewport.time_range().span() as f64;
         let time_delta = (-delta_x_fraction * current_time_span).round() as i64;
 
