@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use rawscope_render::{
     ScatterDensityRenderDiagnostics, ScatterSelectionEvidence, ScatterViewport,
-    SelectedRegionSummary, TimelineDensityRenderDiagnostics, TimelineViewport,
+    SelectedRegionSummary, TimelineDensityRenderDiagnostics, TimelineSelectionEvidence,
+    TimelineSelectionSummary, TimelineViewport,
 };
 
 /// Workbench demo selected at startup.
@@ -172,10 +173,12 @@ impl DemoOverlayState {
 }
 
 /// State displayed in the window-title diagnostics for timeline mode.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TimelineOverlayState {
     pub viewport: TimelineViewport,
     pub render_diagnostics: TimelineDensityRenderDiagnostics,
+    pub selection_summary: Option<TimelineSelectionSummary>,
+    pub selection_evidence: Option<TimelineSelectionEvidence>,
     pub redraw_count: u64,
     pub latest_frame_cpu_duration: Duration,
     pub adapter_name: String,
@@ -185,8 +188,19 @@ pub struct TimelineOverlayState {
 impl TimelineOverlayState {
     /// Formats compact timeline diagnostics suitable for a winit window title.
     pub fn title(&self) -> String {
+        let selection_summary = self
+            .selection_evidence
+            .as_ref()
+            .map(format_timeline_evidence_summary)
+            .or_else(|| {
+                self.selection_summary
+                    .as_ref()
+                    .map(format_timeline_selection_summary)
+            })
+            .unwrap_or_else(|| "selection none".to_string());
+
         format!(
-            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | wheel zoom time, drag pan time, R reset, --demo scatter for scatter view",
+            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | wheel zoom time, drag pan time, right/shift-drag brush, Esc clear, R reset, --demo scatter for scatter view",
             self.render_diagnostics.event_count,
             self.render_diagnostics.lane_count,
             self.render_diagnostics.grid_width,
@@ -196,6 +210,7 @@ impl TimelineOverlayState {
             self.viewport.full_time_range().min,
             self.viewport.full_time_range().max,
             self.render_diagnostics.max_bin_count,
+            selection_summary,
             self.render_diagnostics
                 .density_update_cpu_duration
                 .as_secs_f64()
@@ -206,6 +221,64 @@ impl TimelineOverlayState {
             self.backend,
         )
     }
+}
+
+fn format_timeline_evidence_summary(evidence: &TimelineSelectionEvidence) -> String {
+    let row_id_sample = evidence
+        .selected_row_id_sample
+        .iter()
+        .take(5)
+        .map(|row_id| row_id.0.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let selected_timestamp_range = evidence
+        .selected_timestamp_range
+        .map(|range| format!("{}..{}", range.min, range.max))
+        .unwrap_or_else(|| "none".to_string());
+    let selected_value_range = evidence
+        .selected_value_range
+        .map(|(min, max)| format!("{min:.1}..{max:.1}"))
+        .unwrap_or_else(|| "none".to_string());
+
+    format!(
+        "evidence events {} ({:.2}%) sample [{}] brush t {}..{} lanes {}..{} data t {} value {} top lane {:?} top type {:?}",
+        evidence.selected_event_count,
+        evidence.selected_percentage,
+        row_id_sample,
+        evidence.selected_time_range.min,
+        evidence.selected_time_range.max,
+        evidence.selected_lane_range.start,
+        evidence.selected_lane_range.end_exclusive,
+        selected_timestamp_range,
+        selected_value_range,
+        evidence.top_lane,
+        evidence.top_event_type,
+    )
+}
+
+fn format_timeline_selection_summary(summary: &TimelineSelectionSummary) -> String {
+    let selected_timestamp_range = summary
+        .selected_timestamp_range
+        .map(|range| format!("{}..{}", range.min, range.max))
+        .unwrap_or_else(|| "none".to_string());
+    let selected_value_range = summary
+        .selected_value_range
+        .map(|(min, max)| format!("{min:.1}..{max:.1}"))
+        .unwrap_or_else(|| "none".to_string());
+
+    format!(
+        "sel events {} ({:.2}%) brush t {}..{} lanes {}..{} data t {} value {} top lane {:?} top type {:?}",
+        summary.selected_event_count,
+        summary.selected_percentage,
+        summary.selected_time_range.min,
+        summary.selected_time_range.max,
+        summary.selected_lane_range.start,
+        summary.selected_lane_range.end_exclusive,
+        selected_timestamp_range,
+        selected_value_range,
+        summary.top_lane,
+        summary.top_event_type,
+    )
 }
 
 fn format_evidence_summary(evidence: &ScatterSelectionEvidence) -> String {
@@ -368,6 +441,8 @@ mod tests {
                 max_bin_count: 99,
                 density_update_cpu_duration: Duration::from_millis(4),
             },
+            selection_summary: None,
+            selection_evidence: None,
             redraw_count: 7,
             latest_frame_cpu_duration: Duration::from_millis(1),
             adapter_name: "Adapter".to_string(),

@@ -5,8 +5,8 @@ use std::{error::Error, time::Instant};
 use rawscope_data::{generate_synthetic_events, SyntheticEventConfig};
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    TimelineDensityRenderDiagnostics, TimelineDensityRenderer, TimelineDensityRendererConfig,
-    TimelineViewport,
+    ScatterBrushOverlayRenderer, TimelineDensityRenderDiagnostics, TimelineDensityRenderer,
+    TimelineDensityRendererConfig, TimelineViewport,
 };
 use tracing::{error, info};
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
@@ -41,6 +41,10 @@ impl WorkbenchApp {
         self.timeline_viewport = Some(viewport);
         self.timeline_render_diagnostics = Some(render_diagnostics);
         self.timeline_density_renderer = Some(timeline_density_renderer);
+        self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
+            gpu.device(),
+            gpu.surface_format(),
+        ));
 
         Ok(())
     }

@@ -43,6 +43,8 @@ impl ApplicationHandler for WorkbenchApp {
                 self.cursor_position = Some(position);
                 if self.demo_mode.is_scatter() && self.brush_is_active() {
                     self.update_brush_to_cursor(position);
+                } else if self.demo_mode.is_timeline() && self.timeline_brush_is_active() {
+                    self.update_timeline_brush_to_cursor(position);
                 } else if self.demo_mode.is_scatter() && self.last_drag_position.is_some() {
                     self.pan_to_cursor(position);
                 } else if self.demo_mode.is_timeline() && self.last_drag_position.is_some() {
@@ -59,10 +61,18 @@ impl ApplicationHandler for WorkbenchApp {
                 (ElementState::Pressed, MouseButton::Right) if self.demo_mode.is_scatter() => {
                     self.begin_brush();
                 }
+                (ElementState::Pressed, MouseButton::Right) if self.demo_mode.is_timeline() => {
+                    self.begin_timeline_brush();
+                }
                 (ElementState::Pressed, MouseButton::Left)
                     if self.demo_mode.is_scatter() && self.modifiers.shift_key() =>
                 {
                     self.begin_brush();
+                }
+                (ElementState::Pressed, MouseButton::Left)
+                    if self.demo_mode.is_timeline() && self.modifiers.shift_key() =>
+                {
+                    self.begin_timeline_brush();
                 }
                 (ElementState::Pressed, MouseButton::Left | MouseButton::Middle)
                     if self.demo_mode.is_scatter() =>
@@ -70,17 +80,25 @@ impl ApplicationHandler for WorkbenchApp {
                     self.begin_pan();
                 }
                 (ElementState::Pressed, MouseButton::Left | MouseButton::Middle)
-                    if self.demo_mode.is_timeline() =>
+                    if self.demo_mode.is_timeline() && !self.modifiers.shift_key() =>
                 {
                     self.begin_timeline_pan();
                 }
                 (ElementState::Released, MouseButton::Right) if self.demo_mode.is_scatter() => {
                     self.end_brush();
                 }
+                (ElementState::Released, MouseButton::Right) if self.demo_mode.is_timeline() => {
+                    self.end_timeline_brush();
+                }
                 (ElementState::Released, MouseButton::Left)
                     if self.demo_mode.is_scatter() && self.brush_is_active() =>
                 {
                     self.end_brush();
+                }
+                (ElementState::Released, MouseButton::Left)
+                    if self.demo_mode.is_timeline() && self.timeline_brush_is_active() =>
+                {
+                    self.end_timeline_brush();
                 }
                 (ElementState::Released, MouseButton::Left | MouseButton::Middle)
                     if self.demo_mode.is_scatter() =>
@@ -128,6 +146,9 @@ impl WorkbenchApp {
 
         match physical_key {
             PhysicalKey::Code(KeyCode::Escape) if self.demo_mode.is_scatter() => self.clear_brush(),
+            PhysicalKey::Code(KeyCode::Escape) if self.demo_mode.is_timeline() => {
+                self.clear_timeline_brush();
+            }
             PhysicalKey::Code(KeyCode::KeyE) if self.demo_mode.is_scatter() => {
                 self.export_selection_evidence();
             }

@@ -4,6 +4,7 @@ mod app_events;
 mod app_export;
 mod app_render;
 mod app_timeline;
+mod app_timeline_brush;
 mod demo;
 
 use std::{error::Error, io};

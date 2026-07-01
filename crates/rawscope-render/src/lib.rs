@@ -9,7 +9,9 @@ mod scatter_density_renderer;
 mod scatter_selection_evidence;
 mod scatter_selection_export;
 mod scatter_viewport;
+mod timeline_brush;
 mod timeline_density_renderer;
+mod timeline_selection_evidence;
 mod timeline_viewport;
 
 pub use density_reference::{scatter_density, timeline_density};
@@ -38,8 +40,15 @@ pub use scatter_selection_export::{
     SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
 };
 pub use scatter_viewport::ScatterViewport;
+pub use timeline_brush::{
+    SelectedEventTypeCounts, TimelineBrushDrag, TimelineBrushSelection, TimelineLaneRange,
+    TimelineSelectionSummary,
+};
 pub use timeline_density_renderer::{
     TimelineDensityRenderDiagnostics, TimelineDensityRenderer, TimelineDensityRendererConfig,
+};
+pub use timeline_selection_evidence::{
+    SelectedTimelineEventSample, TimelineEvidenceConfig, TimelineSelectionEvidence,
 };
 pub use timeline_viewport::TimelineViewport;
 

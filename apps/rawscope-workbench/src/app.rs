@@ -10,8 +10,9 @@ use rawscope_gpu::GpuContext;
 use rawscope_render::{
     ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
     ScatterDensityRenderDiagnostics, ScatterDensityRenderer, ScatterDensityRendererConfig,
-    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
-    TimelineDensityRenderDiagnostics, TimelineDensityRenderer, TimelineViewport,
+    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, TimelineBrushDrag,
+    TimelineBrushSelection, TimelineDensityRenderDiagnostics, TimelineDensityRenderer,
+    TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::{error, info};
 use winit::{
@@ -61,6 +62,11 @@ pub struct WorkbenchApp {
     pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
     pub(crate) selection_evidence: Option<ScatterSelectionEvidence>,
+    pub(crate) timeline_brush_drag_start: Option<PhysicalPosition<f64>>,
+    pub(crate) active_timeline_brush_drag: Option<TimelineBrushDrag>,
+    pub(crate) active_timeline_brush_selection: Option<TimelineBrushSelection>,
+    pub(crate) timeline_selection_summary: Option<TimelineSelectionSummary>,
+    pub(crate) timeline_selection_evidence: Option<TimelineSelectionEvidence>,
     pub(crate) evidence_export_counter: u64,
     last_pan_diagnostic_at: Option<Instant>,
     pub(crate) last_timeline_pan_diagnostic_at: Option<Instant>,
@@ -390,6 +396,8 @@ impl WorkbenchApp {
                 let overlay = TimelineOverlayState {
                     viewport,
                     render_diagnostics,
+                    selection_summary: self.timeline_selection_summary.clone(),
+                    selection_evidence: self.timeline_selection_evidence.clone(),
                     redraw_count: self.redraw_count,
                     latest_frame_cpu_duration: self.latest_frame_cpu_duration,
                     adapter_name: adapter_name.clone(),
