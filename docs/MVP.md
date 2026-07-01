@@ -33,12 +33,16 @@
 - Status note: Milestone 3F adds a minimal screen-space brush rectangle overlay rendered after the scatter-density pass. The overlay uses a simple amber fill and border, remains visible after finalizing a brush, and clears on Escape, reset, or preset switch. Zoom and pan deliberately keep the existing screen-space brush until it is cleared or replaced.
 - Status note: Milestone 3G makes finalized scatter brushes data-anchored. Dragging remains screen-space, but final selections are stored as data-space x/y ranges, summaries use those ranges, and the overlay is projected into the current viewport after zoom, pan, resize, or reset. Fully offscreen selections are hidden, partially visible selections are clamped to the viewport edge, Escape clears, and preset changes clear because the dataset changes.
 - Status note: Milestone 3H adds deterministic CPU-side selected-row evidence for finalized scatter brushes. Evidence includes selected counts, row-id and record samples, category counts, top category, min/max selected x/y, brush data ranges, and synthetic dataset metadata. The workbench caches evidence until the brush or dataset changes and logs detailed evidence once on finalize; it still does not add a row table UI or GPU row-id preservation.
+- Status note: Milestone 3I exports the cached synthetic scatter selection evidence to deterministic JSON and Markdown artifacts under `target/rawscope-exports/` when the user presses `E`. This is the first reproducible evidence artifact slice, not a file dialog, screenshot path, final report system, timeline export, or GPU row-id preservation.
+- Status note: Milestone 3J hardens evidence export with collision-safe timestamp-plus-counter filenames, an appended `manifest.jsonl`, and dedicated v1 schema documentation for scatter selection evidence. It does not broaden the evidence payload or add file import, screenshots, row tables, timeline evidence, or UI framework work.
 
 ## Milestone 4: GPU Timeline Density
 
 - Purpose: prove that event data can be explored as time/source density.
 - Acceptance criteria: synthetic event data renders as time x lane density, spike/gap patterns are visible, and basic brush selection works.
 - Non-goals: full time-series analysis tooling, annotation systems, and production evidence export.
+- Status note: Milestone 4A adds a correctness-first WGPU compute path for timeline-density counts and compares it against the CPU timeline reference in ignored local-GPU tests. It does not render timeline density, add workbench mode switching, timeline brushing, row evidence, file import, egui, Tauri, or performance claims.
+- Status note: Milestone 4B renders deterministic synthetic timeline-density counts in the native workbench via `--demo timeline`. The view is a simple full-window visual proof using the GPU timeline compute path and log-scaled colour; it preserves the current `u32` time-span guard and does not add timeline brushing, row evidence, file import, egui, Tauri, axes, labels, or benchmark claims.
 
 ## Milestone 5: Linked Selection
 

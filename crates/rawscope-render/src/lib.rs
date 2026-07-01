@@ -2,16 +2,24 @@
 
 mod density_reference;
 mod gpu_scatter_density;
+mod gpu_timeline_density;
 mod scatter_brush;
 mod scatter_brush_overlay;
 mod scatter_density_renderer;
 mod scatter_selection_evidence;
+mod scatter_selection_export;
 mod scatter_viewport;
+mod timeline_density_renderer;
+mod timeline_viewport;
 
 pub use density_reference::{scatter_density, timeline_density};
 pub use gpu_scatter_density::{
     gpu_scatter_density, gpu_scatter_density_on_device, GpuScatterDensityError,
     GpuScatterDensityGrid,
+};
+pub use gpu_timeline_density::{
+    gpu_timeline_density, gpu_timeline_density_on_device, GpuTimelineDensityError,
+    GpuTimelineDensityGrid,
 };
 pub use scatter_brush::{
     BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
@@ -25,9 +33,17 @@ pub use scatter_density_renderer::{
 pub use scatter_selection_evidence::{
     ScatterSelectionEvidence, SelectedPointSample, SelectionEvidenceConfig,
 };
+pub use scatter_selection_export::{
+    scatter_selection_evidence_json, scatter_selection_evidence_markdown,
+    SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
+};
 pub use scatter_viewport::ScatterViewport;
+pub use timeline_density_renderer::{
+    TimelineDensityRenderDiagnostics, TimelineDensityRenderer, TimelineDensityRendererConfig,
+};
+pub use timeline_viewport::TimelineViewport;
 
 /// Describes the role of this crate in the current scaffold.
 pub fn crate_purpose() -> &'static str {
-    "CPU reference density renderers, correctness-first GPU scatter-density compute, and simple density presentation"
+    "CPU reference density renderers, correctness-first GPU density compute, and simple density presentation"
 }

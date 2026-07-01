@@ -41,30 +41,43 @@ impl ApplicationHandler for WorkbenchApp {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = Some(position);
+                if !self.demo_mode.is_scatter() {
+                    return;
+                }
                 if self.brush_is_active() {
                     self.update_brush_to_cursor(position);
                 } else if self.last_drag_position.is_some() {
                     self.pan_to_cursor(position);
                 }
             }
-            WindowEvent::MouseWheel { delta, .. } => self.zoom_at_cursor(delta),
+            WindowEvent::MouseWheel { delta, .. } if self.demo_mode.is_scatter() => {
+                self.zoom_at_cursor(delta);
+            }
             WindowEvent::MouseInput { state, button, .. } => match (state, button) {
-                (ElementState::Pressed, MouseButton::Right) => {
+                (ElementState::Pressed, MouseButton::Right) if self.demo_mode.is_scatter() => {
                     self.begin_brush();
                 }
-                (ElementState::Pressed, MouseButton::Left) if self.modifiers.shift_key() => {
+                (ElementState::Pressed, MouseButton::Left)
+                    if self.demo_mode.is_scatter() && self.modifiers.shift_key() =>
+                {
                     self.begin_brush();
                 }
-                (ElementState::Pressed, MouseButton::Left | MouseButton::Middle) => {
+                (ElementState::Pressed, MouseButton::Left | MouseButton::Middle)
+                    if self.demo_mode.is_scatter() =>
+                {
                     self.begin_pan();
                 }
-                (ElementState::Released, MouseButton::Right) => {
+                (ElementState::Released, MouseButton::Right) if self.demo_mode.is_scatter() => {
                     self.end_brush();
                 }
-                (ElementState::Released, MouseButton::Left) if self.brush_is_active() => {
+                (ElementState::Released, MouseButton::Left)
+                    if self.demo_mode.is_scatter() && self.brush_is_active() =>
+                {
                     self.end_brush();
                 }
-                (ElementState::Released, MouseButton::Left | MouseButton::Middle) => {
+                (ElementState::Released, MouseButton::Left | MouseButton::Middle)
+                    if self.demo_mode.is_scatter() =>
+                {
                     self.end_pan();
                 }
                 _ => {}
@@ -102,18 +115,23 @@ impl WorkbenchApp {
         }
 
         match physical_key {
-            PhysicalKey::Code(KeyCode::Escape) => self.clear_brush(),
-            PhysicalKey::Code(KeyCode::KeyR) => self.reset_viewport(),
-            PhysicalKey::Code(KeyCode::Digit1) => {
+            PhysicalKey::Code(KeyCode::Escape) if self.demo_mode.is_scatter() => self.clear_brush(),
+            PhysicalKey::Code(KeyCode::KeyE) if self.demo_mode.is_scatter() => {
+                self.export_selection_evidence();
+            }
+            PhysicalKey::Code(KeyCode::KeyR) if self.demo_mode.is_scatter() => {
+                self.reset_viewport();
+            }
+            PhysicalKey::Code(KeyCode::Digit1) if self.demo_mode.is_scatter() => {
                 self.switch_to_digit_preset('1');
             }
-            PhysicalKey::Code(KeyCode::Digit2) => {
+            PhysicalKey::Code(KeyCode::Digit2) if self.demo_mode.is_scatter() => {
                 self.switch_to_digit_preset('2');
             }
-            PhysicalKey::Code(KeyCode::Digit3) => {
+            PhysicalKey::Code(KeyCode::Digit3) if self.demo_mode.is_scatter() => {
                 self.switch_to_digit_preset('3');
             }
-            PhysicalKey::Code(KeyCode::Digit4) => {
+            PhysicalKey::Code(KeyCode::Digit4) if self.demo_mode.is_scatter() => {
                 self.switch_to_digit_preset('4');
             }
             PhysicalKey::Code(KeyCode::F12) | PhysicalKey::Code(KeyCode::KeyP) => {

@@ -4,8 +4,60 @@ use std::time::Duration;
 
 use rawscope_render::{
     ScatterDensityRenderDiagnostics, ScatterSelectionEvidence, ScatterViewport,
-    SelectedRegionSummary,
+    SelectedRegionSummary, TimelineDensityRenderDiagnostics,
 };
+
+/// Workbench demo selected at startup.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DemoMode {
+    #[default]
+    Scatter,
+    Timeline,
+}
+
+impl DemoMode {
+    /// Parses the optional workbench demo command-line argument.
+    pub fn from_args(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
+        let mut args = args.into_iter();
+        let Some(first_arg) = args.next() else {
+            return Ok(Self::Scatter);
+        };
+
+        if let Some(demo_name) = first_arg.strip_prefix("--demo=") {
+            return Self::from_name(demo_name);
+        }
+
+        if first_arg == "--demo" {
+            let Some(demo_name) = args.next() else {
+                return Err("missing demo name after --demo; use scatter or timeline".to_string());
+            };
+            let has_extra_args = args.next().is_some();
+            if has_extra_args {
+                return Err("unexpected extra arguments after --demo".to_string());
+            }
+            return Self::from_name(&demo_name);
+        }
+
+        Err(format!(
+            "unsupported argument '{first_arg}'; use --demo scatter or --demo timeline"
+        ))
+    }
+
+    fn from_name(name: &str) -> Result<Self, String> {
+        match name {
+            "scatter" => Ok(Self::Scatter),
+            "timeline" => Ok(Self::Timeline),
+            _ => Err(format!(
+                "unsupported demo '{name}'; use scatter or timeline"
+            )),
+        }
+    }
+
+    /// Returns true for the scatter-density demo mode.
+    pub fn is_scatter(self) -> bool {
+        self == Self::Scatter
+    }
+}
 
 /// Keyboard-selectable deterministic synthetic point-count preset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,6 +166,40 @@ impl DemoOverlayState {
     }
 }
 
+/// State displayed in the window-title diagnostics for timeline mode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimelineOverlayState {
+    pub render_diagnostics: TimelineDensityRenderDiagnostics,
+    pub redraw_count: u64,
+    pub latest_frame_cpu_duration: Duration,
+    pub adapter_name: String,
+    pub backend: String,
+}
+
+impl TimelineOverlayState {
+    /// Formats compact timeline diagnostics suitable for a winit window title.
+    pub fn title(&self) -> String {
+        format!(
+            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} | max {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | --demo scatter for scatter view",
+            self.render_diagnostics.event_count,
+            self.render_diagnostics.lane_count,
+            self.render_diagnostics.grid_width,
+            self.render_diagnostics.grid_height,
+            self.render_diagnostics.time_range.min,
+            self.render_diagnostics.time_range.max,
+            self.render_diagnostics.max_bin_count,
+            self.render_diagnostics
+                .density_update_cpu_duration
+                .as_secs_f64()
+                * 1000.0,
+            self.latest_frame_cpu_duration.as_secs_f64() * 1000.0,
+            self.redraw_count,
+            self.adapter_name,
+            self.backend,
+        )
+    }
+}
+
 fn format_evidence_summary(evidence: &ScatterSelectionEvidence) -> String {
     let row_id_sample = evidence
         .selected_row_id_sample
@@ -206,6 +292,28 @@ mod tests {
     }
 
     #[test]
+    fn demo_mode_defaults_to_scatter() {
+        assert_eq!(DemoMode::from_args(Vec::new()).unwrap(), DemoMode::Scatter);
+    }
+
+    #[test]
+    fn demo_mode_parses_timeline_argument() {
+        assert_eq!(
+            DemoMode::from_args(["--demo".to_string(), "timeline".to_string()]).unwrap(),
+            DemoMode::Timeline
+        );
+        assert_eq!(
+            DemoMode::from_args(["--demo=scatter".to_string()]).unwrap(),
+            DemoMode::Scatter
+        );
+    }
+
+    #[test]
+    fn demo_mode_rejects_unknown_argument() {
+        assert!(DemoMode::from_args(["--timeline".to_string()]).is_err());
+    }
+
+    #[test]
     fn title_includes_core_overlay_fields() {
         let viewport = ScatterViewport::new(F32Range::new(0.0, 100.0), F32Range::new(0.0, 100.0));
         let overlay = DemoOverlayState {
@@ -233,5 +341,32 @@ mod tests {
         assert!(title.contains("max 42"));
         assert!(title.contains("wheel zoom"));
         assert!(title.contains("selection none"));
+    }
+
+    #[test]
+    fn timeline_title_includes_core_overlay_fields() {
+        let overlay = TimelineOverlayState {
+            render_diagnostics: TimelineDensityRenderDiagnostics {
+                event_count: 20_000,
+                lane_count: 8,
+                grid_width: 256,
+                grid_height: 8,
+                time_range: rawscope_core::U64Range::new(0, 1_000),
+                max_bin_count: 99,
+                density_update_cpu_duration: Duration::from_millis(4),
+            },
+            redraw_count: 7,
+            latest_frame_cpu_duration: Duration::from_millis(1),
+            adapter_name: "Adapter".to_string(),
+            backend: "Backend".to_string(),
+        };
+
+        let title = overlay.title();
+
+        assert!(title.contains("timeline events 20000"));
+        assert!(title.contains("lanes 8"));
+        assert!(title.contains("grid 256x8"));
+        assert!(title.contains("max 99"));
+        assert!(title.contains("--demo scatter"));
     }
 }

@@ -125,3 +125,17 @@
 - Status: Accepted
 - Context: Milestone 3C needs basic feedback while interacting, but proper GPU timestamp queries are not part of this slice.
 - Consequences: Logs label update/frame timings as CPU observations. They are useful smoke diagnostics, not GPU execution timings or benchmark evidence.
+
+## ADR-0016: Serde For Evidence Artifact Serialization
+
+- Decision: Use `serde` and `serde_json` in `rawscope-render` for scatter selection evidence JSON artifacts.
+- Status: Accepted
+- Context: Milestone 3I needs versioned JSON export of cached synthetic selection evidence without hand-rolled serialization logic or a broader report system.
+- Consequences: Serialization dependencies are scoped to the render crate. Core/data types are adapted into small artifact DTOs instead of deriving serialization broadly, and Markdown remains a simple deterministic formatter.
+
+## ADR-0017: Startup Demo Selection Before Live Mode Switching
+
+- Decision: Select the workbench visual proof with `--demo scatter` or `--demo timeline`, defaulting to scatter.
+- Status: Accepted
+- Context: Milestone 4B needs to show the timeline-density visual path without adding a UI framework, live mode switching, or timeline interaction state.
+- Consequences: Scatter controls remain unchanged in the default demo, timeline mode stays focused on rendering deterministic synthetic event density, and richer workbench mode management remains deferred.

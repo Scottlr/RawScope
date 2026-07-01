@@ -11,17 +11,29 @@ use crate::app::WorkbenchApp;
 
 impl WorkbenchApp {
     pub(crate) fn begin_brush(&mut self) {
+        if !self.demo_mode.is_scatter() {
+            return;
+        }
+
         self.last_drag_position = None;
         self.brush_drag_start = self.cursor_position;
         self.update_brush_from_cursor();
     }
 
     pub(crate) fn update_brush_to_cursor(&mut self, position: PhysicalPosition<f64>) {
+        if !self.demo_mode.is_scatter() {
+            return;
+        }
+
         self.cursor_position = Some(position);
         self.update_brush_from_cursor();
     }
 
     pub(crate) fn end_brush(&mut self) {
+        if !self.demo_mode.is_scatter() {
+            return;
+        }
+
         self.finalize_brush_from_drag();
         self.build_selection_evidence();
         self.log_selection_summary("finalized");
