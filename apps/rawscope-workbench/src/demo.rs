@@ -2,7 +2,10 @@
 
 use std::time::Duration;
 
-use rawscope_render::{ScatterDensityRenderDiagnostics, ScatterViewport, SelectedRegionSummary};
+use rawscope_render::{
+    ScatterDensityRenderDiagnostics, ScatterSelectionEvidence, ScatterViewport,
+    SelectedRegionSummary,
+};
 
 /// Keyboard-selectable deterministic synthetic point-count preset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +73,7 @@ pub struct DemoOverlayState {
     pub viewport: ScatterViewport,
     pub render_diagnostics: ScatterDensityRenderDiagnostics,
     pub selection_summary: Option<SelectedRegionSummary>,
+    pub selection_evidence: Option<ScatterSelectionEvidence>,
     pub redraw_count: u64,
     pub latest_frame_cpu_duration: Duration,
     pub adapter_name: String,
@@ -80,8 +84,10 @@ impl DemoOverlayState {
     /// Formats compact diagnostics suitable for a winit window title.
     pub fn title(&self) -> String {
         let selection_summary = self
-            .selection_summary
-            .map(format_selection_summary)
+            .selection_evidence
+            .as_ref()
+            .map(format_evidence_summary)
+            .or_else(|| self.selection_summary.map(format_selection_summary))
             .unwrap_or_else(|| "selection none".to_string());
 
         format!(
@@ -106,6 +112,27 @@ impl DemoOverlayState {
             self.backend,
         )
     }
+}
+
+fn format_evidence_summary(evidence: &ScatterSelectionEvidence) -> String {
+    let row_id_sample = evidence
+        .selected_row_id_sample
+        .iter()
+        .take(5)
+        .map(|row_id| row_id.0.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        "evidence rows {} ({:.2}%) sample [{}] cats c:{} b:{} o:{} top {:?}",
+        evidence.selected_row_count,
+        evidence.selected_percentage,
+        row_id_sample,
+        evidence.category_counts.cluster,
+        evidence.category_counts.background,
+        evidence.category_counts.outlier,
+        evidence.top_category,
+    )
 }
 
 fn format_selection_summary(summary: SelectedRegionSummary) -> String {
@@ -192,6 +219,7 @@ mod tests {
                 density_update_cpu_duration: Duration::from_millis(3),
             },
             selection_summary: None,
+            selection_evidence: None,
             redraw_count: 7,
             latest_frame_cpu_duration: Duration::from_millis(1),
             adapter_name: "Adapter".to_string(),

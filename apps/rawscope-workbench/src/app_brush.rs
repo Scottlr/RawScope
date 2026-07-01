@@ -1,6 +1,9 @@
 //! Brush interaction helpers for the workbench scatter-density demo.
 
-use rawscope_render::{BrushScreenPoint, BrushScreenSize, ScatterBrushDrag, SelectedRegionSummary};
+use rawscope_render::{
+    BrushScreenPoint, BrushScreenSize, ScatterBrushDrag, ScatterSelectionEvidence,
+    SelectedRegionSummary, SelectionEvidenceConfig,
+};
 use tracing::info;
 use winit::dpi::PhysicalPosition;
 
@@ -20,7 +23,9 @@ impl WorkbenchApp {
 
     pub(crate) fn end_brush(&mut self) {
         self.finalize_brush_from_drag();
+        self.build_selection_evidence();
         self.log_selection_summary("finalized");
+        self.log_selection_evidence();
         self.brush_drag_start = None;
         self.active_brush_drag = None;
         self.update_window_title();
@@ -30,10 +35,12 @@ impl WorkbenchApp {
     pub(crate) fn clear_brush(&mut self) {
         let had_selection = self.active_brush_selection.is_some()
             || self.active_brush_drag.is_some()
-            || self.selection_summary.is_some();
+            || self.selection_summary.is_some()
+            || self.selection_evidence.is_some();
         self.active_brush_drag = None;
         self.active_brush_selection = None;
         self.selection_summary = None;
+        self.selection_evidence = None;
         self.brush_drag_start = None;
         self.update_window_title();
 
@@ -75,6 +82,7 @@ impl WorkbenchApp {
         self.selection_summary = self
             .active_brush_selection
             .map(|selection| SelectedRegionSummary::from_points(&self.points, selection));
+        self.selection_evidence = None;
         self.update_window_title();
         self.request_redraw();
     }
@@ -98,6 +106,25 @@ impl WorkbenchApp {
             .map(|selection| SelectedRegionSummary::from_points(&self.points, selection));
     }
 
+    fn build_selection_evidence(&mut self) {
+        let Some(selection) = self.active_brush_selection else {
+            self.selection_evidence = None;
+            return;
+        };
+        let Some(dataset_metadata) = self.dataset_metadata.clone() else {
+            self.selection_evidence = None;
+            return;
+        };
+
+        self.selection_evidence = Some(ScatterSelectionEvidence::from_points(
+            &self.points,
+            selection,
+            dataset_metadata,
+            self.active_preset.row_count,
+            SelectionEvidenceConfig::default(),
+        ));
+    }
+
     fn log_selection_summary(&self, reason: &'static str) {
         let Some(summary) = self.selection_summary else {
             return;
@@ -117,6 +144,31 @@ impl WorkbenchApp {
             outlier_count = summary.category_counts.outlier,
             top_category = ?summary.top_category,
             "RawScope scatter brush summary"
+        );
+    }
+
+    fn log_selection_evidence(&self) {
+        let Some(evidence) = &self.selection_evidence else {
+            return;
+        };
+
+        info!(
+            selected_row_count = evidence.selected_row_count,
+            total_row_count = evidence.dataset_metadata.row_count,
+            selected_percentage = evidence.selected_percentage,
+            seed = evidence.dataset_metadata.seed,
+            point_preset_row_count = evidence.point_preset_row_count,
+            brush_x_min = evidence.brush_x_range.min,
+            brush_x_max = evidence.brush_x_range.max,
+            brush_y_min = evidence.brush_y_range.min,
+            brush_y_max = evidence.brush_y_range.max,
+            selected_x_range = ?evidence.selected_x_range,
+            selected_y_range = ?evidence.selected_y_range,
+            category_counts = ?evidence.category_counts,
+            top_category = ?evidence.top_category,
+            row_id_sample = ?evidence.selected_row_id_sample,
+            record_sample = ?evidence.selected_record_sample,
+            "RawScope scatter selection evidence"
         );
     }
 }

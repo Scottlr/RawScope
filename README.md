@@ -42,6 +42,8 @@ The demo uses deterministic synthetic point data, recomputes GPU density counts 
 
 Brush overlay note: the current rectangle overlay is intentionally simple: a faint amber fill with a brighter border, rendered after the density pass. During drag, the rectangle follows screen-space mouse movement. Once finalized, the selection is anchored to data-space x/y ranges, and the overlay is projected back into the current viewport after zoom, pan, resize, or reset. Fully offscreen selections are hidden; partially visible selections are clamped to the viewport edge. Preset changes clear the brush because the synthetic dataset changes.
 
+Selection evidence note: finalized brushes also build a small CPU-side evidence object from synthetic records. Evidence includes selected counts, category counts, min/max x/y, brush range, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus their synthetic records. This is logged once when the brush finalizes and is not a row table UI or GPU row-id path.
+
 Screenshot capture note: in-app screenshot capture is intentionally deferred because native surface readback and image encoding would add a dedicated capture path or extra dependencies. For Milestone 3D, OS-level screenshots are the recommended path.
 
 ## Repo Layout

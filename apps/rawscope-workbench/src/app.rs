@@ -2,13 +2,13 @@
 
 use std::{error::Error, sync::Arc, time::Duration, time::Instant};
 
-use rawscope_data::SyntheticPointRecord;
 use rawscope_data::{generate_synthetic_points, SyntheticPointConfig};
+use rawscope_data::{SyntheticDatasetMetadata, SyntheticPointRecord};
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
     ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
     ScatterDensityRenderDiagnostics, ScatterDensityRenderer, ScatterDensityRendererConfig,
-    ScatterViewport, SelectedRegionSummary,
+    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
 };
 use tracing::{error, info};
 use winit::{
@@ -38,8 +38,9 @@ pub struct WorkbenchApp {
     pub(crate) gpu: Option<GpuContext>,
     pub(crate) scatter_density_renderer: Option<ScatterDensityRenderer>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
+    pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) points: Vec<SyntheticPointRecord>,
-    active_preset: PointCountPreset,
+    pub(crate) active_preset: PointCountPreset,
     pub(crate) viewport: Option<ScatterViewport>,
     render_diagnostics: Option<ScatterDensityRenderDiagnostics>,
     adapter_name: Option<String>,
@@ -51,6 +52,7 @@ pub struct WorkbenchApp {
     pub(crate) active_brush_drag: Option<ScatterBrushDrag>,
     pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
+    pub(crate) selection_evidence: Option<ScatterSelectionEvidence>,
     last_pan_diagnostic_at: Option<Instant>,
     pub(crate) redraw_count: u64,
     pub(crate) latest_frame_cpu_duration: Duration,
@@ -121,6 +123,7 @@ impl WorkbenchApp {
         self.window = Some(window);
         self.gpu = Some(gpu);
         self.active_preset = active_preset;
+        self.dataset_metadata = Some(dataset.metadata);
         self.points = dataset.points;
         self.viewport = Some(viewport);
         self.render_diagnostics = Some(render_diagnostics);
@@ -150,6 +153,7 @@ impl WorkbenchApp {
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
         self.points = dataset.points;
         self.active_preset = preset;
+        self.dataset_metadata = Some(dataset.metadata);
         self.viewport = Some(viewport);
         self.clear_brush();
 
@@ -319,6 +323,7 @@ impl WorkbenchApp {
             viewport,
             render_diagnostics,
             selection_summary: self.selection_summary,
+            selection_evidence: self.selection_evidence.clone(),
             redraw_count: self.redraw_count,
             latest_frame_cpu_duration: self.latest_frame_cpu_duration,
             adapter_name: adapter_name.clone(),
