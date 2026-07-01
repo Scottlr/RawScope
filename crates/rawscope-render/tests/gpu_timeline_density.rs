@@ -5,21 +5,13 @@ use rawscope_data::{
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{gpu_timeline_density, timeline_density};
 
-const GPU_TEST_COMMAND: &str =
-    "cargo test -p rawscope-render --test gpu_timeline_density -- --ignored --nocapture";
-
 #[test]
-#[ignore = "requires a local WGPU adapter; run the command in GPU_TEST_COMMAND"]
+#[ignore = "requires a local WGPU adapter"]
 fn gpu_timeline_density_matches_cpu_reference_for_synthetic_events() {
     pollster::block_on(async {
         let context = ComputeContext::new()
             .await
             .expect("WGPU compute context should initialize");
-        let diagnostics = context.diagnostics();
-        eprintln!(
-            "GPU timeline-density adapter: {} ({}, {})",
-            diagnostics.adapter_name, diagnostics.backend, diagnostics.device_type
-        );
         let dataset = generate_synthetic_events(SyntheticEventConfig::new(42, 512));
         let width = 40;
         let height = dataset.lane_count;
@@ -50,7 +42,7 @@ fn gpu_timeline_density_matches_cpu_reference_for_synthetic_events() {
 }
 
 #[test]
-#[ignore = "requires a local WGPU adapter; run the command in GPU_TEST_COMMAND"]
+#[ignore = "requires a local WGPU adapter"]
 fn gpu_timeline_density_matches_cpu_reference_for_edges_and_out_of_range_events() {
     pollster::block_on(async {
         let context = ComputeContext::new()
@@ -84,7 +76,7 @@ fn gpu_timeline_density_matches_cpu_reference_for_edges_and_out_of_range_events(
 }
 
 #[test]
-#[ignore = "requires a local WGPU adapter; run the command in GPU_TEST_COMMAND"]
+#[ignore = "requires a local WGPU adapter"]
 fn gpu_timeline_density_preserves_injected_pattern_bins() {
     pollster::block_on(async {
         let context = ComputeContext::new()
@@ -130,11 +122,6 @@ fn gpu_timeline_density_preserves_injected_pattern_bins() {
         assert_eq!(gap_total, 0);
         assert_eq!(stale_lane_late_total, 0);
     });
-}
-
-#[test]
-fn gpu_correctness_tests_document_manual_command() {
-    assert!(GPU_TEST_COMMAND.contains("--ignored"));
 }
 
 fn cpu_counts(grid: &DensityGrid) -> Vec<u32> {

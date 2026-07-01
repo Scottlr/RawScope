@@ -1,0 +1,174 @@
+//! Shared WGPU plumbing for density compute passes.
+
+use std::sync::mpsc::{self, RecvError};
+
+const EMPTY_BUFFER_SIZE_BYTES: u64 = 4;
+
+#[derive(Debug)]
+pub(crate) enum GpuDensityReadbackError {
+    BufferMap(wgpu::BufferAsyncError),
+    BufferMapCallbackDropped(RecvError),
+    DevicePoll(wgpu::PollError),
+}
+
+pub(crate) fn create_storage_upload_buffer(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    label: &'static str,
+    bytes: &[u8],
+) -> wgpu::Buffer {
+    let buffer_size_bytes = bytes.len() as u64;
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size: buffer_size_bytes.max(EMPTY_BUFFER_SIZE_BYTES),
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    queue.write_buffer(&buffer, 0, bytes);
+    buffer
+}
+
+pub(crate) fn create_uniform_upload_buffer(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    label: &'static str,
+    bytes: &[u8],
+) -> wgpu::Buffer {
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size: bytes.len() as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    queue.write_buffer(&buffer, 0, bytes);
+    buffer
+}
+
+pub(crate) fn clear_output_buffer(
+    queue: &wgpu::Queue,
+    buffer: &wgpu::Buffer,
+    output_size_bytes: u64,
+) {
+    let zeroed_output = vec![0_u8; output_size_bytes as usize];
+    queue.write_buffer(buffer, 0, &zeroed_output);
+}
+
+pub(crate) fn create_density_bind_group_layout(
+    device: &wgpu::Device,
+    label: &'static str,
+) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some(label),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
+pub(crate) fn create_density_bind_group(
+    device: &wgpu::Device,
+    label: &'static str,
+    layout: &wgpu::BindGroupLayout,
+    input_buffer: &wgpu::Buffer,
+    params_buffer: &wgpu::Buffer,
+    output_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some(label),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: output_buffer.as_entire_binding(),
+            },
+        ],
+    })
+}
+
+pub(crate) fn create_density_compute_pipeline(
+    device: &wgpu::Device,
+    pipeline_layout_label: &'static str,
+    pipeline_label: &'static str,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    shader: &wgpu::ShaderModule,
+) -> wgpu::ComputePipeline {
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some(pipeline_layout_label),
+        bind_group_layouts: &[Some(bind_group_layout)],
+        immediate_size: 0,
+    });
+
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some(pipeline_label),
+        layout: Some(&pipeline_layout),
+        module: shader,
+        entry_point: Some("main"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
+    })
+}
+
+pub(crate) fn readback_counts_from_buffer(
+    device: &wgpu::Device,
+    readback_buffer: &wgpu::Buffer,
+    grid_bin_count: usize,
+) -> Result<Vec<u32>, GpuDensityReadbackError> {
+    let readback_slice = readback_buffer.slice(..);
+    let (sender, receiver) = mpsc::channel();
+    readback_slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    device
+        .poll(wgpu::PollType::wait_indefinitely())
+        .map_err(GpuDensityReadbackError::DevicePoll)?;
+
+    receiver
+        .recv()
+        .map_err(GpuDensityReadbackError::BufferMapCallbackDropped)?
+        .map_err(GpuDensityReadbackError::BufferMap)?;
+
+    let counts = {
+        let mapped = readback_slice.get_mapped_range();
+        bytemuck::cast_slice::<u8, u32>(&mapped)[..grid_bin_count].to_vec()
+    };
+    readback_buffer.unmap();
+
+    Ok(counts)
+}

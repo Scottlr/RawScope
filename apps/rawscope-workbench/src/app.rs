@@ -1,17 +1,17 @@
-//! Native workbench application handler for the scatter-density demo.
+//! Native workbench application handler for RawScope density views.
 
-use std::{error::Error, sync::Arc, time::Duration, time::Instant};
+use std::{error::Error, sync::Arc};
 
 use rawscope_data::{
-    generate_synthetic_points, SyntheticDatasetMetadata, SyntheticEventRecord,
-    SyntheticPointConfig, SyntheticPointRecord,
+    generate_synthetic_points, load_scatter_dataset, SyntheticDatasetMetadata,
+    SyntheticEventRecord, SyntheticPointConfig, SyntheticPointRecord,
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
     ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityRenderDiagnostics, ScatterDensityRenderer, ScatterDensityRendererConfig,
+    ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
     ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, TimelineBrushDrag,
-    TimelineBrushSelection, TimelineDensityRenderDiagnostics, TimelineDensityRenderer,
+    TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
     TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::{error, info};
@@ -23,7 +23,10 @@ use winit::{
     window::Window,
 };
 
-use crate::demo::{DemoMode, DemoOverlayState, PointCountPreset, TimelineOverlayState};
+use crate::{
+    cli::{WorkbenchArgs, WorkbenchInput},
+    demo::{DemoMode, DemoOverlayState, PointCountPreset, TimelineOverlayState},
+};
 
 pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
 pub(crate) const INITIAL_WIDTH: f64 = 1280.0;
@@ -33,12 +36,12 @@ pub(crate) const DEMO_GRID_WIDTH: u32 = 256;
 pub(crate) const DEMO_GRID_HEIGHT: u32 = 256;
 pub(crate) const WHEEL_ZOOM_IN_SCALE: f32 = 0.82;
 pub(crate) const WHEEL_ZOOM_OUT_SCALE: f32 = 1.22;
-pub(crate) const PAN_DIAGNOSTIC_INTERVAL_MS: u128 = 250;
 
-/// Winit application state for the RawScope scatter-density demo.
+/// Winit application state for RawScope density views.
 #[derive(Default)]
 pub struct WorkbenchApp {
     pub(crate) demo_mode: DemoMode,
+    pub(crate) input: Option<WorkbenchInput>,
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
     pub(crate) scatter_density_renderer: Option<ScatterDensityRenderer>,
@@ -48,12 +51,11 @@ pub struct WorkbenchApp {
     pub(crate) points: Vec<SyntheticPointRecord>,
     pub(crate) events: Vec<SyntheticEventRecord>,
     pub(crate) active_preset: PointCountPreset,
+    pub(crate) point_count_label: String,
     pub(crate) viewport: Option<ScatterViewport>,
     pub(crate) timeline_viewport: Option<TimelineViewport>,
-    render_diagnostics: Option<ScatterDensityRenderDiagnostics>,
-    pub(crate) timeline_render_diagnostics: Option<TimelineDensityRenderDiagnostics>,
-    adapter_name: Option<String>,
-    backend: Option<String>,
+    render_stats: Option<ScatterDensityRenderStats>,
+    pub(crate) timeline_render_stats: Option<TimelineDensityRenderStats>,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,
     pub(crate) last_drag_position: Option<PhysicalPosition<f64>>,
     pub(crate) modifiers: ModifiersState,
@@ -68,16 +70,14 @@ pub struct WorkbenchApp {
     pub(crate) timeline_selection_summary: Option<TimelineSelectionSummary>,
     pub(crate) timeline_selection_evidence: Option<TimelineSelectionEvidence>,
     pub(crate) evidence_export_counter: u64,
-    last_pan_diagnostic_at: Option<Instant>,
-    pub(crate) last_timeline_pan_diagnostic_at: Option<Instant>,
-    pub(crate) redraw_count: u64,
-    pub(crate) latest_frame_cpu_duration: Duration,
 }
 
 impl WorkbenchApp {
-    pub(crate) fn new(demo_mode: DemoMode) -> Self {
+    pub(crate) fn new(args: WorkbenchArgs) -> Self {
         Self {
-            demo_mode,
+            demo_mode: args.demo_mode,
+            input: args.input,
+            point_count_label: PointCountPreset::default().row_count_label().to_string(),
             ..Self::default()
         }
     }
@@ -95,20 +95,16 @@ impl WorkbenchApp {
             .with_inner_size(LogicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT));
         let window = Arc::new(event_loop.create_window(attributes)?);
         let gpu = pollster::block_on(GpuContext::new(window.clone()))?;
-        let diagnostics = gpu.diagnostics();
+        let adapter_info = gpu.adapter_info();
         info!(
-            adapter = %diagnostics.adapter_name,
-            backend = %diagnostics.backend,
-            device_type = %diagnostics.device_type,
-            surface_format = %diagnostics.surface_format,
-            present_mode = %diagnostics.present_mode,
-            alpha_mode = %diagnostics.alpha_mode,
+            adapter = %adapter_info.adapter_name,
+            backend = %adapter_info.backend,
+            device_type = %adapter_info.device_type,
+            surface_format = %adapter_info.surface_format,
+            present_mode = %adapter_info.present_mode,
+            alpha_mode = %adapter_info.alpha_mode,
             "RawScope WGPU adapter selected"
         );
-        info!(features = %diagnostics.adapter_features, "adapter features");
-        info!(limits = %diagnostics.adapter_limits, "adapter limits");
-        let adapter_name = diagnostics.adapter_name.clone();
-        let backend = diagnostics.backend.clone();
 
         match self.demo_mode {
             DemoMode::Scatter => self.prepare_scatter_demo(&gpu)?,
@@ -118,14 +114,58 @@ impl WorkbenchApp {
         window.request_redraw();
         self.window = Some(window);
         self.gpu = Some(gpu);
-        self.adapter_name = Some(adapter_name);
-        self.backend = Some(backend);
         self.update_window_title();
 
         Ok(())
     }
 
     fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
+        if let Some(WorkbenchInput::Scatter {
+            path,
+            x_column,
+            y_column,
+            limit,
+        }) = self.input.as_ref()
+        {
+            let dataset = load_scatter_dataset(path, x_column, y_column, *limit)?;
+            let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
+            let renderer_config = ScatterDensityRendererConfig::new(
+                viewport.x_range(),
+                viewport.y_range(),
+                DEMO_GRID_WIDTH,
+                DEMO_GRID_HEIGHT,
+            );
+            let scatter_density_renderer = ScatterDensityRenderer::new(
+                gpu.device(),
+                gpu.queue(),
+                gpu.surface_format(),
+                &dataset.points,
+                renderer_config,
+            )?;
+            let scatter_brush_overlay_renderer =
+                ScatterBrushOverlayRenderer::new(gpu.device(), gpu.surface_format());
+            let render_stats = scatter_density_renderer.stats();
+            info!(
+                path = %path.display(),
+                x_column,
+                y_column,
+                limit = ?limit,
+                row_count = render_stats.point_count,
+                "RawScope local CSV scatter-density dataset prepared"
+            );
+
+            self.dataset_metadata =
+                Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
+            self.points = dataset.points;
+            self.point_count_label = "local".to_string();
+            self.viewport = Some(viewport);
+            self.render_stats = Some(render_stats);
+            self.scatter_density_renderer = Some(scatter_density_renderer);
+            self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+
+            return Ok(());
+        }
+
         let active_preset = PointCountPreset::default();
         let dataset = generate_synthetic_points(SyntheticPointConfig::new(
             DEMO_SEED,
@@ -147,22 +187,19 @@ impl WorkbenchApp {
         )?;
         let scatter_brush_overlay_renderer =
             ScatterBrushOverlayRenderer::new(gpu.device(), gpu.surface_format());
-        let render_diagnostics = scatter_density_renderer.diagnostics();
-        log_density_diagnostics("initial", viewport, render_diagnostics);
+        let render_stats = scatter_density_renderer.stats();
         info!(
             seed = DEMO_SEED,
-            point_count = render_diagnostics.point_count,
-            grid_width = render_diagnostics.grid_width,
-            grid_height = render_diagnostics.grid_height,
-            max_bin_count = render_diagnostics.max_bin_count,
+            point_count = render_stats.point_count,
             "RawScope synthetic scatter-density demo prepared"
         );
 
         self.active_preset = active_preset;
+        self.point_count_label = active_preset.row_count_label().to_string();
         self.dataset_metadata = Some(dataset.metadata);
         self.points = dataset.points;
         self.viewport = Some(viewport);
-        self.render_diagnostics = Some(render_diagnostics);
+        self.render_stats = Some(render_stats);
         self.scatter_density_renderer = Some(scatter_density_renderer);
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
 
@@ -179,6 +216,9 @@ impl WorkbenchApp {
         if !self.demo_mode.is_scatter() {
             return;
         }
+        if self.input.is_some() {
+            return;
+        }
 
         let preset_is_already_active = self.active_preset == preset;
         if preset_is_already_active {
@@ -190,11 +230,12 @@ impl WorkbenchApp {
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
         self.points = dataset.points;
         self.active_preset = preset;
+        self.point_count_label = preset.row_count_label().to_string();
         self.dataset_metadata = Some(dataset.metadata);
         self.viewport = Some(viewport);
         self.clear_brush();
 
-        if let Err(err) = self.recompute_density("preset") {
+        if let Err(err) = self.recompute_density() {
             error!(
                 error = %err,
                 point_count = preset.row_count,
@@ -234,7 +275,7 @@ impl WorkbenchApp {
             });
 
         viewport.zoom_around(anchor_x, anchor_y, zoom_scale);
-        if let Err(err) = self.recompute_density("zoom") {
+        if let Err(err) = self.recompute_density() {
             error!(error = %err, "failed to recompute scatter density after zoom");
         }
     }
@@ -281,7 +322,7 @@ impl WorkbenchApp {
 
         viewport.pan_by(data_delta_x, data_delta_y);
         self.last_drag_position = Some(position);
-        if let Err(err) = self.recompute_density("pan") {
+        if let Err(err) = self.recompute_density() {
             error!(error = %err, "failed to recompute scatter density after pan");
         }
     }
@@ -296,12 +337,12 @@ impl WorkbenchApp {
         };
 
         viewport.reset();
-        if let Err(err) = self.recompute_density("reset") {
+        if let Err(err) = self.recompute_density() {
             error!(error = %err, "failed to recompute scatter density after reset");
         }
     }
 
-    fn recompute_density(&mut self, reason: &'static str) -> Result<(), Box<dyn Error>> {
+    fn recompute_density(&mut self) -> Result<(), Box<dyn Error>> {
         let Some(gpu) = self.gpu.as_ref() else {
             return Ok(());
         };
@@ -318,76 +359,43 @@ impl WorkbenchApp {
             DEMO_GRID_WIDTH,
             DEMO_GRID_HEIGHT,
         );
-        let diagnostics = scatter_density_renderer.update_density(
+        let stats = scatter_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
             &self.points,
             renderer_config,
         )?;
-        if self.should_log_density_update(reason) {
-            log_density_diagnostics(reason, viewport, diagnostics);
-        }
-        self.render_diagnostics = Some(diagnostics);
+        self.render_stats = Some(stats);
         self.update_window_title();
         self.request_redraw();
 
         Ok(())
     }
 
-    fn should_log_density_update(&mut self, reason: &'static str) -> bool {
-        if reason != "pan" {
-            return true;
-        }
-
-        let now = Instant::now();
-        let should_log = self
-            .last_pan_diagnostic_at
-            .map(|last_log_at| {
-                let elapsed_since_last_log_ms = now.duration_since(last_log_at).as_millis();
-                elapsed_since_last_log_ms >= PAN_DIAGNOSTIC_INTERVAL_MS
-            })
-            .unwrap_or(true);
-        if should_log {
-            self.last_pan_diagnostic_at = Some(now);
-        }
-
-        should_log
-    }
-
     pub(crate) fn update_window_title(&self) {
         let Some(window) = &self.window else {
             return;
         };
-        let Some(adapter_name) = &self.adapter_name else {
-            return;
-        };
-        let Some(backend) = &self.backend else {
-            return;
-        };
-
         match self.demo_mode {
             DemoMode::Scatter => {
                 let Some(viewport) = self.viewport else {
                     return;
                 };
-                let Some(render_diagnostics) = self.render_diagnostics else {
+                let Some(render_stats) = self.render_stats else {
                     return;
                 };
                 let overlay = DemoOverlayState {
                     preset: self.active_preset,
+                    point_count_label: self.point_count_label.clone(),
                     viewport,
-                    render_diagnostics,
+                    render_stats,
                     selection_summary: self.selection_summary,
                     selection_evidence: self.selection_evidence.clone(),
-                    redraw_count: self.redraw_count,
-                    latest_frame_cpu_duration: self.latest_frame_cpu_duration,
-                    adapter_name: adapter_name.clone(),
-                    backend: backend.clone(),
                 };
                 window.set_title(&overlay.title());
             }
             DemoMode::Timeline => {
-                let Some(render_diagnostics) = self.timeline_render_diagnostics else {
+                let Some(render_stats) = self.timeline_render_stats else {
                     return;
                 };
                 let Some(viewport) = self.timeline_viewport else {
@@ -395,13 +403,9 @@ impl WorkbenchApp {
                 };
                 let overlay = TimelineOverlayState {
                     viewport,
-                    render_diagnostics,
+                    render_stats,
                     selection_summary: self.timeline_selection_summary.clone(),
                     selection_evidence: self.timeline_selection_evidence.clone(),
-                    redraw_count: self.redraw_count,
-                    latest_frame_cpu_duration: self.latest_frame_cpu_duration,
-                    adapter_name: adapter_name.clone(),
-                    backend: backend.clone(),
                 };
                 window.set_title(&overlay.title());
             }
@@ -422,24 +426,4 @@ impl WorkbenchApp {
         let y_fraction = (cursor_position.y / window_size.height as f64) as f32;
         Some((x_fraction.clamp(0.0, 1.0), y_fraction.clamp(0.0, 1.0)))
     }
-}
-
-fn log_density_diagnostics(
-    reason: &'static str,
-    viewport: ScatterViewport,
-    diagnostics: ScatterDensityRenderDiagnostics,
-) {
-    info!(
-        reason,
-        point_count = diagnostics.point_count,
-        grid_width = diagnostics.grid_width,
-        grid_height = diagnostics.grid_height,
-        x_min = viewport.x_range().min,
-        x_max = viewport.x_range().max,
-        y_min = viewport.y_range().min,
-        y_max = viewport.y_range().max,
-        max_bin_count = diagnostics.max_bin_count,
-        density_update_cpu_ms = diagnostics.density_update_cpu_duration.as_secs_f64() * 1000.0,
-        "RawScope scatter-density viewport updated"
-    );
 }

@@ -12,7 +12,7 @@
 - Decision: Use `wgpu` for the first GPU bootstrap and future compute/render pipelines.
 - Status: Accepted
 - Context: Milestone 1 established deterministic synthetic data and CPU reference density outputs. Milestone 2 needs a native GPU device/session and surface clear path before implementing density rendering.
-- Consequences: `rawscope-gpu` owns `wgpu`, adapter/device selection, surface configuration, resize handling, diagnostics, and clear-frame presentation. No visual analytics performance claims follow from this bootstrap.
+- Consequences: `rawscope-gpu` owns `wgpu`, adapter/device selection, surface configuration, resize handling, and clear-frame presentation. No visual analytics performance claims follow from this bootstrap.
 
 ## ADR-0003: WGSL For Shaders
 
@@ -42,12 +42,12 @@
 - Context: `wgpu` adapter/device requests are async, while Milestone 2 does not need an async runtime.
 - Consequences: The app avoids a runtime dependency and keeps initialization straightforward.
 
-## ADR-0004C: Tracing For Startup Diagnostics
+## ADR-0004C: Tracing For Startup Adapter Metadata
 
-- Decision: Use `tracing` for structured GPU diagnostics and `tracing-subscriber` in the workbench binary to emit logs.
+- Decision: Use `tracing` for structured GPU adapter metadata and `tracing-subscriber` in the workbench binary to emit logs.
 - Status: Accepted
-- Context: Milestone 2 requires adapter/backend/features/limits diagnostics without ad-hoc production `println!` debugging.
-- Consequences: `rawscope-gpu` can emit structured diagnostics, and the workbench owns subscriber setup.
+- Context: Milestone 2 requires adapter/backend/surface metadata without ad-hoc production `println!` debugging.
+- Consequences: `rawscope-gpu` can emit structured adapter metadata, and the workbench owns subscriber setup.
 
 ## ADR-0005: Tauri Deferred
 
@@ -117,14 +117,14 @@
 - Decision: Use a simple log-scaled density colour ramp for the first visible scatter-density proof.
 - Status: Accepted
 - Context: Synthetic data has dense clusters plus sparse outliers, so linear scaling can wash out sparse regions or saturate clusters.
-- Consequences: The workbench view makes dense bins brighter while keeping sparse outliers faintly visible. This is a visualization choice for smoke validation, not a performance or perceptual-quality claim.
+- Consequences: The workbench view makes dense bins brighter while keeping sparse outliers faintly visible. This is a visualization choice, not a performance or perceptual-quality claim.
 
-## ADR-0015: CPU-Observed Interaction Diagnostics
+## ADR-0015: Benchmark Timing Deferred
 
-- Decision: Report scatter-density update and frame durations as CPU-observed timings in the workbench.
+- Decision: Keep benchmark-style timing out of the workbench title and routine logs.
 - Status: Accepted
-- Context: Milestone 3C needs basic feedback while interacting, but proper GPU timestamp queries are not part of this slice.
-- Consequences: Logs label update/frame timings as CPU observations. They are useful smoke diagnostics, not GPU execution timings or benchmark evidence.
+- Context: Proper GPU timestamp queries are not part of this slice, and CPU-observed timings can be mistaken for benchmark evidence.
+- Consequences: GPU execution timing and benchmark evidence remain deferred until a dedicated benchmark path exists.
 
 ## ADR-0016: Serde For Evidence Artifact Serialization
 

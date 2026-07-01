@@ -5,21 +5,13 @@ use rawscope_data::{
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{gpu_scatter_density, scatter_density};
 
-const GPU_TEST_COMMAND: &str =
-    "cargo test -p rawscope-render --test gpu_scatter_density -- --ignored --nocapture";
-
 #[test]
-#[ignore = "requires a local WGPU adapter; run the command in GPU_TEST_COMMAND"]
+#[ignore = "requires a local WGPU adapter"]
 fn gpu_scatter_density_matches_cpu_reference_for_synthetic_points() {
     pollster::block_on(async {
         let context = ComputeContext::new()
             .await
             .expect("WGPU compute context should initialize");
-        let diagnostics = context.diagnostics();
-        eprintln!(
-            "GPU scatter-density adapter: {} ({}, {})",
-            diagnostics.adapter_name, diagnostics.backend, diagnostics.device_type
-        );
         let dataset = generate_synthetic_points(SyntheticPointConfig::new(42, 512));
         let width = 32;
         let height = 24;
@@ -50,7 +42,7 @@ fn gpu_scatter_density_matches_cpu_reference_for_synthetic_points() {
 }
 
 #[test]
-#[ignore = "requires a local WGPU adapter; run the command in GPU_TEST_COMMAND"]
+#[ignore = "requires a local WGPU adapter"]
 fn gpu_scatter_density_matches_cpu_reference_for_edges_and_out_of_range_points() {
     pollster::block_on(async {
         let context = ComputeContext::new()
@@ -79,11 +71,6 @@ fn gpu_scatter_density_matches_cpu_reference_for_edges_and_out_of_range_points()
         assert_eq!(gpu_grid.count(5, 5), 1);
         assert_eq!(gpu_grid.total_count(), 3);
     });
-}
-
-#[test]
-fn gpu_correctness_tests_document_manual_command() {
-    assert!(GPU_TEST_COMMAND.contains("--ignored"));
 }
 
 fn cpu_counts(grid: &rawscope_core::DensityGrid) -> Vec<u32> {

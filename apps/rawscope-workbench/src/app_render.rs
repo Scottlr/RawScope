@@ -1,19 +1,14 @@
-//! Frame rendering for the workbench scatter-density demo.
-
-use std::time::Instant;
+//! Frame rendering for RawScope density views.
 
 use rawscope_gpu::ClearFrameStatus;
 use rawscope_render::BrushScreenSize;
-use tracing::{error, info};
+use tracing::error;
 use winit::event_loop::ActiveEventLoop;
 
 use crate::{app::WorkbenchApp, demo::DemoMode};
 
-const FRAME_DIAGNOSTIC_INTERVAL: u64 = 5_000;
-
 impl WorkbenchApp {
     pub(crate) fn render(&mut self, event_loop: &ActiveEventLoop) {
-        let frame_start = Instant::now();
         let render_status = {
             let Some(gpu) = self.gpu.as_mut() else {
                 return;
@@ -101,16 +96,6 @@ impl WorkbenchApp {
 
         match render_status {
             Ok(ClearFrameStatus::Presented) => {
-                self.redraw_count += 1;
-                self.latest_frame_cpu_duration = frame_start.elapsed();
-                let should_log_frame = self.redraw_count.is_multiple_of(FRAME_DIAGNOSTIC_INTERVAL);
-                if should_log_frame {
-                    info!(
-                        redraw_count = self.redraw_count,
-                        frame_cpu_ms = frame_start.elapsed().as_secs_f64() * 1000.0,
-                        "RawScope frame diagnostics"
-                    );
-                }
                 self.update_window_title();
             }
             Ok(ClearFrameStatus::SkippedZeroSizedSurface | ClearFrameStatus::SkippedOccluded) => {}

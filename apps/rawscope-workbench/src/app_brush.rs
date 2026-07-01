@@ -132,9 +132,17 @@ impl WorkbenchApp {
             &self.points,
             selection,
             dataset_metadata,
-            self.active_preset.row_count,
+            self.scatter_evidence_row_count(),
             SelectionEvidenceConfig::default(),
         ));
+    }
+
+    fn scatter_evidence_row_count(&self) -> usize {
+        if self.input.is_some() {
+            return self.points.len();
+        }
+
+        self.active_preset.row_count
     }
 
     fn log_selection_summary(&self, reason: &'static str) {

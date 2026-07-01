@@ -1,11 +1,9 @@
-//! Workbench scatter-density demo controls and diagnostics helpers.
-
-use std::time::Duration;
+//! Workbench density-view controls and title helpers.
 
 use rawscope_render::{
-    ScatterDensityRenderDiagnostics, ScatterSelectionEvidence, ScatterViewport,
-    SelectedRegionSummary, TimelineDensityRenderDiagnostics, TimelineSelectionEvidence,
-    TimelineSelectionSummary, TimelineViewport,
+    ScatterDensityRenderStats, ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
+    TimelineDensityRenderStats, TimelineSelectionEvidence, TimelineSelectionSummary,
+    TimelineViewport,
 };
 
 /// Workbench demo selected at startup.
@@ -17,34 +15,7 @@ pub enum DemoMode {
 }
 
 impl DemoMode {
-    /// Parses the optional workbench demo command-line argument.
-    pub fn from_args(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
-        let mut args = args.into_iter();
-        let Some(first_arg) = args.next() else {
-            return Ok(Self::Scatter);
-        };
-
-        if let Some(demo_name) = first_arg.strip_prefix("--demo=") {
-            return Self::from_name(demo_name);
-        }
-
-        if first_arg == "--demo" {
-            let Some(demo_name) = args.next() else {
-                return Err("missing demo name after --demo; use scatter or timeline".to_string());
-            };
-            let has_extra_args = args.next().is_some();
-            if has_extra_args {
-                return Err("unexpected extra arguments after --demo".to_string());
-            }
-            return Self::from_name(&demo_name);
-        }
-
-        Err(format!(
-            "unsupported argument '{first_arg}'; use --demo scatter or --demo timeline"
-        ))
-    }
-
-    fn from_name(name: &str) -> Result<Self, String> {
+    pub(crate) fn from_name(name: &str) -> Result<Self, String> {
         match name {
             "scatter" => Ok(Self::Scatter),
             "timeline" => Ok(Self::Timeline),
@@ -124,22 +95,19 @@ pub const POINT_COUNT_PRESETS: [PointCountPreset; 4] = [
     },
 ];
 
-/// State displayed in the window-title diagnostics overlay.
+/// State displayed in the scatter window title.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DemoOverlayState {
     pub preset: PointCountPreset,
+    pub point_count_label: String,
     pub viewport: ScatterViewport,
-    pub render_diagnostics: ScatterDensityRenderDiagnostics,
+    pub render_stats: ScatterDensityRenderStats,
     pub selection_summary: Option<SelectedRegionSummary>,
     pub selection_evidence: Option<ScatterSelectionEvidence>,
-    pub redraw_count: u64,
-    pub latest_frame_cpu_duration: Duration,
-    pub adapter_name: String,
-    pub backend: String,
 }
 
 impl DemoOverlayState {
-    /// Formats compact diagnostics suitable for a winit window title.
+    /// Formats compact state suitable for a winit window title.
     pub fn title(&self) -> String {
         let selection_summary = self
             .selection_evidence
@@ -149,44 +117,32 @@ impl DemoOverlayState {
             .unwrap_or_else(|| "selection none".to_string());
 
         format!(
-            "RawScope | pts {} ({}) | grid {}x{} | x {:.1}..{:.1} y {:.1}..{:.1} | max {} | {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | wheel zoom, drag pan, right/shift-drag brush, Esc clear, R reset, 1-4 presets",
-            self.render_diagnostics.point_count,
-            self.preset.row_count_label(),
-            self.render_diagnostics.grid_width,
-            self.render_diagnostics.grid_height,
+            "RawScope | pts {} ({}) | grid {}x{} | x {:.1}..{:.1} y {:.1}..{:.1} | max {} | {} | wheel zoom, drag pan, right/shift-drag brush, Esc clear, R reset, 1-4 presets",
+            self.render_stats.point_count,
+            self.point_count_label,
+            self.render_stats.grid_width,
+            self.render_stats.grid_height,
             self.viewport.x_range().min,
             self.viewport.x_range().max,
             self.viewport.y_range().min,
             self.viewport.y_range().max,
-            self.render_diagnostics.max_bin_count,
+            self.render_stats.max_bin_count,
             selection_summary,
-            self.render_diagnostics
-                .density_update_cpu_duration
-                .as_secs_f64()
-                * 1000.0,
-            self.latest_frame_cpu_duration.as_secs_f64() * 1000.0,
-            self.redraw_count,
-            self.adapter_name,
-            self.backend,
         )
     }
 }
 
-/// State displayed in the window-title diagnostics for timeline mode.
+/// State displayed in the timeline window title.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TimelineOverlayState {
     pub viewport: TimelineViewport,
-    pub render_diagnostics: TimelineDensityRenderDiagnostics,
+    pub render_stats: TimelineDensityRenderStats,
     pub selection_summary: Option<TimelineSelectionSummary>,
     pub selection_evidence: Option<TimelineSelectionEvidence>,
-    pub redraw_count: u64,
-    pub latest_frame_cpu_duration: Duration,
-    pub adapter_name: String,
-    pub backend: String,
 }
 
 impl TimelineOverlayState {
-    /// Formats compact timeline diagnostics suitable for a winit window title.
+    /// Formats compact timeline state suitable for a winit window title.
     pub fn title(&self) -> String {
         let selection_summary = self
             .selection_evidence
@@ -200,25 +156,17 @@ impl TimelineOverlayState {
             .unwrap_or_else(|| "selection none".to_string());
 
         format!(
-            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | wheel zoom time, drag pan time, right/shift-drag brush, Esc clear, R reset, --demo scatter for scatter view",
-            self.render_diagnostics.event_count,
-            self.render_diagnostics.lane_count,
-            self.render_diagnostics.grid_width,
-            self.render_diagnostics.grid_height,
+            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | {} | wheel zoom time, drag pan time, right/shift-drag brush, Esc clear, R reset, --demo scatter for scatter view",
+            self.render_stats.event_count,
+            self.render_stats.lane_count,
+            self.render_stats.grid_width,
+            self.render_stats.grid_height,
             self.viewport.time_range().min,
             self.viewport.time_range().max,
             self.viewport.full_time_range().min,
             self.viewport.full_time_range().max,
-            self.render_diagnostics.max_bin_count,
+            self.render_stats.max_bin_count,
             selection_summary,
-            self.render_diagnostics
-                .density_update_cpu_duration
-                .as_secs_f64()
-                * 1000.0,
-            self.latest_frame_cpu_duration.as_secs_f64() * 1000.0,
-            self.redraw_count,
-            self.adapter_name,
-            self.backend,
         )
     }
 }
@@ -333,19 +281,11 @@ fn format_selection_summary(summary: SelectedRegionSummary) -> String {
     )
 }
 
-/// Returns the current screenshot capture policy for the demo.
-pub fn screenshot_capture_note() -> &'static str {
-    "Screenshot capture is skipped for Milestone 3D: native surface readback needs a small dedicated capture path, and adding image encoding dependencies would widen this hardening slice."
-}
-
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use rawscope_core::{F32Range, U64Range};
     use rawscope_render::{
-        ScatterDensityRenderDiagnostics, ScatterViewport, TimelineDensityRenderDiagnostics,
-        TimelineViewport,
+        ScatterDensityRenderStats, ScatterViewport, TimelineDensityRenderStats, TimelineViewport,
     };
 
     use super::*;
@@ -376,46 +316,20 @@ mod tests {
     }
 
     #[test]
-    fn demo_mode_defaults_to_scatter() {
-        assert_eq!(DemoMode::from_args(Vec::new()).unwrap(), DemoMode::Scatter);
-    }
-
-    #[test]
-    fn demo_mode_parses_timeline_argument() {
-        assert_eq!(
-            DemoMode::from_args(["--demo".to_string(), "timeline".to_string()]).unwrap(),
-            DemoMode::Timeline
-        );
-        assert_eq!(
-            DemoMode::from_args(["--demo=scatter".to_string()]).unwrap(),
-            DemoMode::Scatter
-        );
-    }
-
-    #[test]
-    fn demo_mode_rejects_unknown_argument() {
-        assert!(DemoMode::from_args(["--timeline".to_string()]).is_err());
-    }
-
-    #[test]
     fn title_includes_core_overlay_fields() {
         let viewport = ScatterViewport::new(F32Range::new(0.0, 100.0), F32Range::new(0.0, 100.0));
         let overlay = DemoOverlayState {
             preset: PointCountPreset::default(),
+            point_count_label: PointCountPreset::default().row_count_label().to_string(),
             viewport,
-            render_diagnostics: ScatterDensityRenderDiagnostics {
+            render_stats: ScatterDensityRenderStats {
                 point_count: 20_000,
                 grid_width: 256,
                 grid_height: 256,
                 max_bin_count: 42,
-                density_update_cpu_duration: Duration::from_millis(3),
             },
             selection_summary: None,
             selection_evidence: None,
-            redraw_count: 7,
-            latest_frame_cpu_duration: Duration::from_millis(1),
-            adapter_name: "Adapter".to_string(),
-            backend: "Backend".to_string(),
         };
 
         let title = overlay.title();
@@ -432,21 +346,16 @@ mod tests {
         let viewport = TimelineViewport::new(U64Range::new(0, 1_000), 8);
         let overlay = TimelineOverlayState {
             viewport,
-            render_diagnostics: TimelineDensityRenderDiagnostics {
+            render_stats: TimelineDensityRenderStats {
                 event_count: 20_000,
                 lane_count: 8,
                 grid_width: 256,
                 grid_height: 8,
                 time_range: rawscope_core::U64Range::new(0, 1_000),
                 max_bin_count: 99,
-                density_update_cpu_duration: Duration::from_millis(4),
             },
             selection_summary: None,
             selection_evidence: None,
-            redraw_count: 7,
-            latest_frame_cpu_duration: Duration::from_millis(1),
-            adapter_name: "Adapter".to_string(),
-            backend: "Backend".to_string(),
         };
 
         let title = overlay.title();

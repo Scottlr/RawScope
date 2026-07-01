@@ -1,8 +1,11 @@
 //! CPU and early GPU correctness density renderers for RawScope.
 
 mod density_reference;
+mod gpu_density_pipeline;
 mod gpu_scatter_density;
+mod gpu_scatter_density_pack;
 mod gpu_timeline_density;
+mod gpu_timeline_density_pack;
 mod scatter_brush;
 mod scatter_brush_overlay;
 mod scatter_density_renderer;
@@ -12,6 +15,7 @@ mod scatter_viewport;
 mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_selection_evidence;
+mod timeline_selection_export;
 mod timeline_viewport;
 
 pub use density_reference::{scatter_density, timeline_density};
@@ -29,7 +33,7 @@ pub use scatter_brush::{
 };
 pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
 pub use scatter_density_renderer::{
-    log_density_intensity, ScatterDensityRenderDiagnostics, ScatterDensityRenderer,
+    log_density_intensity, ScatterDensityRenderStats, ScatterDensityRenderer,
     ScatterDensityRendererConfig,
 };
 pub use scatter_selection_evidence::{
@@ -45,10 +49,14 @@ pub use timeline_brush::{
     TimelineSelectionSummary,
 };
 pub use timeline_density_renderer::{
-    TimelineDensityRenderDiagnostics, TimelineDensityRenderer, TimelineDensityRendererConfig,
+    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineDensityRendererConfig,
 };
 pub use timeline_selection_evidence::{
     SelectedTimelineEventSample, TimelineEvidenceConfig, TimelineSelectionEvidence,
+};
+pub use timeline_selection_export::{
+    timeline_selection_evidence_json, timeline_selection_evidence_markdown,
+    TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
 };
 pub use timeline_viewport::TimelineViewport;
 

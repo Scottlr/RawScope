@@ -1,7 +1,6 @@
 //! Simple visible scatter-density rendering for the native workbench proof.
 
 use bytemuck::{Pod, Zeroable};
-use std::time::Duration;
 
 use rawscope_core::F32Range;
 use rawscope_data::SyntheticPointRecord;
@@ -12,14 +11,13 @@ use crate::gpu_scatter_density::{
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/scatter_density_render.wgsl");
 
-/// Diagnostics captured while building the scatter-density visual proof.
+/// Render stats needed by the workbench title and density colour scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScatterDensityRenderDiagnostics {
+pub struct ScatterDensityRenderStats {
     pub point_count: usize,
     pub grid_width: u32,
     pub grid_height: u32,
     pub max_bin_count: u32,
-    pub density_update_cpu_duration: Duration,
 }
 
 /// Configuration for the first visible scatter-density proof.
@@ -52,14 +50,14 @@ pub struct ScatterDensityRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     params_buffer: wgpu::Buffer,
-    diagnostics: ScatterDensityRenderDiagnostics,
+    stats: ScatterDensityRenderStats,
 }
 
 impl ScatterDensityRenderer {
     /// Computes scatter-density counts and creates a renderer using the provided device/queue.
     ///
     /// The count buffer is produced on the same device used later for rendering. A one-time
-    /// readback is used only for diagnostics and log-scaled colour normalization.
+    /// readback is used for log-scaled colour normalization.
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -67,7 +65,6 @@ impl ScatterDensityRenderer {
         points: &[SyntheticPointRecord],
         config: ScatterDensityRendererConfig,
     ) -> Result<Self, GpuScatterDensityError> {
-        let density_update_start = std::time::Instant::now();
         let compute_config = ScatterDensityComputeConfig {
             x_range: config.x_range,
             y_range: config.y_range,
@@ -75,7 +72,6 @@ impl ScatterDensityRenderer {
             grid_height: config.grid_height,
         };
         let compute_output = dispatch_scatter_density(device, queue, points, compute_config, true)?;
-        let density_update_cpu_duration = density_update_start.elapsed();
         let counts = compute_output
             .counts
             .ok_or(GpuScatterDensityError::MissingReadbackCounts)?;
@@ -113,12 +109,11 @@ impl ScatterDensityRenderer {
             pipeline,
             bind_group,
             params_buffer,
-            diagnostics: ScatterDensityRenderDiagnostics {
+            stats: ScatterDensityRenderStats {
                 point_count: points.len(),
                 grid_width: config.grid_width,
                 grid_height: config.grid_height,
                 max_bin_count,
-                density_update_cpu_duration,
             },
         })
     }
@@ -130,8 +125,7 @@ impl ScatterDensityRenderer {
         queue: &wgpu::Queue,
         points: &[SyntheticPointRecord],
         config: ScatterDensityRendererConfig,
-    ) -> Result<ScatterDensityRenderDiagnostics, GpuScatterDensityError> {
-        let density_update_start = std::time::Instant::now();
+    ) -> Result<ScatterDensityRenderStats, GpuScatterDensityError> {
         let compute_config = ScatterDensityComputeConfig {
             x_range: config.x_range,
             y_range: config.y_range,
@@ -139,7 +133,6 @@ impl ScatterDensityRenderer {
             grid_height: config.grid_height,
         };
         let compute_output = dispatch_scatter_density(device, queue, points, compute_config, true)?;
-        let density_update_cpu_duration = density_update_start.elapsed();
         let counts = compute_output
             .counts
             .ok_or(GpuScatterDensityError::MissingReadbackCounts)?;
@@ -158,20 +151,19 @@ impl ScatterDensityRenderer {
             &compute_output.count_buffer,
             &self.params_buffer,
         );
-        self.diagnostics = ScatterDensityRenderDiagnostics {
+        self.stats = ScatterDensityRenderStats {
             point_count: points.len(),
             grid_width: config.grid_width,
             grid_height: config.grid_height,
             max_bin_count,
-            density_update_cpu_duration,
         };
 
-        Ok(self.diagnostics)
+        Ok(self.stats)
     }
 
-    /// Returns setup diagnostics for logging and smoke verification.
-    pub fn diagnostics(&self) -> ScatterDensityRenderDiagnostics {
-        self.diagnostics
+    /// Returns the current render stats.
+    pub fn stats(&self) -> ScatterDensityRenderStats {
+        self.stats
     }
 
     /// Encodes one fullscreen scatter-density render pass.

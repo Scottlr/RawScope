@@ -1,4 +1,4 @@
-//! Winit event translation for the workbench scatter-density demo.
+//! Winit event translation for RawScope density views.
 
 use rawscope_gpu::ClearFrameStatus;
 use tracing::{error, warn};
@@ -10,10 +10,7 @@ use winit::{
     window::WindowId,
 };
 
-use crate::{
-    app::WorkbenchApp,
-    demo::{screenshot_capture_note, PointCountPreset},
-};
+use crate::{app::WorkbenchApp, demo::PointCountPreset};
 
 impl ApplicationHandler for WorkbenchApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -131,10 +128,6 @@ impl ApplicationHandler for WorkbenchApp {
             _ => {}
         }
     }
-
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        self.request_redraw();
-    }
 }
 
 impl WorkbenchApp {
@@ -151,6 +144,9 @@ impl WorkbenchApp {
             }
             PhysicalKey::Code(KeyCode::KeyE) if self.demo_mode.is_scatter() => {
                 self.export_selection_evidence();
+            }
+            PhysicalKey::Code(KeyCode::KeyE) if self.demo_mode.is_timeline() => {
+                self.export_timeline_selection_evidence();
             }
             PhysicalKey::Code(KeyCode::KeyR) if self.demo_mode.is_scatter() => {
                 self.reset_viewport();
@@ -169,12 +165,6 @@ impl WorkbenchApp {
             }
             PhysicalKey::Code(KeyCode::Digit4) if self.demo_mode.is_scatter() => {
                 self.switch_to_digit_preset('4');
-            }
-            PhysicalKey::Code(KeyCode::F12) | PhysicalKey::Code(KeyCode::KeyP) => {
-                warn!(
-                    reason = screenshot_capture_note(),
-                    "screenshot capture skipped"
-                );
             }
             _ => {}
         }

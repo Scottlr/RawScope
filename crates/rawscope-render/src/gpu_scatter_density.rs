@@ -1,20 +1,21 @@
 //! GPU scatter-density compute reference for correctness checks.
 
-use std::{
-    error::Error,
-    fmt,
-    sync::mpsc::{self, RecvError},
-};
+use std::{error::Error, fmt, sync::mpsc::RecvError};
 
-use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
 use rawscope_data::SyntheticPointRecord;
 use rawscope_gpu::ComputeContext;
 
+use crate::gpu_density_pipeline::{
+    clear_output_buffer, create_density_bind_group, create_density_bind_group_layout,
+    create_density_compute_pipeline, create_storage_upload_buffer, create_uniform_upload_buffer,
+    readback_counts_from_buffer, GpuDensityReadbackError,
+};
+use crate::gpu_scatter_density_pack::{pack_points, ScatterParams};
+
 const WORKGROUP_SIZE: u32 = 64;
 const MAX_DISPATCH_WORKGROUPS_PER_DIMENSION: u32 = 65_535;
 const MAX_POINTS_PER_DISPATCH: u32 = WORKGROUP_SIZE * MAX_DISPATCH_WORKGROUPS_PER_DIMENSION;
-const EMPTY_BUFFER_SIZE_BYTES: u64 = 4;
 const SHADER_SOURCE: &str = include_str!("shaders/scatter_density.wgsl");
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -120,6 +121,18 @@ impl Error for GpuScatterDensityError {
             Self::BufferMap(err) => Some(err),
             Self::BufferMapCallbackDropped(err) => Some(err),
             Self::DevicePoll(err) => Some(err),
+        }
+    }
+}
+
+impl From<GpuDensityReadbackError> for GpuScatterDensityError {
+    fn from(err: GpuDensityReadbackError) -> Self {
+        match err {
+            GpuDensityReadbackError::BufferMap(err) => Self::BufferMap(err),
+            GpuDensityReadbackError::BufferMapCallbackDropped(err) => {
+                Self::BufferMapCallbackDropped(err)
+            }
+            GpuDensityReadbackError::DevicePoll(err) => Self::DevicePoll(err),
         }
     }
 }
@@ -236,8 +249,15 @@ pub(crate) fn dispatch_scatter_density(
         label: Some("RawScope Scatter Density Shader"),
         source: wgpu::ShaderSource::Wgsl(SHADER_SOURCE.into()),
     });
-    let bind_group_layout = create_bind_group_layout(device);
-    let pipeline = create_compute_pipeline(device, &bind_group_layout, &shader);
+    let bind_group_layout =
+        create_density_bind_group_layout(device, "RawScope Scatter Density Bind Group Layout");
+    let pipeline = create_density_compute_pipeline(
+        device,
+        "RawScope Scatter Density Pipeline Layout",
+        "RawScope Scatter Density Pipeline",
+        &bind_group_layout,
+        &shader,
+    );
     let dispatch_chunks = scatter_dispatch_chunks(point_count);
     let dispatch_bind_groups = create_dispatch_bind_groups(
         device,
@@ -301,91 +321,6 @@ struct ScatterDispatchBindGroup {
     bind_group: wgpu::BindGroup,
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct GpuPoint {
-    x: f32,
-    y: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct ScatterParams {
-    x_min: f32,
-    x_max: f32,
-    y_min: f32,
-    y_max: f32,
-    grid_width: u32,
-    grid_height: u32,
-    point_start: u32,
-    dispatch_point_count: u32,
-}
-
-impl ScatterParams {
-    fn new(
-        x_range: F32Range,
-        y_range: F32Range,
-        grid_width: u32,
-        grid_height: u32,
-        point_start: u32,
-        dispatch_point_count: u32,
-    ) -> Self {
-        Self {
-            x_min: x_range.min,
-            x_max: x_range.max,
-            y_min: y_range.min,
-            y_max: y_range.max,
-            grid_width,
-            grid_height,
-            point_start,
-            dispatch_point_count,
-        }
-    }
-}
-
-fn pack_points(points: &[SyntheticPointRecord]) -> Vec<GpuPoint> {
-    points
-        .iter()
-        .map(|point| GpuPoint {
-            x: point.x,
-            y: point.y,
-        })
-        .collect()
-}
-
-fn create_storage_upload_buffer(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    label: &'static str,
-    bytes: &[u8],
-) -> wgpu::Buffer {
-    let buffer_size_bytes = bytes.len() as u64;
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some(label),
-        size: buffer_size_bytes.max(EMPTY_BUFFER_SIZE_BYTES),
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    queue.write_buffer(&buffer, 0, bytes);
-    buffer
-}
-
-fn create_uniform_upload_buffer(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    label: &'static str,
-    bytes: &[u8],
-) -> wgpu::Buffer {
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some(label),
-        size: bytes.len() as u64,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    queue.write_buffer(&buffer, 0, bytes);
-    buffer
-}
-
 fn scatter_dispatch_chunks(point_count: u32) -> Vec<ScatterDispatchChunk> {
     let mut chunks = Vec::new();
     let mut point_start = 0;
@@ -429,8 +364,9 @@ fn create_dispatch_bind_groups(
                 "RawScope Scatter Params Buffer",
                 bytemuck::bytes_of(&params),
             );
-            let bind_group = create_bind_group(
+            let bind_group = create_density_bind_group(
                 device,
+                "RawScope Scatter Density Bind Group",
                 bind_group_layout,
                 point_buffer,
                 &params_buffer,
@@ -447,125 +383,6 @@ fn create_dispatch_bind_groups(
             }
         })
         .collect()
-}
-
-fn clear_output_buffer(queue: &wgpu::Queue, buffer: &wgpu::Buffer, output_size_bytes: u64) {
-    let zeroed_output = vec![0_u8; output_size_bytes as usize];
-    queue.write_buffer(buffer, 0, &zeroed_output);
-}
-
-fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("RawScope Scatter Density Bind Group Layout"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: false },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ],
-    })
-}
-
-fn create_bind_group(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    point_buffer: &wgpu::Buffer,
-    params_buffer: &wgpu::Buffer,
-    output_buffer: &wgpu::Buffer,
-) -> wgpu::BindGroup {
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("RawScope Scatter Density Bind Group"),
-        layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: point_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: params_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: output_buffer.as_entire_binding(),
-            },
-        ],
-    })
-}
-
-fn create_compute_pipeline(
-    device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout,
-    shader: &wgpu::ShaderModule,
-) -> wgpu::ComputePipeline {
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("RawScope Scatter Density Pipeline Layout"),
-        bind_group_layouts: &[Some(bind_group_layout)],
-        immediate_size: 0,
-    });
-
-    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some("RawScope Scatter Density Pipeline"),
-        layout: Some(&pipeline_layout),
-        module: shader,
-        entry_point: Some("main"),
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-        cache: None,
-    })
-}
-
-fn readback_counts_from_buffer(
-    device: &wgpu::Device,
-    readback_buffer: &wgpu::Buffer,
-    grid_bin_count: usize,
-) -> Result<Vec<u32>, GpuScatterDensityError> {
-    let readback_slice = readback_buffer.slice(..);
-    let (sender, receiver) = mpsc::channel();
-    readback_slice.map_async(wgpu::MapMode::Read, move |result| {
-        let _ = sender.send(result);
-    });
-    device
-        .poll(wgpu::PollType::wait_indefinitely())
-        .map_err(GpuScatterDensityError::DevicePoll)?;
-
-    receiver
-        .recv()
-        .map_err(GpuScatterDensityError::BufferMapCallbackDropped)?
-        .map_err(GpuScatterDensityError::BufferMap)?;
-
-    let counts = {
-        let mapped = readback_slice.get_mapped_range();
-        bytemuck::cast_slice::<u8, u32>(&mapped)[..grid_bin_count].to_vec()
-    };
-    readback_buffer.unmap();
-
-    Ok(counts)
 }
 
 #[cfg(test)]

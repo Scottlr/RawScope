@@ -2,14 +2,14 @@
 
 use tracing::info;
 
-use crate::{ComputeDiagnostics, GpuError};
+use crate::{ComputeAdapterInfo, GpuError};
 
-/// Owns a WGPU instance, device, queue, and diagnostics without a presentation surface.
+/// Owns a WGPU instance, device, and queue without a presentation surface.
 pub struct ComputeContext {
     _instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    diagnostics: ComputeDiagnostics,
+    adapter_info: ComputeAdapterInfo,
 }
 
 impl ComputeContext {
@@ -26,9 +26,6 @@ impl ComputeContext {
             .map_err(GpuError::RequestAdapter)?;
 
         let adapter_info = adapter.get_info();
-        let adapter_features = adapter.features();
-        let adapter_limits = adapter.limits();
-
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("RawScope WGPU Compute Device"),
@@ -41,12 +38,11 @@ impl ComputeContext {
             .await
             .map_err(GpuError::RequestDevice)?;
 
-        let diagnostics =
-            ComputeDiagnostics::from_parts(adapter_info, adapter_features, adapter_limits);
+        let adapter_info = ComputeAdapterInfo::from_parts(adapter_info);
         info!(
-            adapter = %diagnostics.adapter_name,
-            backend = %diagnostics.backend,
-            device_type = %diagnostics.device_type,
+            adapter = %adapter_info.adapter_name,
+            backend = %adapter_info.backend,
+            device_type = %adapter_info.device_type,
             "initialized headless WGPU compute context"
         );
 
@@ -54,7 +50,7 @@ impl ComputeContext {
             _instance: instance,
             device,
             queue,
-            diagnostics,
+            adapter_info,
         })
     }
 
@@ -68,8 +64,8 @@ impl ComputeContext {
         &self.queue
     }
 
-    /// Returns startup diagnostics for the selected compute adapter.
-    pub fn diagnostics(&self) -> &ComputeDiagnostics {
-        &self.diagnostics
+    /// Returns metadata for the selected compute adapter.
+    pub fn adapter_info(&self) -> &ComputeAdapterInfo {
+        &self.adapter_info
     }
 }

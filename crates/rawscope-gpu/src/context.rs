@@ -6,7 +6,7 @@ use tracing::{info, warn};
 use wgpu::{CurrentSurfaceTexture, SurfaceTexture, TextureView};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{GpuDiagnostics, GpuError};
+use crate::{GpuAdapterInfo, GpuError};
 
 /// Default clear colour for the Milestone 2 bootstrap surface.
 pub const DEFAULT_CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -26,7 +26,7 @@ pub enum ClearFrameStatus {
     Reconfigured,
 }
 
-/// Owns RawScope's initial WGPU instance, surface, device, queue, and diagnostics.
+/// Owns RawScope's initial WGPU instance, surface, device, and queue.
 pub struct GpuContext {
     _instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
@@ -34,7 +34,7 @@ pub struct GpuContext {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
-    diagnostics: GpuDiagnostics,
+    adapter_info: GpuAdapterInfo,
 }
 
 impl GpuContext {
@@ -56,9 +56,6 @@ impl GpuContext {
             .map_err(GpuError::RequestAdapter)?;
 
         let adapter_info = adapter.get_info();
-        let adapter_features = adapter.features();
-        let adapter_limits = adapter.limits();
-
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("RawScope WGPU Device"),
@@ -76,14 +73,13 @@ impl GpuContext {
             .ok_or(GpuError::MissingSurfaceConfig)?;
         surface.configure(&device, &config);
 
-        let diagnostics =
-            GpuDiagnostics::from_parts(adapter_info, adapter_features, adapter_limits, &config);
+        let adapter_info = GpuAdapterInfo::from_parts(adapter_info, &config);
         info!(
-            adapter = %diagnostics.adapter_name,
-            backend = %diagnostics.backend,
-            device_type = %diagnostics.device_type,
-            format = %diagnostics.surface_format,
-            present_mode = %diagnostics.present_mode,
+            adapter = %adapter_info.adapter_name,
+            backend = %adapter_info.backend,
+            device_type = %adapter_info.device_type,
+            format = %adapter_info.surface_format,
+            present_mode = %adapter_info.present_mode,
             "initialized WGPU context"
         );
 
@@ -94,13 +90,13 @@ impl GpuContext {
             queue,
             config,
             size,
-            diagnostics,
+            adapter_info,
         })
     }
 
-    /// Returns startup diagnostics for the selected adapter and surface.
-    pub fn diagnostics(&self) -> &GpuDiagnostics {
-        &self.diagnostics
+    /// Returns metadata for the selected adapter and surface.
+    pub fn adapter_info(&self) -> &GpuAdapterInfo {
+        &self.adapter_info
     }
 
     /// Returns the WGPU device selected for this window context.

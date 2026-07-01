@@ -1,7 +1,5 @@
 //! Simple visible timeline-density rendering for the native workbench proof.
 
-use std::time::Duration;
-
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::U64Range;
 use rawscope_data::SyntheticEventRecord;
@@ -12,16 +10,15 @@ use crate::gpu_timeline_density::{
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/timeline_density_render.wgsl");
 
-/// Diagnostics captured while building the timeline-density visual proof.
+/// Render stats needed by the workbench title and density colour scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TimelineDensityRenderDiagnostics {
+pub struct TimelineDensityRenderStats {
     pub event_count: usize,
     pub lane_count: u32,
     pub grid_width: u32,
     pub grid_height: u32,
     pub time_range: U64Range,
     pub max_bin_count: u32,
-    pub density_update_cpu_duration: Duration,
 }
 
 /// Configuration for the first visible timeline-density proof.
@@ -55,14 +52,14 @@ pub struct TimelineDensityRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     params_buffer: wgpu::Buffer,
-    diagnostics: TimelineDensityRenderDiagnostics,
+    stats: TimelineDensityRenderStats,
 }
 
 impl TimelineDensityRenderer {
     /// Computes timeline-density counts and creates a renderer using the provided device/queue.
     ///
     /// The count buffer is produced on the same device used later for rendering. A one-time
-    /// readback is used only for diagnostics and log-scaled colour normalization.
+    /// readback is used for log-scaled colour normalization.
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -70,7 +67,6 @@ impl TimelineDensityRenderer {
         events: &[SyntheticEventRecord],
         config: TimelineDensityRendererConfig,
     ) -> Result<Self, GpuTimelineDensityError> {
-        let density_update_start = std::time::Instant::now();
         let compute_config = TimelineDensityComputeConfig {
             time_range: config.time_range,
             lane_count: config.lane_count,
@@ -79,7 +75,6 @@ impl TimelineDensityRenderer {
         };
         let compute_output =
             dispatch_timeline_density(device, queue, events, compute_config, true)?;
-        let density_update_cpu_duration = density_update_start.elapsed();
         let counts = compute_output
             .counts
             .ok_or(GpuTimelineDensityError::MissingReadbackCounts)?;
@@ -117,14 +112,13 @@ impl TimelineDensityRenderer {
             pipeline,
             bind_group,
             params_buffer,
-            diagnostics: TimelineDensityRenderDiagnostics {
+            stats: TimelineDensityRenderStats {
                 event_count: events.len(),
                 lane_count: config.lane_count,
                 grid_width: config.grid_width,
                 grid_height: config.grid_height,
                 time_range: config.time_range,
                 max_bin_count,
-                density_update_cpu_duration,
             },
         })
     }
@@ -136,8 +130,7 @@ impl TimelineDensityRenderer {
         queue: &wgpu::Queue,
         events: &[SyntheticEventRecord],
         config: TimelineDensityRendererConfig,
-    ) -> Result<TimelineDensityRenderDiagnostics, GpuTimelineDensityError> {
-        let density_update_start = std::time::Instant::now();
+    ) -> Result<TimelineDensityRenderStats, GpuTimelineDensityError> {
         let compute_config = TimelineDensityComputeConfig {
             time_range: config.time_range,
             lane_count: config.lane_count,
@@ -146,7 +139,6 @@ impl TimelineDensityRenderer {
         };
         let compute_output =
             dispatch_timeline_density(device, queue, events, compute_config, true)?;
-        let density_update_cpu_duration = density_update_start.elapsed();
         let counts = compute_output
             .counts
             .ok_or(GpuTimelineDensityError::MissingReadbackCounts)?;
@@ -165,22 +157,21 @@ impl TimelineDensityRenderer {
             &compute_output.count_buffer,
             &self.params_buffer,
         );
-        self.diagnostics = TimelineDensityRenderDiagnostics {
+        self.stats = TimelineDensityRenderStats {
             event_count: events.len(),
             lane_count: config.lane_count,
             grid_width: config.grid_width,
             grid_height: config.grid_height,
             time_range: config.time_range,
             max_bin_count,
-            density_update_cpu_duration,
         };
 
-        Ok(self.diagnostics)
+        Ok(self.stats)
     }
 
-    /// Returns setup diagnostics for logging and smoke verification.
-    pub fn diagnostics(&self) -> TimelineDensityRenderDiagnostics {
-        self.diagnostics
+    /// Returns the current render stats.
+    pub fn stats(&self) -> TimelineDensityRenderStats {
+        self.stats
     }
 
     /// Encodes one fullscreen timeline-density render pass.
