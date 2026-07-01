@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use rawscope_render::{
     ScatterDensityRenderDiagnostics, ScatterSelectionEvidence, ScatterViewport,
-    SelectedRegionSummary, TimelineDensityRenderDiagnostics,
+    SelectedRegionSummary, TimelineDensityRenderDiagnostics, TimelineViewport,
 };
 
 /// Workbench demo selected at startup.
@@ -56,6 +56,11 @@ impl DemoMode {
     /// Returns true for the scatter-density demo mode.
     pub fn is_scatter(self) -> bool {
         self == Self::Scatter
+    }
+
+    /// Returns true for the timeline-density demo mode.
+    pub fn is_timeline(self) -> bool {
+        self == Self::Timeline
     }
 }
 
@@ -169,6 +174,7 @@ impl DemoOverlayState {
 /// State displayed in the window-title diagnostics for timeline mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimelineOverlayState {
+    pub viewport: TimelineViewport,
     pub render_diagnostics: TimelineDensityRenderDiagnostics,
     pub redraw_count: u64,
     pub latest_frame_cpu_duration: Duration,
@@ -180,13 +186,15 @@ impl TimelineOverlayState {
     /// Formats compact timeline diagnostics suitable for a winit window title.
     pub fn title(&self) -> String {
         format!(
-            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} | max {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | --demo scatter for scatter view",
+            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | update {:.2}ms frame {:.2}ms | redraw {} | {} {} | wheel zoom time, drag pan time, R reset, --demo scatter for scatter view",
             self.render_diagnostics.event_count,
             self.render_diagnostics.lane_count,
             self.render_diagnostics.grid_width,
             self.render_diagnostics.grid_height,
-            self.render_diagnostics.time_range.min,
-            self.render_diagnostics.time_range.max,
+            self.viewport.time_range().min,
+            self.viewport.time_range().max,
+            self.viewport.full_time_range().min,
+            self.viewport.full_time_range().max,
             self.render_diagnostics.max_bin_count,
             self.render_diagnostics
                 .density_update_cpu_duration
@@ -261,8 +269,11 @@ pub fn screenshot_capture_note() -> &'static str {
 mod tests {
     use std::time::Duration;
 
-    use rawscope_core::F32Range;
-    use rawscope_render::{ScatterDensityRenderDiagnostics, ScatterViewport};
+    use rawscope_core::{F32Range, U64Range};
+    use rawscope_render::{
+        ScatterDensityRenderDiagnostics, ScatterViewport, TimelineDensityRenderDiagnostics,
+        TimelineViewport,
+    };
 
     use super::*;
 
@@ -345,7 +356,9 @@ mod tests {
 
     #[test]
     fn timeline_title_includes_core_overlay_fields() {
+        let viewport = TimelineViewport::new(U64Range::new(0, 1_000), 8);
         let overlay = TimelineOverlayState {
+            viewport,
             render_diagnostics: TimelineDensityRenderDiagnostics {
                 event_count: 20_000,
                 lane_count: 8,
@@ -367,6 +380,7 @@ mod tests {
         assert!(title.contains("lanes 8"));
         assert!(title.contains("grid 256x8"));
         assert!(title.contains("max 99"));
+        assert!(title.contains("wheel zoom time"));
         assert!(title.contains("--demo scatter"));
     }
 }

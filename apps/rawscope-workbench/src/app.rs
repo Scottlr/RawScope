@@ -435,17 +435,3 @@ fn log_density_diagnostics(
         "RawScope scatter-density viewport updated"
     );
 }
-
-fn log_timeline_density_diagnostics(diagnostics: TimelineDensityRenderDiagnostics) {
-    info!(
-        event_count = diagnostics.event_count,
-        lane_count = diagnostics.lane_count,
-        grid_width = diagnostics.grid_width,
-        grid_height = diagnostics.grid_height,
-        time_min = diagnostics.time_range.min,
-        time_max = diagnostics.time_range.max,
-        max_bin_count = diagnostics.max_bin_count,
-        density_update_cpu_ms = diagnostics.density_update_cpu_duration.as_secs_f64() * 1000.0,
-        "RawScope synthetic timeline-density demo prepared"
-    );
-}

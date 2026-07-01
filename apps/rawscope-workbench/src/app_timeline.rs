@@ -12,8 +12,7 @@ use tracing::{error, info};
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 
 use crate::app::{
-    WorkbenchApp, DEMO_SEED, PAN_DIAGNOSTIC_INTERVAL_MS, WHEEL_ZOOM_IN_SCALE,
-    WHEEL_ZOOM_OUT_SCALE,
+    WorkbenchApp, DEMO_SEED, PAN_DIAGNOSTIC_INTERVAL_MS, WHEEL_ZOOM_IN_SCALE, WHEEL_ZOOM_OUT_SCALE,
 };
 
 const TIMELINE_DEMO_EVENT_COUNT: usize = 20_000;

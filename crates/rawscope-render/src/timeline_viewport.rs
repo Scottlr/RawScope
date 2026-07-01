@@ -59,19 +59,24 @@ impl TimelineViewport {
         let left_span = ((clamped_target_span as f64) * (clamped_anchor_fraction as f64)).round();
         let target_min = (anchor_time as i128) - (left_span as i128);
 
-        self.time_range = clamp_range_to_full(target_min, clamped_target_span, self.full_time_range);
+        self.time_range =
+            clamp_range_to_full(target_min, clamped_target_span, self.full_time_range);
     }
 
     /// Pans the visible time range by an integer time delta.
     pub fn pan_by(&mut self, delta: i64) {
         let target_min = (self.time_range.min as i128) + (delta as i128);
-        self.time_range = clamp_range_to_full(target_min, self.time_range.span(), self.full_time_range);
+        self.time_range =
+            clamp_range_to_full(target_min, self.time_range.span(), self.full_time_range);
     }
 
     fn time_at_fraction(self, fraction: f32) -> u64 {
         let clamped_fraction = fraction.clamp(0.0, 1.0);
         let offset = ((self.time_range.span() as f64) * (clamped_fraction as f64)).round() as u64;
-        self.time_range.min.saturating_add(offset).min(self.time_range.max)
+        self.time_range
+            .min
+            .saturating_add(offset)
+            .min(self.time_range.max)
     }
 }
 

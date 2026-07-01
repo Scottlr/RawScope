@@ -41,17 +41,19 @@ impl ApplicationHandler for WorkbenchApp {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = Some(position);
-                if !self.demo_mode.is_scatter() {
-                    return;
-                }
-                if self.brush_is_active() {
+                if self.demo_mode.is_scatter() && self.brush_is_active() {
                     self.update_brush_to_cursor(position);
-                } else if self.last_drag_position.is_some() {
+                } else if self.demo_mode.is_scatter() && self.last_drag_position.is_some() {
                     self.pan_to_cursor(position);
+                } else if self.demo_mode.is_timeline() && self.last_drag_position.is_some() {
+                    self.pan_timeline_to_cursor(position);
                 }
             }
             WindowEvent::MouseWheel { delta, .. } if self.demo_mode.is_scatter() => {
                 self.zoom_at_cursor(delta);
+            }
+            WindowEvent::MouseWheel { delta, .. } if self.demo_mode.is_timeline() => {
+                self.zoom_timeline_at_cursor(delta);
             }
             WindowEvent::MouseInput { state, button, .. } => match (state, button) {
                 (ElementState::Pressed, MouseButton::Right) if self.demo_mode.is_scatter() => {
@@ -67,6 +69,11 @@ impl ApplicationHandler for WorkbenchApp {
                 {
                     self.begin_pan();
                 }
+                (ElementState::Pressed, MouseButton::Left | MouseButton::Middle)
+                    if self.demo_mode.is_timeline() =>
+                {
+                    self.begin_timeline_pan();
+                }
                 (ElementState::Released, MouseButton::Right) if self.demo_mode.is_scatter() => {
                     self.end_brush();
                 }
@@ -77,6 +84,11 @@ impl ApplicationHandler for WorkbenchApp {
                 }
                 (ElementState::Released, MouseButton::Left | MouseButton::Middle)
                     if self.demo_mode.is_scatter() =>
+                {
+                    self.end_pan();
+                }
+                (ElementState::Released, MouseButton::Left | MouseButton::Middle)
+                    if self.demo_mode.is_timeline() =>
                 {
                     self.end_pan();
                 }
@@ -121,6 +133,9 @@ impl WorkbenchApp {
             }
             PhysicalKey::Code(KeyCode::KeyR) if self.demo_mode.is_scatter() => {
                 self.reset_viewport();
+            }
+            PhysicalKey::Code(KeyCode::KeyR) if self.demo_mode.is_timeline() => {
+                self.reset_timeline_viewport();
             }
             PhysicalKey::Code(KeyCode::Digit1) if self.demo_mode.is_scatter() => {
                 self.switch_to_digit_preset('1');
