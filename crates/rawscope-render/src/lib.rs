@@ -59,8 +59,3 @@ pub use timeline_selection_export::{
     TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
 };
 pub use timeline_viewport::TimelineViewport;
-
-/// Describes the role of this crate in the current scaffold.
-pub fn crate_purpose() -> &'static str {
-    "CPU reference density renderers, correctness-first GPU density compute, and simple density presentation"
-}

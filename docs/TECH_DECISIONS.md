@@ -26,7 +26,7 @@
 - Decision: Use `egui` and `eframe` first when the GUI layer is introduced.
 - Status: Accepted
 - Context: RawScope needs a native desktop workbench before it needs a webview shell or browser deployment story.
-- Consequences: UI integration should live in `rawscope-egui`, and application coordination should stay in `rawscope-workbench`.
+- Consequences: UI integration should live in a dedicated egui integration crate when it exists, and application coordination should stay in `rawscope-workbench`.
 
 ## ADR-0004A: Winit For Minimal Native Window Bootstrap
 

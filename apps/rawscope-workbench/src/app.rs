@@ -385,7 +385,6 @@ impl WorkbenchApp {
                     return;
                 };
                 let overlay = DemoOverlayState {
-                    preset: self.active_preset,
                     point_count_label: self.point_count_label.clone(),
                     viewport,
                     render_stats,

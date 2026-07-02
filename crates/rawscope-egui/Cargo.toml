@@ -1,7 +1,0 @@
-[package]
-name = "rawscope-egui"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[dependencies]

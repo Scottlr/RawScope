@@ -98,7 +98,6 @@ pub const POINT_COUNT_PRESETS: [PointCountPreset; 4] = [
 /// State displayed in the scatter window title.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DemoOverlayState {
-    pub preset: PointCountPreset,
     pub point_count_label: String,
     pub viewport: ScatterViewport,
     pub render_stats: ScatterDensityRenderStats,
@@ -319,7 +318,6 @@ mod tests {
     fn title_includes_core_overlay_fields() {
         let viewport = ScatterViewport::new(F32Range::new(0.0, 100.0), F32Range::new(0.0, 100.0));
         let overlay = DemoOverlayState {
-            preset: PointCountPreset::default(),
             point_count_label: PointCountPreset::default().row_count_label().to_string(),
             viewport,
             render_stats: ScatterDensityRenderStats {
@@ -351,7 +349,6 @@ mod tests {
                 lane_count: 8,
                 grid_width: 256,
                 grid_height: 8,
-                time_range: rawscope_core::U64Range::new(0, 1_000),
                 max_bin_count: 99,
             },
             selection_summary: None,

@@ -78,7 +78,6 @@ Screenshot capture note: in-app screenshot capture is intentionally deferred bec
 - `crates/rawscope-data`: future data abstractions, dataset metadata, row ids, and chunk storage
 - `crates/rawscope-gpu`: future GPU device/session and resource management
 - `crates/rawscope-render`: future density, heatmap, timeline, and selection rendering logic
-- `crates/rawscope-egui`: future egui integration layer
 - `apps/rawscope-workbench`: native desktop app shell
 
 ## Non-Goals

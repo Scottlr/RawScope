@@ -3,7 +3,7 @@
 ## Milestone 0: Docs + Compiling Scaffold
 
 - Purpose: establish project boundaries, documentation, and workspace structure.
-- Acceptance criteria: docs exist, the workspace compiles, crates are minimal, and the workbench prints a placeholder message.
+- Acceptance criteria: docs exist, the workspace compiles, crates are minimal, and the workbench has a clear native-app entry point.
 - Non-goals: GPU rendering, file import, polished UI, and broad abstractions.
 
 ## Milestone 1: Synthetic Data + CPU Reference

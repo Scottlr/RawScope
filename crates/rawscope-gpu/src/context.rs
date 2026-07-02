@@ -8,15 +8,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{GpuAdapterInfo, GpuError};
 
-/// Default clear colour for the Milestone 2 bootstrap surface.
-pub const DEFAULT_CLEAR_COLOR: wgpu::Color = wgpu::Color {
-    r: 0.015,
-    g: 0.025,
-    b: 0.035,
-    a: 1.0,
-};
-
-/// Result of attempting to clear one frame.
+/// Result of attempting to present one frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClearFrameStatus {
     Presented,
@@ -129,13 +121,6 @@ impl GpuContext {
         ClearFrameStatus::Reconfigured
     }
 
-    /// Clears and presents one frame with the provided colour.
-    pub fn clear_frame(&mut self, clear_color: wgpu::Color) -> Result<ClearFrameStatus, GpuError> {
-        self.render_frame(|_device, _queue, view, encoder| {
-            clear_surface_view(view, encoder, clear_color);
-        })
-    }
-
     /// Acquires, renders, submits, and presents one surface frame.
     pub fn render_frame(
         &mut self,
@@ -191,29 +176,6 @@ impl GpuContext {
         self.queue.submit(Some(encoder.finish()));
         frame.present();
     }
-}
-
-fn clear_surface_view(
-    view: &TextureView,
-    encoder: &mut wgpu::CommandEncoder,
-    clear_color: wgpu::Color,
-) {
-    let _clear_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("RawScope Clear Frame Pass"),
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view,
-            resolve_target: None,
-            depth_slice: None,
-            ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(clear_color),
-                store: wgpu::StoreOp::Store,
-            },
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-        multiview_mask: None,
-    });
 }
 
 fn non_zero_size(size: PhysicalSize<u32>) -> PhysicalSize<u32> {

@@ -69,7 +69,6 @@ Examples of future visual query inputs include:
 - `rawscope-data`: future columnar abstractions, dataset metadata, row ids, schema summaries, chunk store, and file readers later
 - `rawscope-gpu`: WGPU device/session abstraction, surface bootstrap, headless compute bootstrap, and future buffer allocation, texture allocation, compute pipeline cache, shader loading, and GPU timing hooks
 - `rawscope-render`: CPU density references, correctness-first GPU scatter-density compute, and future density renderers, heatmap renderers, timeline renderers, selection overlays, axes, grids, and crosshair helpers
-- `rawscope-egui`: future egui widgets, workbench panels, field picker, filter panel, row inspector integration, and view containers
 - `rawscope-workbench`: desktop app shell that eventually opens projects/datasets, hosts views, manages layout, coordinates interactions, and exports reports
 
 ## Separation Of Concerns
@@ -78,7 +77,7 @@ Examples of future visual query inputs include:
 - `rawscope-data` should not know about rendering or app-specific UI.
 - `rawscope-gpu` should own GPU resource concepts without knowing analyst workflows.
 - `rawscope-render` should depend on core/GPU concepts, not app-specific UI.
-- `rawscope-egui` should adapt library functionality into UI widgets and panels.
+- Future egui integration should adapt library functionality into UI widgets and panels without pulling UI concerns into core data/render crates.
 - `rawscope-workbench` should coordinate the application, not absorb all domain logic.
 
 ## Important Visual Primitives

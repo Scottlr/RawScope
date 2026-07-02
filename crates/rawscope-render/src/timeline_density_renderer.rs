@@ -17,7 +17,6 @@ pub struct TimelineDensityRenderStats {
     pub lane_count: u32,
     pub grid_width: u32,
     pub grid_height: u32,
-    pub time_range: U64Range,
     pub max_bin_count: u32,
 }
 
@@ -117,7 +116,6 @@ impl TimelineDensityRenderer {
                 lane_count: config.lane_count,
                 grid_width: config.grid_width,
                 grid_height: config.grid_height,
-                time_range: config.time_range,
                 max_bin_count,
             },
         })
@@ -162,7 +160,6 @@ impl TimelineDensityRenderer {
             lane_count: config.lane_count,
             grid_width: config.grid_width,
             grid_height: config.grid_height,
-            time_range: config.time_range,
             max_bin_count,
         };
 

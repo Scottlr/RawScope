@@ -14,8 +14,3 @@ pub use synthetic::{
     SyntheticEventDataset, SyntheticEventRecord, SyntheticEventType, SyntheticPointCategory,
     SyntheticPointConfig, SyntheticPointDataset, SyntheticPointRecord,
 };
-
-/// Describes the role of this crate in the current scaffold.
-pub fn crate_purpose() -> &'static str {
-    "synthetic datasets, local CSV loading, dataset metadata, and future columnar data abstractions"
-}
