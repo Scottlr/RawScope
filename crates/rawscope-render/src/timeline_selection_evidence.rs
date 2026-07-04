@@ -3,6 +3,7 @@
 use rawscope_core::{RowId, U64Range};
 use rawscope_data::{SyntheticDatasetMetadata, SyntheticEventRecord, SyntheticEventType};
 
+use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
 use crate::{
     SelectedEventTypeCounts, TimelineBrushSelection, TimelineLaneRange, TimelineSelectionSummary,
 };
@@ -42,6 +43,12 @@ impl From<&SyntheticEventRecord> for SelectedTimelineEventSample {
             value: event.value,
             event_type: event.event_type,
         }
+    }
+}
+
+impl RowIdSample for SelectedTimelineEventSample {
+    fn row_id(&self) -> RowId {
+        self.row_id
     }
 }
 
@@ -114,32 +121,5 @@ impl TimelineSelectionEvidence {
             selected_timestamp_range: summary.selected_timestamp_range,
             selected_value_range: summary.selected_value_range,
         }
-    }
-}
-
-fn insert_lowest_row_id_sample(
-    samples: &mut Vec<SelectedTimelineEventSample>,
-    next_sample: SelectedTimelineEventSample,
-    max_sample_size: usize,
-) {
-    if max_sample_size == 0 {
-        return;
-    }
-
-    let sample_has_room = samples.len() < max_sample_size;
-    if sample_has_room {
-        samples.push(next_sample);
-        samples.sort_by_key(|sample| sample.row_id.0);
-        return;
-    }
-
-    let Some(last_sample) = samples.last() else {
-        return;
-    };
-    let next_sample_belongs_in_sample = next_sample.row_id.0 < last_sample.row_id.0;
-    if next_sample_belongs_in_sample {
-        samples.pop();
-        samples.push(next_sample);
-        samples.sort_by_key(|sample| sample.row_id.0);
     }
 }
