@@ -1,6 +1,7 @@
 //! CPU and early GPU correctness density renderers for RawScope.
 
 mod density_reference;
+mod evidence_sample;
 mod gpu_density_pipeline;
 mod gpu_scatter_density;
 mod gpu_scatter_density_pack;

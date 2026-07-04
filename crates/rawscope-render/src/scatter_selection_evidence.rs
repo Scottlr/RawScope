@@ -3,6 +3,7 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{SyntheticDatasetMetadata, SyntheticPointCategory, SyntheticPointRecord};
 
+use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
 use crate::{ScatterBrushSelection, SelectedCategoryCounts};
 
 const DEFAULT_MAX_SAMPLE_SIZE: usize = 10;
@@ -38,6 +39,12 @@ impl From<&SyntheticPointRecord> for SelectedPointSample {
             y: point.y,
             category: point.category,
         }
+    }
+}
+
+impl RowIdSample for SelectedPointSample {
+    fn row_id(&self) -> RowId {
+        self.row_id
     }
 }
 
@@ -129,33 +136,6 @@ fn add_category_count(counts: &mut SelectedCategoryCounts, category: SyntheticPo
         SyntheticPointCategory::Cluster => counts.cluster += 1,
         SyntheticPointCategory::Background => counts.background += 1,
         SyntheticPointCategory::Outlier => counts.outlier += 1,
-    }
-}
-
-fn insert_lowest_row_id_sample(
-    samples: &mut Vec<SelectedPointSample>,
-    next_sample: SelectedPointSample,
-    max_sample_size: usize,
-) {
-    if max_sample_size == 0 {
-        return;
-    }
-
-    let sample_has_room = samples.len() < max_sample_size;
-    if sample_has_room {
-        samples.push(next_sample);
-        samples.sort_by_key(|sample| sample.row_id.0);
-        return;
-    }
-
-    let Some(last_sample) = samples.last() else {
-        return;
-    };
-    let next_sample_belongs_in_sample = next_sample.row_id.0 < last_sample.row_id.0;
-    if next_sample_belongs_in_sample {
-        samples.pop();
-        samples.push(next_sample);
-        samples.sort_by_key(|sample| sample.row_id.0);
     }
 }
 
