@@ -53,10 +53,10 @@ impl WorkbenchApp {
                 0,
                 render_stats.event_count,
             ));
-            self.events = dataset.events;
-            self.timeline_viewport = Some(viewport);
-            self.timeline_render_stats = Some(render_stats);
-            self.timeline_density_renderer = Some(timeline_density_renderer);
+            self.timeline.events = dataset.events;
+            self.timeline.viewport = Some(viewport);
+            self.timeline.render_stats = Some(render_stats);
+            self.timeline.density_renderer = Some(timeline_density_renderer);
             self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
                 gpu.device(),
                 gpu.surface_format(),
@@ -81,10 +81,10 @@ impl WorkbenchApp {
         let render_stats = timeline_density_renderer.stats();
 
         self.dataset_metadata = Some(dataset.metadata);
-        self.events = dataset.events;
-        self.timeline_viewport = Some(viewport);
-        self.timeline_render_stats = Some(render_stats);
-        self.timeline_density_renderer = Some(timeline_density_renderer);
+        self.timeline.events = dataset.events;
+        self.timeline.viewport = Some(viewport);
+        self.timeline.render_stats = Some(render_stats);
+        self.timeline.density_renderer = Some(timeline_density_renderer);
         self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
             gpu.device(),
             gpu.surface_format(),
@@ -102,7 +102,7 @@ impl WorkbenchApp {
             .cursor_fraction()
             .map(|(x_fraction, _y_fraction)| x_fraction)
             .unwrap_or(0.5);
-        let Some(viewport) = self.timeline_viewport.as_mut() else {
+        let Some(viewport) = self.timeline.viewport.as_mut() else {
             return;
         };
 
@@ -145,7 +145,7 @@ impl WorkbenchApp {
         let Some(window) = &self.window else {
             return;
         };
-        let Some(viewport) = self.timeline_viewport.as_mut() else {
+        let Some(viewport) = self.timeline.viewport.as_mut() else {
             return;
         };
 
@@ -169,7 +169,7 @@ impl WorkbenchApp {
             return;
         }
 
-        let Some(viewport) = self.timeline_viewport.as_mut() else {
+        let Some(viewport) = self.timeline.viewport.as_mut() else {
             return;
         };
 
@@ -183,10 +183,10 @@ impl WorkbenchApp {
         let Some(gpu) = self.gpu.as_ref() else {
             return Ok(());
         };
-        let Some(viewport) = self.timeline_viewport else {
+        let Some(viewport) = self.timeline.viewport else {
             return Ok(());
         };
-        let Some(timeline_density_renderer) = self.timeline_density_renderer.as_mut() else {
+        let Some(timeline_density_renderer) = self.timeline.density_renderer.as_mut() else {
             return Ok(());
         };
 
@@ -194,10 +194,10 @@ impl WorkbenchApp {
         let stats = timeline_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
-            &self.events,
+            &self.timeline.events,
             renderer_config,
         )?;
-        self.timeline_render_stats = Some(stats);
+        self.timeline.render_stats = Some(stats);
         self.update_window_title();
         self.request_redraw();
 

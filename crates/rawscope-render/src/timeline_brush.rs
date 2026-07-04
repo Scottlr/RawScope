@@ -285,11 +285,7 @@ fn selected_time_range(selected_event_count: usize, min: u64, max: u64) -> Optio
         return None;
     }
 
-    if max > min {
-        Some(U64Range::new(min, max))
-    } else {
-        Some(U64Range::new(min.saturating_sub(1), max.saturating_add(1)))
-    }
+    Some(U64Range::from_bounds_expanded(min, max))
 }
 
 fn selected_value_range(selected_event_count: usize, min: f32, max: f32) -> Option<(f32, f32)> {

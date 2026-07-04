@@ -144,10 +144,5 @@ fn selected_range(selected_row_count: usize, min: f32, max: f32) -> Option<F32Ra
         return None;
     }
 
-    if max > min {
-        Some(F32Range::new(min, max))
-    } else {
-        let epsilon = f32::EPSILON.max(min.abs() * f32::EPSILON);
-        Some(F32Range::new(min - epsilon, max + epsilon))
-    }
+    Some(F32Range::from_bounds_expanded(min, max))
 }

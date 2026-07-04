@@ -87,8 +87,79 @@ impl DensityGrid {
     }
 
     fn bin_index(&self, x: u32, y: u32) -> usize {
-        assert!(x < self.size.width, "x bin out of range");
-        assert!(y < self.size.height, "y bin out of range");
-        (y as usize) * (self.size.width as usize) + (x as usize)
+        bin_index(self.size, x, y)
+    }
+}
+
+/// A flattened count-only density grid used by GPU readback paths.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DensityCountGrid {
+    size: GridSize,
+    counts: Vec<u32>,
+}
+
+impl DensityCountGrid {
+    /// Creates a flattened count grid with the given dimensions.
+    pub fn new(size: GridSize, counts: Vec<u32>) -> Self {
+        assert_eq!(
+            counts.len(),
+            size.bin_count(),
+            "count length must match grid dimensions"
+        );
+
+        Self { size, counts }
+    }
+
+    /// Returns the size of the grid.
+    pub fn size(&self) -> GridSize {
+        self.size
+    }
+
+    /// Returns the grid width in bins.
+    pub fn width(&self) -> u32 {
+        self.size.width
+    }
+
+    /// Returns the grid height in bins.
+    pub fn height(&self) -> u32 {
+        self.size.height
+    }
+
+    /// Returns the flattened row-count bins.
+    pub fn counts(&self) -> &[u32] {
+        &self.counts
+    }
+
+    /// Returns one bin count by x/y coordinate.
+    pub fn count(&self, x: u32, y: u32) -> u32 {
+        let index = bin_index(self.size, x, y);
+        self.counts[index]
+    }
+
+    /// Returns the total number of binned rows.
+    pub fn total_count(&self) -> u64 {
+        self.counts.iter().map(|count| *count as u64).sum()
+    }
+}
+
+fn bin_index(size: GridSize, x: u32, y: u32) -> usize {
+    assert!(x < size.width, "x bin out of range");
+    assert!(y < size.height, "y bin out of range");
+    (y as usize) * (size.width as usize) + (x as usize)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn count_grid_indexes_flattened_counts_by_coordinate() {
+        let grid = DensityCountGrid::new(GridSize::new(3, 2), vec![1, 2, 3, 4, 5, 6]);
+
+        assert_eq!(grid.width(), 3);
+        assert_eq!(grid.height(), 2);
+        assert_eq!(grid.count(0, 0), 1);
+        assert_eq!(grid.count(2, 1), 6);
+        assert_eq!(grid.total_count(), 21);
     }
 }

@@ -1,7 +1,7 @@
 //! Timeline brush interaction helpers for the workbench timeline-density demo.
 
 use rawscope_render::{
-    BrushScreenPoint, BrushScreenRect, BrushScreenSize, TimelineBrushDrag, TimelineEvidenceConfig,
+    BrushScreenPoint, BrushScreenRect, TimelineBrushDrag, TimelineEvidenceConfig,
     TimelineSelectionEvidence, TimelineSelectionSummary,
 };
 use tracing::info;
@@ -16,7 +16,7 @@ impl WorkbenchApp {
         }
 
         self.last_drag_position = None;
-        self.timeline_brush_drag_start = self.cursor_position;
+        self.timeline.brush_drag_start = self.cursor_position;
         self.update_timeline_brush_from_cursor();
     }
 
@@ -38,22 +38,22 @@ impl WorkbenchApp {
         self.build_timeline_selection_evidence();
         self.log_timeline_selection_summary("finalized");
         self.log_timeline_selection_evidence();
-        self.timeline_brush_drag_start = None;
-        self.active_timeline_brush_drag = None;
+        self.timeline.brush_drag_start = None;
+        self.timeline.active_brush_drag = None;
         self.update_window_title();
         self.request_redraw();
     }
 
     pub(crate) fn clear_timeline_brush(&mut self) {
         let had_selection = self.timeline_brush_is_active()
-            || self.active_timeline_brush_selection.is_some()
-            || self.timeline_selection_summary.is_some()
-            || self.timeline_selection_evidence.is_some();
-        self.timeline_brush_drag_start = None;
-        self.active_timeline_brush_drag = None;
-        self.active_timeline_brush_selection = None;
-        self.timeline_selection_summary = None;
-        self.timeline_selection_evidence = None;
+            || self.timeline.active_brush_selection.is_some()
+            || self.timeline.selection_summary.is_some()
+            || self.timeline.selection_evidence.is_some();
+        self.timeline.brush_drag_start = None;
+        self.timeline.active_brush_drag = None;
+        self.timeline.active_brush_selection = None;
+        self.timeline.selection_summary = None;
+        self.timeline.selection_evidence = None;
         self.update_window_title();
         self.request_redraw();
 
@@ -63,87 +63,87 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn timeline_brush_is_active(&self) -> bool {
-        self.timeline_brush_drag_start.is_some()
+        self.timeline.brush_drag_start.is_some()
     }
 
     fn update_timeline_brush_from_cursor(&mut self) {
-        let Some(brush_drag_start) = self.timeline_brush_drag_start else {
+        let Some(brush_drag_start) = self.timeline.brush_drag_start else {
             return;
         };
         let Some(cursor_position) = self.cursor_position else {
             return;
         };
-        let Some(window) = &self.window else {
-            return;
-        };
-        let Some(viewport) = self.timeline_viewport else {
+        let Some(viewport) = self.timeline.viewport else {
             return;
         };
 
-        let window_size = window.inner_size();
-        let screen_size = BrushScreenSize::new(window_size.width as f32, window_size.height as f32);
+        let screen_size = self.screen_size();
         let brush_start =
             BrushScreenPoint::new(brush_drag_start.x as f32, brush_drag_start.y as f32);
         let brush_end = BrushScreenPoint::new(cursor_position.x as f32, cursor_position.y as f32);
         let next_drag = BrushScreenRect::from_points(brush_start, brush_end, screen_size)
             .map(TimelineBrushDrag::from_screen_rect);
 
-        self.active_timeline_brush_drag = next_drag;
-        self.active_timeline_brush_selection =
+        self.timeline.active_brush_drag = next_drag;
+        self.timeline.active_brush_selection =
             next_drag.and_then(|drag| drag.finalize(screen_size, viewport));
-        self.timeline_selection_summary = self.active_timeline_brush_selection.map(|selection| {
-            TimelineSelectionSummary::from_events(&self.events, selection, viewport.lane_count())
+        self.timeline.selection_summary = self.timeline.active_brush_selection.map(|selection| {
+            TimelineSelectionSummary::from_events(
+                &self.timeline.events,
+                selection,
+                viewport.lane_count(),
+            )
         });
-        self.timeline_selection_evidence = None;
+        self.timeline.selection_evidence = None;
         self.update_window_title();
         self.request_redraw();
     }
 
     fn finalize_timeline_brush_from_drag(&mut self) {
-        let Some(active_drag) = self.active_timeline_brush_drag else {
+        let Some(active_drag) = self.timeline.active_brush_drag else {
             return;
         };
-        let Some(window) = &self.window else {
-            return;
-        };
-        let Some(viewport) = self.timeline_viewport else {
+        let Some(viewport) = self.timeline.viewport else {
             return;
         };
 
-        let window_size = window.inner_size();
-        let screen_size = BrushScreenSize::new(window_size.width as f32, window_size.height as f32);
-        self.active_timeline_brush_selection = active_drag.finalize(screen_size, viewport);
-        self.timeline_selection_summary = self.active_timeline_brush_selection.map(|selection| {
-            TimelineSelectionSummary::from_events(&self.events, selection, viewport.lane_count())
+        let screen_size = self.screen_size();
+        self.timeline.active_brush_selection = active_drag.finalize(screen_size, viewport);
+        self.timeline.selection_summary = self.timeline.active_brush_selection.map(|selection| {
+            TimelineSelectionSummary::from_events(
+                &self.timeline.events,
+                selection,
+                viewport.lane_count(),
+            )
         });
     }
 
     fn build_timeline_selection_evidence(&mut self) {
-        let Some(selection) = self.active_timeline_brush_selection else {
-            self.timeline_selection_evidence = None;
+        let Some(selection) = self.timeline.active_brush_selection else {
+            self.timeline.selection_evidence = None;
             return;
         };
-        let Some(viewport) = self.timeline_viewport else {
-            self.timeline_selection_evidence = None;
+        let Some(viewport) = self.timeline.viewport else {
+            self.timeline.selection_evidence = None;
             return;
         };
         let Some(dataset_metadata) = self.dataset_metadata.clone() else {
-            self.timeline_selection_evidence = None;
+            self.timeline.selection_evidence = None;
             return;
         };
 
-        self.timeline_selection_evidence = Some(TimelineSelectionEvidence::from_events(
-            &self.events,
+        self.timeline.selection_evidence = Some(TimelineSelectionEvidence::from_events(
+            &self.timeline.events,
             selection,
             viewport.lane_count(),
             dataset_metadata,
-            self.events.len(),
+            self.timeline.events.len(),
             TimelineEvidenceConfig::default(),
         ));
     }
 
     fn log_timeline_selection_summary(&self, reason: &'static str) {
-        let Some(summary) = &self.timeline_selection_summary else {
+        let Some(summary) = &self.timeline.selection_summary else {
             return;
         };
 
@@ -167,7 +167,7 @@ impl WorkbenchApp {
     }
 
     fn log_timeline_selection_evidence(&self) {
-        let Some(evidence) = &self.timeline_selection_evidence else {
+        let Some(evidence) = &self.timeline.selection_evidence else {
             return;
         };
 
