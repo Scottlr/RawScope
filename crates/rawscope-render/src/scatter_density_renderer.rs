@@ -5,6 +5,10 @@ use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
 use rawscope_data::SyntheticPointRecord;
 
+use crate::density_render_pipeline::{
+    create_density_render_bind_group, create_density_render_bind_group_layout,
+    create_density_render_pipeline,
+};
 use crate::gpu_scatter_density::{
     dispatch_scatter_density, GpuScatterDensityError, ScatterDensityComputeConfig,
 };
@@ -95,14 +99,25 @@ impl ScatterDensityRenderer {
             label: Some("RawScope Scatter Density Render Shader"),
             source: wgpu::ShaderSource::Wgsl(RENDER_SHADER_SOURCE.into()),
         });
-        let bind_group_layout = create_render_bind_group_layout(device);
-        let bind_group = create_render_bind_group(
+        let bind_group_layout = create_density_render_bind_group_layout(
             device,
+            "RawScope Scatter Density Render Bind Group Layout",
+        );
+        let bind_group = create_density_render_bind_group(
+            device,
+            "RawScope Scatter Density Render Bind Group",
             &bind_group_layout,
             &compute_output.count_buffer,
             &params_buffer,
         );
-        let pipeline = create_render_pipeline(device, &bind_group_layout, &shader, surface_format);
+        let pipeline = create_density_render_pipeline(
+            device,
+            "RawScope Scatter Density Render Pipeline Layout",
+            "RawScope Scatter Density Render Pipeline",
+            &bind_group_layout,
+            &shader,
+            surface_format,
+        );
 
         Ok(Self {
             bind_group_layout,
@@ -145,8 +160,9 @@ impl ScatterDensityRenderer {
             _padding: 0,
         };
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&render_params));
-        self.bind_group = create_render_bind_group(
+        self.bind_group = create_density_render_bind_group(
             device,
+            "RawScope Scatter Density Render Bind Group",
             &self.bind_group_layout,
             &compute_output.count_buffer,
             &self.params_buffer,
@@ -214,95 +230,6 @@ struct ScatterDensityRenderParams {
     grid_height: u32,
     max_bin_count: u32,
     _padding: u32,
-}
-
-fn create_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("RawScope Scatter Density Render Bind Group Layout"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ],
-    })
-}
-
-fn create_render_bind_group(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    count_buffer: &wgpu::Buffer,
-    params_buffer: &wgpu::Buffer,
-) -> wgpu::BindGroup {
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("RawScope Scatter Density Render Bind Group"),
-        layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: count_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: params_buffer.as_entire_binding(),
-            },
-        ],
-    })
-}
-
-fn create_render_pipeline(
-    device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout,
-    shader: &wgpu::ShaderModule,
-    surface_format: wgpu::TextureFormat,
-) -> wgpu::RenderPipeline {
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("RawScope Scatter Density Render Pipeline Layout"),
-        bind_group_layouts: &[Some(bind_group_layout)],
-        immediate_size: 0,
-    });
-
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("RawScope Scatter Density Render Pipeline"),
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: shader,
-            entry_point: Some("vs_main"),
-            buffers: &[],
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: shader,
-            entry_point: Some("fs_main"),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: surface_format,
-                blend: Some(wgpu::BlendState::REPLACE),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-        }),
-        primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview_mask: None,
-        cache: None,
-    })
 }
 
 #[cfg(test)]

@@ -9,6 +9,8 @@ pollster = "0.4.0"
 rawscope-data = { path = "../../crates/rawscope-data" }
 rawscope-gpu = { path = "../../crates/rawscope-gpu" }
 rawscope-render = { path = "../../crates/rawscope-render" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 winit = "0.30.13"

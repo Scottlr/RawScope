@@ -12,7 +12,7 @@ use crate::{
 
 impl WorkbenchApp {
     pub(crate) fn export_selection_evidence(&mut self) {
-        let Some(evidence) = self.selection_evidence.clone() else {
+        let Some(evidence) = self.scatter.selection_evidence.clone() else {
             warn!(
                 reason = "no finalized scatter selection evidence",
                 "scatter selection evidence export skipped"
@@ -51,7 +51,7 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn export_timeline_selection_evidence(&mut self) {
-        let Some(evidence) = self.timeline_selection_evidence.clone() else {
+        let Some(evidence) = self.timeline.selection_evidence.clone() else {
             warn!(
                 reason = "no finalized timeline selection evidence",
                 "timeline selection evidence export skipped"

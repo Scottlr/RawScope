@@ -65,8 +65,8 @@ pub fn load_scatter_dataset(
         schema: table.schema,
         x_column: x_column.to_string(),
         y_column: y_column.to_string(),
-        x_range: f32_range_from_bounds(x_min, x_max),
-        y_range: f32_range_from_bounds(y_min, y_max),
+        x_range: F32Range::from_bounds_expanded(x_min, x_max),
+        y_range: F32Range::from_bounds_expanded(y_min, y_max),
         points,
     })
 }
@@ -121,7 +121,7 @@ pub fn load_timeline_dataset(
         schema: table.schema,
         time_column: time_column.to_string(),
         lane_column: lane_column.to_string(),
-        time_range: u64_range_from_bounds(time_min, time_max),
+        time_range: U64Range::from_bounds_expanded(time_min, time_max),
         lane_count: lane_labels.len() as u32,
         lane_labels,
         events,
@@ -347,29 +347,6 @@ fn csv_error(path: &Path, source: ::csv::Error) -> DatasetLoadError {
         path: PathBuf::from(path),
         source,
     }
-}
-
-fn f32_range_from_bounds(min: f32, max: f32) -> F32Range {
-    if max > min {
-        return F32Range::new(min, max);
-    }
-
-    let epsilon = f32::EPSILON.max(min.abs() * f32::EPSILON);
-    F32Range::new(min - epsilon, max + epsilon)
-}
-
-fn u64_range_from_bounds(min: u64, max: u64) -> U64Range {
-    if max > min {
-        return U64Range::new(min, max);
-    }
-
-    let expanded_min = min.saturating_sub(1);
-    let expanded_max = max.saturating_add(1);
-    if expanded_max > expanded_min {
-        return U64Range::new(expanded_min, expanded_max);
-    }
-
-    U64Range::new(min - 1, max)
 }
 
 fn csv_row_number(row_offset: usize) -> usize {

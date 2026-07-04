@@ -16,6 +16,7 @@ use rawscope_render::{
     SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION, TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND,
     TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
 };
+use serde::Serialize;
 
 pub(crate) const EXPORT_DIR: &str = "target/rawscope-exports";
 const EXPORT_MANIFEST_FILE_NAME: &str = "manifest.jsonl";
@@ -116,6 +117,8 @@ impl SelectionExportPaths {
         evidence: &ScatterSelectionEvidence,
     ) -> Result<(), Box<dyn Error>> {
         let manifest_record = ScatterSelectionManifestRecord {
+            artifact_kind: SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND,
+            schema_version: SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
             json_path: &self.json_path,
             markdown_path: &self.markdown_path,
             selected_row_count: evidence.selected_row_count,
@@ -124,7 +127,7 @@ impl SelectionExportPaths {
             export_timestamp_unix_ms: self.export_timestamp_unix_ms,
             export_counter: self.export_counter,
         };
-        self.append_manifest_line(&manifest_record.to_json_line())
+        self.append_manifest_record(&manifest_record)
     }
 
     fn append_timeline_manifest_record(
@@ -132,6 +135,8 @@ impl SelectionExportPaths {
         evidence: &TimelineSelectionEvidence,
     ) -> Result<(), Box<dyn Error>> {
         let manifest_record = TimelineSelectionManifestRecord {
+            artifact_kind: TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND,
+            schema_version: TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
             json_path: &self.json_path,
             markdown_path: &self.markdown_path,
             selected_event_count: evidence.selected_event_count,
@@ -140,21 +145,28 @@ impl SelectionExportPaths {
             export_timestamp_unix_ms: self.export_timestamp_unix_ms,
             export_counter: self.export_counter,
         };
-        self.append_manifest_line(&manifest_record.to_json_line())
+        self.append_manifest_record(&manifest_record)
     }
 
-    fn append_manifest_line(&self, manifest_line: &str) -> Result<(), Box<dyn Error>> {
+    fn append_manifest_record(
+        &self,
+        manifest_record: &impl Serialize,
+    ) -> Result<(), Box<dyn Error>> {
         let mut manifest = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.manifest_path)?;
+        let manifest_line = serde_json::to_string(manifest_record)?;
         writeln!(manifest, "{manifest_line}")?;
 
         Ok(())
     }
 }
 
+#[derive(Serialize)]
 struct ScatterSelectionManifestRecord<'a> {
+    artifact_kind: &'static str,
+    schema_version: u32,
     json_path: &'a Path,
     markdown_path: &'a Path,
     selected_row_count: usize,
@@ -164,26 +176,10 @@ struct ScatterSelectionManifestRecord<'a> {
     export_counter: u64,
 }
 
-impl ScatterSelectionManifestRecord<'_> {
-    fn to_json_line(&self) -> String {
-        let json_path = json_escape(&self.json_path.display().to_string());
-        let markdown_path = json_escape(&self.markdown_path.display().to_string());
-        format!(
-            "{{\"artifact_kind\":\"{}\",\"schema_version\":{},\"json_path\":\"{}\",\"markdown_path\":\"{}\",\"selected_row_count\":{},\"selected_percentage\":{},\"point_preset_row_count\":{},\"export_timestamp_unix_ms\":{},\"export_counter\":{}}}",
-            SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND,
-            SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
-            json_path,
-            markdown_path,
-            self.selected_row_count,
-            self.selected_percentage,
-            self.point_preset_row_count,
-            self.export_timestamp_unix_ms,
-            self.export_counter,
-        )
-    }
-}
-
+#[derive(Serialize)]
 struct TimelineSelectionManifestRecord<'a> {
+    artifact_kind: &'static str,
+    schema_version: u32,
     json_path: &'a Path,
     markdown_path: &'a Path,
     selected_event_count: usize,
@@ -193,25 +189,6 @@ struct TimelineSelectionManifestRecord<'a> {
     export_counter: u64,
 }
 
-impl TimelineSelectionManifestRecord<'_> {
-    fn to_json_line(&self) -> String {
-        let json_path = json_escape(&self.json_path.display().to_string());
-        let markdown_path = json_escape(&self.markdown_path.display().to_string());
-        format!(
-            "{{\"artifact_kind\":\"{}\",\"schema_version\":{},\"json_path\":\"{}\",\"markdown_path\":\"{}\",\"selected_event_count\":{},\"selected_percentage\":{},\"event_count\":{},\"export_timestamp_unix_ms\":{},\"export_counter\":{}}}",
-            TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND,
-            TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
-            json_path,
-            markdown_path,
-            self.selected_event_count,
-            self.selected_percentage,
-            self.event_count,
-            self.export_timestamp_unix_ms,
-            self.export_counter,
-        )
-    }
-}
-
 pub(crate) fn current_unix_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -219,32 +196,13 @@ pub(crate) fn current_unix_timestamp_ms() -> u128 {
         .unwrap_or(0)
 }
 
-fn json_escape(value: &str) -> String {
-    let mut escaped = String::with_capacity(value.len());
-    for character in value.chars() {
-        match character {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            control if control.is_control() => {
-                escaped.push_str(&format!("\\u{:04x}", control as u32));
-            }
-            other => escaped.push(other),
-        }
-    }
-    escaped
-}
-
 #[cfg(test)]
 mod tests {
     use std::{fs, path::Path};
 
     use super::{
-        json_escape, ScatterSelectionManifestRecord, SelectionExportPaths,
-        TimelineSelectionManifestRecord, EXPORT_MANIFEST_FILE_NAME, SCATTER_SELECTION_FILE_STEM,
-        TIMELINE_SELECTION_FILE_STEM,
+        ScatterSelectionManifestRecord, SelectionExportPaths, TimelineSelectionManifestRecord,
+        EXPORT_MANIFEST_FILE_NAME, SCATTER_SELECTION_FILE_STEM, TIMELINE_SELECTION_FILE_STEM,
     };
 
     #[test]
@@ -303,6 +261,8 @@ mod tests {
     #[test]
     fn manifest_record_is_valid_json_line_with_expected_fields() {
         let record = ScatterSelectionManifestRecord {
+            artifact_kind: "scatter-selection-evidence",
+            schema_version: 1,
             json_path: Path::new("target/rawscope-exports/scatter-selection-1234-1.json"),
             markdown_path: Path::new("target/rawscope-exports/scatter-selection-1234-1.md"),
             selected_row_count: 42,
@@ -312,7 +272,7 @@ mod tests {
             export_counter: 1,
         };
 
-        let line = record.to_json_line();
+        let line = serde_json::to_string(&record).unwrap();
         assert!(line.starts_with('{'));
         assert!(line.ends_with('}'));
         assert!(line.contains("\"artifact_kind\":\"scatter-selection-evidence\""));
@@ -328,6 +288,8 @@ mod tests {
     #[test]
     fn timeline_manifest_record_is_valid_json_line_with_expected_fields() {
         let record = TimelineSelectionManifestRecord {
+            artifact_kind: "timeline-selection-evidence",
+            schema_version: 1,
             json_path: Path::new("target/rawscope-exports/timeline-selection-1234-1.json"),
             markdown_path: Path::new("target/rawscope-exports/timeline-selection-1234-1.md"),
             selected_event_count: 88,
@@ -337,7 +299,7 @@ mod tests {
             export_counter: 1,
         };
 
-        let line = record.to_json_line();
+        let line = serde_json::to_string(&record).unwrap();
         assert!(line.starts_with('{'));
         assert!(line.ends_with('}'));
         assert!(line.contains("\"artifact_kind\":\"timeline-selection-evidence\""));
@@ -348,11 +310,6 @@ mod tests {
         assert!(line.contains("\"export_timestamp_unix_ms\":1234"));
         assert!(line.contains("\"export_counter\":1"));
         assert!(line.contains("timeline-selection-1234-1.json"));
-    }
-
-    #[test]
-    fn json_escape_escapes_path_sensitive_characters() {
-        assert_eq!(json_escape("a\\b\"c\n"), "a\\\\b\\\"c\\n");
     }
 
     fn unique_test_dir(name: &str) -> std::path::PathBuf {

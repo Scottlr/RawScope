@@ -8,7 +8,7 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    BrushScreenSize, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
     ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, TimelineBrushDrag,
     TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
@@ -44,32 +44,44 @@ pub struct WorkbenchApp {
     pub(crate) input: Option<WorkbenchInput>,
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
-    pub(crate) scatter_density_renderer: Option<ScatterDensityRenderer>,
-    pub(crate) timeline_density_renderer: Option<TimelineDensityRenderer>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
-    pub(crate) points: Vec<SyntheticPointRecord>,
-    pub(crate) events: Vec<SyntheticEventRecord>,
-    pub(crate) active_preset: PointCountPreset,
-    pub(crate) point_count_label: String,
-    pub(crate) viewport: Option<ScatterViewport>,
-    pub(crate) timeline_viewport: Option<TimelineViewport>,
-    render_stats: Option<ScatterDensityRenderStats>,
-    pub(crate) timeline_render_stats: Option<TimelineDensityRenderStats>,
+    pub(crate) scatter: ScatterWorkbenchState,
+    pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,
     pub(crate) last_drag_position: Option<PhysicalPosition<f64>>,
     pub(crate) modifiers: ModifiersState,
+    pub(crate) evidence_export_counter: u64,
+}
+
+/// Scatter-specific workbench state.
+#[derive(Default)]
+pub(crate) struct ScatterWorkbenchState {
+    pub(crate) density_renderer: Option<ScatterDensityRenderer>,
+    pub(crate) points: Vec<SyntheticPointRecord>,
+    pub(crate) active_preset: PointCountPreset,
+    pub(crate) point_count_label: String,
+    pub(crate) viewport: Option<ScatterViewport>,
+    pub(crate) render_stats: Option<ScatterDensityRenderStats>,
     pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
     pub(crate) active_brush_drag: Option<ScatterBrushDrag>,
     pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
     pub(crate) selection_evidence: Option<ScatterSelectionEvidence>,
-    pub(crate) timeline_brush_drag_start: Option<PhysicalPosition<f64>>,
-    pub(crate) active_timeline_brush_drag: Option<TimelineBrushDrag>,
-    pub(crate) active_timeline_brush_selection: Option<TimelineBrushSelection>,
-    pub(crate) timeline_selection_summary: Option<TimelineSelectionSummary>,
-    pub(crate) timeline_selection_evidence: Option<TimelineSelectionEvidence>,
-    pub(crate) evidence_export_counter: u64,
+}
+
+/// Timeline-specific workbench state.
+#[derive(Default)]
+pub(crate) struct TimelineWorkbenchState {
+    pub(crate) density_renderer: Option<TimelineDensityRenderer>,
+    pub(crate) events: Vec<SyntheticEventRecord>,
+    pub(crate) viewport: Option<TimelineViewport>,
+    pub(crate) render_stats: Option<TimelineDensityRenderStats>,
+    pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
+    pub(crate) active_brush_drag: Option<TimelineBrushDrag>,
+    pub(crate) active_brush_selection: Option<TimelineBrushSelection>,
+    pub(crate) selection_summary: Option<TimelineSelectionSummary>,
+    pub(crate) selection_evidence: Option<TimelineSelectionEvidence>,
 }
 
 impl WorkbenchApp {
@@ -77,7 +89,10 @@ impl WorkbenchApp {
         Self {
             demo_mode: args.demo_mode,
             input: args.input,
-            point_count_label: PointCountPreset::default().row_count_label().to_string(),
+            scatter: ScatterWorkbenchState {
+                point_count_label: PointCountPreset::default().row_count_label().to_string(),
+                ..ScatterWorkbenchState::default()
+            },
             ..Self::default()
         }
     }
@@ -156,11 +171,11 @@ impl WorkbenchApp {
 
             self.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
-            self.points = dataset.points;
-            self.point_count_label = "local".to_string();
-            self.viewport = Some(viewport);
-            self.render_stats = Some(render_stats);
-            self.scatter_density_renderer = Some(scatter_density_renderer);
+            self.scatter.points = dataset.points;
+            self.scatter.point_count_label = "local".to_string();
+            self.scatter.viewport = Some(viewport);
+            self.scatter.render_stats = Some(render_stats);
+            self.scatter.density_renderer = Some(scatter_density_renderer);
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
 
             return Ok(());
@@ -194,13 +209,13 @@ impl WorkbenchApp {
             "RawScope synthetic scatter-density demo prepared"
         );
 
-        self.active_preset = active_preset;
-        self.point_count_label = active_preset.row_count_label().to_string();
+        self.scatter.active_preset = active_preset;
+        self.scatter.point_count_label = active_preset.row_count_label().to_string();
         self.dataset_metadata = Some(dataset.metadata);
-        self.points = dataset.points;
-        self.viewport = Some(viewport);
-        self.render_stats = Some(render_stats);
-        self.scatter_density_renderer = Some(scatter_density_renderer);
+        self.scatter.points = dataset.points;
+        self.scatter.viewport = Some(viewport);
+        self.scatter.render_stats = Some(render_stats);
+        self.scatter.density_renderer = Some(scatter_density_renderer);
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
 
         Ok(())
@@ -212,6 +227,16 @@ impl WorkbenchApp {
         }
     }
 
+    pub(crate) fn screen_size(&self) -> BrushScreenSize {
+        self.window
+            .as_ref()
+            .map(|window| {
+                let size = window.inner_size();
+                BrushScreenSize::new(size.width as f32, size.height as f32)
+            })
+            .unwrap_or_else(|| BrushScreenSize::new(0.0, 0.0))
+    }
+
     pub(crate) fn switch_point_preset(&mut self, preset: PointCountPreset) {
         if !self.demo_mode.is_scatter() {
             return;
@@ -220,7 +245,7 @@ impl WorkbenchApp {
             return;
         }
 
-        let preset_is_already_active = self.active_preset == preset;
+        let preset_is_already_active = self.scatter.active_preset == preset;
         if preset_is_already_active {
             return;
         }
@@ -228,11 +253,11 @@ impl WorkbenchApp {
         let dataset =
             generate_synthetic_points(SyntheticPointConfig::new(DEMO_SEED, preset.row_count));
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
-        self.points = dataset.points;
-        self.active_preset = preset;
-        self.point_count_label = preset.row_count_label().to_string();
+        self.scatter.points = dataset.points;
+        self.scatter.active_preset = preset;
+        self.scatter.point_count_label = preset.row_count_label().to_string();
         self.dataset_metadata = Some(dataset.metadata);
-        self.viewport = Some(viewport);
+        self.scatter.viewport = Some(viewport);
         self.clear_brush();
 
         if let Err(err) = self.recompute_density() {
@@ -250,7 +275,7 @@ impl WorkbenchApp {
         }
 
         let cursor_fraction = self.cursor_fraction();
-        let Some(viewport) = self.viewport.as_mut() else {
+        let Some(viewport) = self.scatter.viewport.as_mut() else {
             return;
         };
 
@@ -303,7 +328,7 @@ impl WorkbenchApp {
         let Some(window) = &self.window else {
             return;
         };
-        let Some(viewport) = self.viewport.as_mut() else {
+        let Some(viewport) = self.scatter.viewport.as_mut() else {
             return;
         };
 
@@ -332,7 +357,7 @@ impl WorkbenchApp {
             return;
         }
 
-        let Some(viewport) = self.viewport.as_mut() else {
+        let Some(viewport) = self.scatter.viewport.as_mut() else {
             return;
         };
 
@@ -346,10 +371,10 @@ impl WorkbenchApp {
         let Some(gpu) = self.gpu.as_ref() else {
             return Ok(());
         };
-        let Some(viewport) = self.viewport else {
+        let Some(viewport) = self.scatter.viewport else {
             return Ok(());
         };
-        let Some(scatter_density_renderer) = self.scatter_density_renderer.as_mut() else {
+        let Some(scatter_density_renderer) = self.scatter.density_renderer.as_mut() else {
             return Ok(());
         };
 
@@ -362,10 +387,10 @@ impl WorkbenchApp {
         let stats = scatter_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
-            &self.points,
+            &self.scatter.points,
             renderer_config,
         )?;
-        self.render_stats = Some(stats);
+        self.scatter.render_stats = Some(stats);
         self.update_window_title();
         self.request_redraw();
 
@@ -378,33 +403,33 @@ impl WorkbenchApp {
         };
         match self.demo_mode {
             DemoMode::Scatter => {
-                let Some(viewport) = self.viewport else {
+                let Some(viewport) = self.scatter.viewport else {
                     return;
                 };
-                let Some(render_stats) = self.render_stats else {
+                let Some(render_stats) = self.scatter.render_stats else {
                     return;
                 };
                 let overlay = DemoOverlayState {
-                    point_count_label: self.point_count_label.clone(),
+                    point_count_label: self.scatter.point_count_label.clone(),
                     viewport,
                     render_stats,
-                    selection_summary: self.selection_summary,
-                    selection_evidence: self.selection_evidence.clone(),
+                    selection_summary: self.scatter.selection_summary,
+                    selection_evidence: self.scatter.selection_evidence.clone(),
                 };
                 window.set_title(&overlay.title());
             }
             DemoMode::Timeline => {
-                let Some(render_stats) = self.timeline_render_stats else {
+                let Some(render_stats) = self.timeline.render_stats else {
                     return;
                 };
-                let Some(viewport) = self.timeline_viewport else {
+                let Some(viewport) = self.timeline.viewport else {
                     return;
                 };
                 let overlay = TimelineOverlayState {
                     viewport,
                     render_stats,
-                    selection_summary: self.timeline_selection_summary.clone(),
-                    selection_evidence: self.timeline_selection_evidence.clone(),
+                    selection_summary: self.timeline.selection_summary.clone(),
+                    selection_evidence: self.timeline.selection_evidence.clone(),
                 };
                 window.set_title(&overlay.title());
             }

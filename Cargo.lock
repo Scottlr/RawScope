@@ -1429,6 +1429,8 @@ dependencies = [
  "rawscope-data",
  "rawscope-gpu",
  "rawscope-render",
+ "serde",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
  "winit",

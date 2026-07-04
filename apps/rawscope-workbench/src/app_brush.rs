@@ -1,8 +1,8 @@
 //! Brush interaction helpers for the workbench scatter-density demo.
 
 use rawscope_render::{
-    BrushScreenPoint, BrushScreenSize, ScatterBrushDrag, ScatterSelectionEvidence,
-    SelectedRegionSummary, SelectionEvidenceConfig,
+    BrushScreenPoint, ScatterBrushDrag, ScatterSelectionEvidence, SelectedRegionSummary,
+    SelectionEvidenceConfig,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -16,7 +16,7 @@ impl WorkbenchApp {
         }
 
         self.last_drag_position = None;
-        self.brush_drag_start = self.cursor_position;
+        self.scatter.brush_drag_start = self.cursor_position;
         self.update_brush_from_cursor();
     }
 
@@ -38,22 +38,22 @@ impl WorkbenchApp {
         self.build_selection_evidence();
         self.log_selection_summary("finalized");
         self.log_selection_evidence();
-        self.brush_drag_start = None;
-        self.active_brush_drag = None;
+        self.scatter.brush_drag_start = None;
+        self.scatter.active_brush_drag = None;
         self.update_window_title();
         self.request_redraw();
     }
 
     pub(crate) fn clear_brush(&mut self) {
-        let had_selection = self.active_brush_selection.is_some()
-            || self.active_brush_drag.is_some()
-            || self.selection_summary.is_some()
-            || self.selection_evidence.is_some();
-        self.active_brush_drag = None;
-        self.active_brush_selection = None;
-        self.selection_summary = None;
-        self.selection_evidence = None;
-        self.brush_drag_start = None;
+        let had_selection = self.scatter.active_brush_selection.is_some()
+            || self.scatter.active_brush_drag.is_some()
+            || self.scatter.selection_summary.is_some()
+            || self.scatter.selection_evidence.is_some();
+        self.scatter.active_brush_drag = None;
+        self.scatter.active_brush_selection = None;
+        self.scatter.selection_summary = None;
+        self.scatter.selection_evidence = None;
+        self.scatter.brush_drag_start = None;
         self.update_window_title();
 
         if had_selection {
@@ -62,74 +62,66 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn brush_is_active(&self) -> bool {
-        self.brush_drag_start.is_some()
+        self.scatter.brush_drag_start.is_some()
     }
 
     fn update_brush_from_cursor(&mut self) {
-        let Some(brush_drag_start) = self.brush_drag_start else {
+        let Some(brush_drag_start) = self.scatter.brush_drag_start else {
             return;
         };
         let Some(cursor_position) = self.cursor_position else {
             return;
         };
-        let Some(window) = &self.window else {
-            return;
-        };
-        let Some(viewport) = self.viewport else {
+        let Some(viewport) = self.scatter.viewport else {
             return;
         };
 
-        let screen_size = BrushScreenSize::new(
-            window.inner_size().width as f32,
-            window.inner_size().height as f32,
-        );
+        let screen_size = self.screen_size();
         let brush_start =
             BrushScreenPoint::new(brush_drag_start.x as f32, brush_drag_start.y as f32);
         let brush_end = BrushScreenPoint::new(cursor_position.x as f32, cursor_position.y as f32);
         let next_drag = ScatterBrushDrag::from_screen_points(brush_start, brush_end, screen_size);
 
-        self.active_brush_drag = next_drag;
-        self.active_brush_selection =
+        self.scatter.active_brush_drag = next_drag;
+        self.scatter.active_brush_selection =
             next_drag.and_then(|drag| drag.finalize(screen_size, viewport));
-        self.selection_summary = self
+        self.scatter.selection_summary = self
+            .scatter
             .active_brush_selection
-            .map(|selection| SelectedRegionSummary::from_points(&self.points, selection));
-        self.selection_evidence = None;
+            .map(|selection| SelectedRegionSummary::from_points(&self.scatter.points, selection));
+        self.scatter.selection_evidence = None;
         self.update_window_title();
         self.request_redraw();
     }
 
     fn finalize_brush_from_drag(&mut self) {
-        let Some(active_drag) = self.active_brush_drag else {
+        let Some(active_drag) = self.scatter.active_brush_drag else {
             return;
         };
-        let Some(window) = &self.window else {
-            return;
-        };
-        let Some(viewport) = self.viewport else {
+        let Some(viewport) = self.scatter.viewport else {
             return;
         };
 
-        let window_size = window.inner_size();
-        let screen_size = BrushScreenSize::new(window_size.width as f32, window_size.height as f32);
-        self.active_brush_selection = active_drag.finalize(screen_size, viewport);
-        self.selection_summary = self
+        let screen_size = self.screen_size();
+        self.scatter.active_brush_selection = active_drag.finalize(screen_size, viewport);
+        self.scatter.selection_summary = self
+            .scatter
             .active_brush_selection
-            .map(|selection| SelectedRegionSummary::from_points(&self.points, selection));
+            .map(|selection| SelectedRegionSummary::from_points(&self.scatter.points, selection));
     }
 
     fn build_selection_evidence(&mut self) {
-        let Some(selection) = self.active_brush_selection else {
-            self.selection_evidence = None;
+        let Some(selection) = self.scatter.active_brush_selection else {
+            self.scatter.selection_evidence = None;
             return;
         };
         let Some(dataset_metadata) = self.dataset_metadata.clone() else {
-            self.selection_evidence = None;
+            self.scatter.selection_evidence = None;
             return;
         };
 
-        self.selection_evidence = Some(ScatterSelectionEvidence::from_points(
-            &self.points,
+        self.scatter.selection_evidence = Some(ScatterSelectionEvidence::from_points(
+            &self.scatter.points,
             selection,
             dataset_metadata,
             self.scatter_evidence_row_count(),
@@ -139,14 +131,14 @@ impl WorkbenchApp {
 
     fn scatter_evidence_row_count(&self) -> usize {
         if self.input.is_some() {
-            return self.points.len();
+            return self.scatter.points.len();
         }
 
-        self.active_preset.row_count
+        self.scatter.active_preset.row_count
     }
 
     fn log_selection_summary(&self, reason: &'static str) {
-        let Some(summary) = self.selection_summary else {
+        let Some(summary) = self.scatter.selection_summary else {
             return;
         };
 
@@ -168,7 +160,7 @@ impl WorkbenchApp {
     }
 
     fn log_selection_evidence(&self) {
-        let Some(evidence) = &self.selection_evidence else {
+        let Some(evidence) = &self.scatter.selection_evidence else {
             return;
         };
 

@@ -2,7 +2,7 @@
 
 use std::{error::Error, fmt, sync::mpsc::RecvError};
 
-use rawscope_core::F32Range;
+use rawscope_core::{DensityCountGrid, F32Range, GridSize};
 use rawscope_data::SyntheticPointRecord;
 use rawscope_gpu::ComputeContext;
 
@@ -29,56 +29,40 @@ pub(crate) struct ScatterDensityComputeConfig {
 /// Flattened GPU scatter-density counts for a 2D grid.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GpuScatterDensityGrid {
-    width: u32,
-    height: u32,
-    counts: Vec<u32>,
+    counts: DensityCountGrid,
 }
 
 impl GpuScatterDensityGrid {
     /// Creates a flattened GPU count grid.
     pub fn new(width: u32, height: u32, counts: Vec<u32>) -> Self {
-        assert!(width > 0, "grid width must be positive");
-        assert!(height > 0, "grid height must be positive");
-        assert_eq!(
-            counts.len(),
-            (width as usize) * (height as usize),
-            "count length must match grid dimensions"
-        );
-
         Self {
-            width,
-            height,
-            counts,
+            counts: DensityCountGrid::new(GridSize::new(width, height), counts),
         }
     }
 
     /// Returns the grid width in bins.
     pub fn width(&self) -> u32 {
-        self.width
+        self.counts.width()
     }
 
     /// Returns the grid height in bins.
     pub fn height(&self) -> u32 {
-        self.height
+        self.counts.height()
     }
 
     /// Returns the flattened row-count bins.
     pub fn counts(&self) -> &[u32] {
-        &self.counts
+        self.counts.counts()
     }
 
     /// Returns one bin count by x/y coordinate.
     pub fn count(&self, x: u32, y: u32) -> u32 {
-        assert!(x < self.width, "x bin out of range");
-        assert!(y < self.height, "y bin out of range");
-
-        let bin_index = (y as usize) * (self.width as usize) + (x as usize);
-        self.counts[bin_index]
+        self.counts.count(x, y)
     }
 
     /// Returns the total number of binned rows.
     pub fn total_count(&self) -> u64 {
-        self.counts.iter().map(|count| *count as u64).sum()
+        self.counts.total_count()
     }
 }
 
