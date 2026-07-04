@@ -4,7 +4,7 @@ See the shape before writing the query.
 
 RawScope is a GPU-scale visual analytics engine for large raw datasets. It helps analysts, researchers, data scientists, and big data engineers visually inspect the shape of data before they know exactly what SQL query, notebook analysis, dashboard, or model they need.
 
-Current status: early design/scaffold.
+Current status: early native workbench with deterministic synthetic data, CPU reference density outputs, WGPU scatter/timeline density rendering, basic interaction, local CSV loading, and JSON/Markdown selection evidence export.
 
 ## Target Users
 
@@ -13,11 +13,42 @@ Current status: early design/scaffold.
 - Data scientists checking feature drift, label imbalance, outliers, and cohort differences
 - Big data engineers debugging pipeline regressions, missing partitions, schema drift, null spikes, and freshness gaps
 
-## First Milestone
+## Goals
 
-The current scaffold establishes docs, boundaries, and a compiling Rust workspace. The next implementation milestone is deterministic synthetic point/event data plus a CPU-side density reference. The first GPU milestone is a synthetic density rendering demo.
+RawScope is built around five product and technical goals:
 
-## Current Workbench Demo
+- Show full-dataset visual shape before users commit to a query, dashboard, notebook analysis, or model.
+- Keep zooming, panning, brushing, and future linked views smooth as datasets grow.
+- Bridge visual patterns back to row-level evidence through stable row ids, selection summaries, and exportable artifacts.
+- Stay local-first for private datasets and early forensic exploration.
+- Produce reproducible evidence reports that preserve view context, selected regions, summaries, and sampled or exact supporting rows.
+
+See `docs/GOALS.md` for the fuller goal model.
+
+## Supported Today
+
+RawScope currently supports:
+
+- Deterministic synthetic scatter point datasets with stable `RowId`s, category labels, dense clusters, background points, and sparse outliers.
+- Deterministic synthetic timeline event datasets with stable `RowId`s, lanes, injected spike/gap/stale-lane/high-value patterns, and event types.
+- CPU reference scatter and timeline density grids for deterministic correctness checks.
+- WGPU bootstrap for native window rendering, surface resize handling, adapter metadata logging, and headless compute tests.
+- GPU scatter-density count binning and simple fullscreen log-scaled scatter density rendering.
+- GPU timeline-density count binning and simple fullscreen log-scaled timeline density rendering.
+- Mouse-wheel zoom, drag pan, reset, and viewport re-binning for scatter and timeline modes.
+- Deterministic scatter point-count presets from 20,000 to 5,000,000 synthetic points.
+- Data-anchored rectangular brush selections for scatter and timeline views.
+- CPU-side selected-region summaries for scatter brushes, including selected count, percentage, data extents, category counts, and top category.
+- CPU-side selected-event summaries for timeline brushes, including selected count, percentage, lane counts, event-type counts, top lane/type, timestamp extent, and value extent.
+- Deterministic CPU-side evidence objects for finalized scatter and timeline selections, including lowest-row-id samples.
+- JSON and Markdown evidence export for scatter and timeline selections, plus collision-safe filenames and an appended `manifest.jsonl`.
+- Local CSV loading for scatter density with explicit numeric `--x`/`--y` columns.
+- Local CSV loading for timeline density with explicit integer `--time` and string or integer `--lane` columns.
+- Optional `--limit <rows>` for local CSV loading.
+
+These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, exact row drilldown UI, polished axes/labels, screenshots, or production report workflows.
+
+## Current Workbench
 
 Run the native scatter-density demo with:
 
@@ -59,26 +90,39 @@ Controls:
 - `4`: switch to 5,000,000 synthetic points.
 - `P` or `F12`: screenshot capture is currently skipped in-app; use the OS screenshot tool for now.
 
-The scatter demo uses deterministic synthetic point data by default, or local CSV rows when `--input`, `--x`, and `--y` are provided. It recomputes GPU density counts for the current viewport and keeps the window title focused on the active view: point count, grid size, viewport ranges, max bin count, and selected-region summary. The selected-region summary is computed on CPU from the active point records and includes selected row count, percentage, brush x/y ranges, selected data extents, category counts, and top category. The workbench does not present these values as GPU benchmark results.
+The scatter view uses deterministic synthetic point data by default, or local CSV rows when `--input`, `--x`, and `--y` are provided. It recomputes GPU density counts for the current viewport and keeps the window title focused on the active view: point count, grid size, viewport ranges, max bin count, and selected-region summary. The selected-region summary is computed on CPU from the active point records and includes selected row count, percentage, brush x/y ranges, selected data extents, category counts, and top category. The workbench does not present these values as GPU benchmark results.
 
-Timeline demo note: `--demo timeline` uses deterministic synthetic event data by default, or local CSV rows when `--input`, `--time`, and `--lane` are provided. It renders GPU timeline-density counts as a simple full-window view where x is time, y is lane/source, and intensity is event count. Mouse wheel zooms time, left or middle drag pans time, and `R` resets to the full time range; each viewport change re-bins the visible time range while lane mapping remains stable. Right-drag or Shift + left-drag creates a data-anchored timeline brush over a time/lane region, and the title reports a CPU-side selected-event summary with event count, selected percentage, lane counts, event-type counts, top lane/type, timestamp extent, and value extent. Once finalized, timeline brushes also cache deterministic CPU-side evidence with the lowest selected row ids and sampled event records, and `E` exports that cached evidence. The injected spike, gap, and stale-lane patterns should be visible in synthetic mode. Timeline rendering is a visual proof only: no axes, labels, row table UI, arbitrary timestamp normalization, or Parquet import are included yet. The current GPU timeline path deliberately keeps the `u32` time-span guard from Milestone 4A.
+Timeline note: `--demo timeline` uses deterministic synthetic event data by default, or local CSV rows when `--input`, `--time`, and `--lane` are provided. It renders GPU timeline-density counts as a simple full-window view where x is time, y is lane/source, and intensity is event count. Mouse wheel zooms time, left or middle drag pans time, and `R` resets to the full time range; each viewport change re-bins the visible time range while lane mapping remains stable. Right-drag or Shift + left-drag creates a data-anchored timeline brush over a time/lane region, and the title reports a CPU-side selected-event summary with event count, selected percentage, lane counts, event-type counts, top lane/type, timestamp extent, and value extent. Once finalized, timeline brushes also cache deterministic CPU-side evidence with the lowest selected row ids and sampled event records, and `E` exports that cached evidence. The injected spike, gap, and stale-lane patterns should be visible in synthetic mode. Timeline rendering is a visual proof only: no axes, labels, row table UI, arbitrary timestamp normalization, or Parquet import are included yet. The current GPU timeline path deliberately keeps the `u32` time-span guard from Milestone 4A.
 
 Brush overlay note: the current rectangle overlay is intentionally simple: a faint amber fill with a brighter border, rendered after the density pass. During drag, the rectangle follows screen-space mouse movement. Once finalized, the selection is anchored to data-space x/y ranges, and the overlay is projected back into the current viewport after zoom, pan, resize, or reset. Fully offscreen selections are hidden; partially visible selections are clamped to the viewport edge. Preset changes clear the brush because the synthetic dataset changes.
 
-Selection evidence note: finalized brushes also build a small CPU-side evidence object from synthetic records. Evidence includes selected counts, category counts, min/max x/y, brush range, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus their synthetic records. This is logged once when the brush finalizes and is not a row table UI or GPU row-id path.
+Selection evidence note: finalized brushes also build a small CPU-side evidence object from active records. Scatter evidence includes selected counts, category counts, min/max x/y, brush range, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus point records. Timeline evidence includes selected counts, lane and event-type counts, selected timestamp/value ranges, brush time/lane ranges, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus event records. This is logged once when the brush finalizes and is not a row table UI or GPU row-id path.
 
 Evidence export note: pressing `E` writes the active demo's cached selection evidence to `target/rawscope-exports/`, then appends a matching entry to `target/rawscope-exports/manifest.jsonl`. Scatter exports use `scatter-selection-<unix-ms>-<counter>.json` and `.md`; timeline exports use `timeline-selection-<unix-ms>-<counter>.json` and `.md`. If no finalized brush evidence exists in the active demo, the app logs a warning and does not write files. These artifacts are deterministic synthetic CPU-side evidence, not the final report system. The JSON schemas are documented in `docs/schemas/scatter-selection-evidence-v1.md` and `docs/schemas/timeline-selection-evidence-v1.md`.
 
 Screenshot capture note: in-app screenshot capture is intentionally deferred because native surface readback and image encoding would add a dedicated capture path or extra dependencies. For Milestone 3D, OS-level screenshots are the recommended path.
 
-## Repo Layout
+## Current Crate Responsibilities
 
 - `docs/`: project intent, architecture, goals, MVP milestones, and agent guidance
-- `crates/rawscope-core`: shared foundational types and selection/view concepts
-- `crates/rawscope-data`: future data abstractions, dataset metadata, row ids, and chunk storage
-- `crates/rawscope-gpu`: future GPU device/session and resource management
-- `crates/rawscope-render`: future density, heatmap, timeline, and selection rendering logic
-- `apps/rawscope-workbench`: native desktop app shell
+- `crates/rawscope-core`: shared foundational types, row ids, ranges, grid sizes, row-count density grids, and count-only density grids
+- `crates/rawscope-data`: deterministic synthetic point/event data, local CSV loading, dataset metadata, schema summaries, and row-record mapping for current views
+- `crates/rawscope-gpu`: WGPU surface context, headless compute context, adapter metadata, resize handling, and clear-frame status
+- `crates/rawscope-render`: CPU density references, GPU scatter/timeline density compute, simple density renderers, viewport math, brush geometry, selection summaries/evidence, and evidence artifact formatting
+- `apps/rawscope-workbench`: native `winit` workbench that coordinates startup args, WGPU context, active view state, input handling, brushing, title-bar summaries, and evidence export
+
+## Deferred Work
+
+The next larger areas remain intentionally deferred:
+
+- Polished UI with axes, labels, panels, file dialogs, row tables, and richer layout.
+- GPU row-id preservation and exact row drilldown from rendered density bins.
+- Parquet/Arrow-backed columnar data and chunked local dataset ownership.
+- Linked multi-view selection, selected-vs-baseline comparison, and visual query persistence.
+- Screenshot/readback capture and evidence reports with rendered visual context.
+- Arbitrary timestamp normalization for timeline data beyond the current `u32` GPU time-span guard.
+- Benchmarks and performance claims.
+- Tauri, web/WASM, cloud workflows, plugin systems, SQL/DataFusion, and dataframe-style execution.
 
 ## Non-Goals
 
@@ -86,4 +130,4 @@ RawScope is not a generic charting library, BI dashboard builder, Tableau/Grafan
 
 ## Development Status
 
-This repository is intentionally small right now. The workbench supports a first local CSV import path for scatter and timeline density views; avoid broad import systems, egui UI, Tauri packaging, or dataframe/query abstractions until the product milestones call for them.
+This repository is still intentionally small and milestone-driven. The current workbench proves synthetic and local CSV scatter/timeline density workflows, GPU-side count aggregation, data-anchored brushing, CPU-side evidence, and local export artifacts. Keep future work focused on RawScope's visual exploration and row-evidence path; avoid broad import systems, generic charting features, BI/dashboard behavior, Tauri packaging, cloud services, plugin systems, or dataframe/query abstractions until the product milestones call for them.
