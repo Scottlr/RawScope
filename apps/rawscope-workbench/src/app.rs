@@ -12,7 +12,7 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    BrushScreenSize, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
     ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
     TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
@@ -20,18 +20,15 @@ use rawscope_render::{
 };
 use tracing::{error, info};
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
-    event::MouseScrollDelta,
-    event_loop::ActiveEventLoop,
-    keyboard::ModifiersState,
-    window::Window,
+    dpi::PhysicalPosition, event::MouseScrollDelta, keyboard::ModifiersState, window::Window,
 };
 
 use crate::{
+    app_missingness::MissingnessWorkbenchState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
-    ui::ExportStatus,
+    ui::{ExportStatus, WorkbenchSurface},
 };
 
 pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
@@ -59,7 +56,9 @@ pub struct WorkbenchApp {
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
     pub(crate) next_selection_id: SelectionId,
+    pub(crate) visible_surface: WorkbenchSurface,
     pub(crate) export_status: ExportStatus,
+    pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,
@@ -115,44 +114,6 @@ impl WorkbenchApp {
         }
     }
 
-    pub(crate) fn create_window_and_gpu(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-    ) -> Result<(), Box<dyn Error>> {
-        if self.window.is_some() {
-            return Ok(());
-        }
-
-        let attributes = Window::default_attributes()
-            .with_title(WINDOW_TITLE)
-            .with_inner_size(LogicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT));
-        let window = Arc::new(event_loop.create_window(attributes)?);
-        let gpu = pollster::block_on(GpuContext::new(window.clone()))?;
-        let adapter_info = gpu.adapter_info();
-        info!(
-            adapter = %adapter_info.adapter_name,
-            backend = %adapter_info.backend,
-            device_type = %adapter_info.device_type,
-            surface_format = %adapter_info.surface_format,
-            present_mode = %adapter_info.present_mode,
-            alpha_mode = %adapter_info.alpha_mode,
-            "RawScope WGPU adapter selected"
-        );
-
-        match self.demo_mode {
-            DemoMode::Scatter => self.prepare_scatter_demo(&gpu)?,
-            DemoMode::Timeline => self.prepare_timeline_demo(&gpu)?,
-        }
-
-        window.request_redraw();
-        self.window = Some(window);
-        self.gpu = Some(gpu);
-        self.initialize_ui_integration();
-        self.update_window_title();
-
-        Ok(())
-    }
-
     pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         if let Some(WorkbenchInput::Scatter {
             path,
@@ -200,6 +161,7 @@ impl WorkbenchApp {
             self.scatter.density_renderer = Some(scatter_density_renderer);
             self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+            self.rebuild_missingness_state();
 
             return Ok(());
         }
@@ -244,24 +206,9 @@ impl WorkbenchApp {
         self.scatter.density_renderer = Some(scatter_density_renderer);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+        self.rebuild_missingness_state();
 
         Ok(())
-    }
-
-    pub(crate) fn request_redraw(&self) {
-        if let Some(window) = &self.window {
-            window.request_redraw();
-        }
-    }
-
-    pub(crate) fn screen_size(&self) -> BrushScreenSize {
-        self.window
-            .as_ref()
-            .map(|window| {
-                let size = window.inner_size();
-                BrushScreenSize::new(size.width as f32, size.height as f32)
-            })
-            .unwrap_or_else(|| BrushScreenSize::new(0.0, 0.0))
     }
 
     pub(crate) fn switch_point_preset(&mut self, preset: PointCountPreset) {
@@ -290,6 +237,7 @@ impl WorkbenchApp {
         self.scatter.viewport = Some(viewport);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.clear_brush();
+        self.rebuild_missingness_state();
 
         if let Err(err) = self.recompute_density() {
             error!(
@@ -426,27 +374,5 @@ impl WorkbenchApp {
         self.request_redraw();
 
         Ok(())
-    }
-
-    pub(crate) fn update_window_title(&self) {
-        let Some(window) = &self.window else {
-            return;
-        };
-        window.set_title(&self.ui_state().window_title());
-    }
-
-    pub(crate) fn cursor_fraction(&self) -> Option<(f32, f32)> {
-        let window = self.window.as_ref()?;
-        let cursor_position = self.cursor_position?;
-        let window_size = window.inner_size();
-
-        let window_has_area = window_size.width > 0 && window_size.height > 0;
-        if !window_has_area {
-            return None;
-        }
-
-        let x_fraction = (cursor_position.x / window_size.width as f64) as f32;
-        let y_fraction = (cursor_position.y / window_size.height as f64) as f32;
-        Some((x_fraction.clamp(0.0, 1.0), y_fraction.clamp(0.0, 1.0)))
     }
 }

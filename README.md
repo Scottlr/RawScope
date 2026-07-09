@@ -4,7 +4,7 @@ See the shape before writing the query.
 
 RawScope is a GPU-scale visual analytics engine for large raw datasets. It helps analysts, researchers, data scientists, and big data engineers visually inspect the shape of data before they know exactly what SQL query, notebook analysis, dashboard, or model they need.
 
-Current status: early native workbench with deterministic synthetic data, CPU reference density outputs, WGPU scatter/timeline density rendering, a small egui control shell, local CSV loading, and JSON/Markdown selection evidence export.
+Current status: early native workbench with deterministic synthetic data, CPU reference density outputs, WGPU scatter/timeline density rendering, a small egui control shell, a CPU-backed local missingness slice, local CSV loading, and JSON/Markdown selection evidence export.
 
 ## Target Users
 
@@ -46,6 +46,7 @@ RawScope currently supports:
 - Local CSV loading for timeline density with explicit integer `--time` and string or integer `--lane` columns.
 - Optional `--limit <rows>` for local CSV loading.
 - A small egui workbench shell with visible view controls, selection status, axis labels, export status, and selected-row drilldown.
+- A CPU-backed missingness heatmap slice for local CSV datasets, including cell selection and row-id summaries for missing values.
 
 These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, screenshot/report capture, or production report workflows.
 
@@ -79,7 +80,7 @@ Add `--limit <rows>` to cap the first imported rows. Parquet input is intentiona
 
 Controls:
 
-- Visible toolbar and panels: switch scatter or timeline mode, inspect dataset/view status, clear selections, reset, export, and inspect selected rows.
+- Visible toolbar and panels: switch scatter or timeline mode, open the local-data missingness slice when source rows are available, inspect dataset/view status, clear selections, reset, export, and inspect selected rows.
 - Mouse wheel: zoom the current viewport. Scatter zooms x/y around the cursor; timeline zooms the visible time range.
 - Left or middle mouse drag: pan the current data viewport. Timeline mode pans time while lane mapping remains stable.
 - Right mouse drag or Shift + left mouse drag: create or replace a visible rectangular brush selection.
@@ -95,6 +96,8 @@ Controls:
 The scatter view uses deterministic synthetic point data by default, or local CSV rows when `--input`, `--x`, and `--y` are provided. It recomputes GPU density counts for the current viewport and presents current state through the egui shell: a top toolbar for active view and selection actions, a right drilldown panel for selected rows, and a bottom status bar for axis ranges and export status. The window title remains a thin projection of that same UI state. Selected-region summaries are computed on CPU from the active point records and include selected row count, percentage, brush x/y ranges, selected data extents, category counts, and top category. The workbench does not present these values as GPU benchmark results.
 
 Timeline note: `--demo timeline` uses deterministic synthetic event data by default, or local CSV rows when `--input`, `--time`, and `--lane` are provided. It renders GPU timeline-density counts as a simple full-window view where x is time, y is lane/source, and intensity is event count. Mouse wheel zooms time, left or middle drag pans time, and `R` resets to the full time range; each viewport change re-bins the visible time range while lane mapping remains stable. Right-drag or Shift + left-drag creates a data-anchored timeline brush over a time/lane region, and the egui shell reports a CPU-side selected-event summary with event count, selected percentage, lane counts, event-type counts, top lane/type, timestamp extent, and value extent. Once finalized, timeline brushes also cache deterministic CPU-side evidence with the lowest selected row ids and sampled event records, and `E` exports that cached evidence. The injected spike, gap, and stale-lane patterns should be visible in synthetic mode. Timeline rendering is still intentionally narrow: no arbitrary timestamp normalization, Parquet import, linked multi-view coordination, or screenshot capture are included yet. The current GPU timeline path deliberately keeps the `u32` time-span guard from Milestone 4A.
+
+Missingness note: when the current dataset comes from a local CSV source, the egui shell also exposes a `Missingness` surface. The first slice is CPU-backed and uses retained source rows rather than a GPU pass. Cells are bucketed by row range and column, missingness is currently defined as trimmed-empty string values, and clicking a cell summarizes missing counts, selected columns, and sorted row ids that explain that region. This slice is intended as a data-quality foothold, not a full profiling system or benchmark path.
 
 Brush overlay note: the current rectangle overlay is intentionally simple: a faint amber fill with a brighter border, rendered after the density pass. During drag, the rectangle follows screen-space mouse movement. Once finalized, the selection is anchored to data-space x/y ranges, and the overlay is projected back into the current viewport after zoom, pan, resize, or reset. Fully offscreen selections are hidden; partially visible selections are clamped to the viewport edge. Preset changes clear the brush because the synthetic dataset changes.
 
@@ -120,7 +123,7 @@ The next larger areas remain intentionally deferred:
 - Broader UI work such as file dialogs, richer layout management, and screenshot/report capture.
 - GPU row-id preservation and exact row drilldown from rendered density bins.
 - Parquet/Arrow-backed columnar data and chunked local dataset ownership.
-- Linked multi-view selection, selected-vs-baseline comparison, and visual query persistence.
+- Linked multi-view selection, selected-vs-baseline comparison, and visual query persistence across scatter, timeline, and missingness.
 - Screenshot/readback capture and evidence reports with rendered visual context.
 - Arbitrary timestamp normalization for timeline data beyond the current `u32` GPU time-span guard.
 - Benchmarks and performance claims.

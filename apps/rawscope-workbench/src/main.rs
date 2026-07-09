@@ -3,15 +3,18 @@ mod app_brush;
 mod app_events;
 mod app_export;
 mod app_export_files;
+mod app_missingness;
 mod app_render;
 mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;
+mod app_window;
 mod cli;
 mod demo;
 mod ui;
 mod ui_controls;
 mod ui_drilldown;
+mod ui_missingness;
 
 use std::{error::Error, io};
 

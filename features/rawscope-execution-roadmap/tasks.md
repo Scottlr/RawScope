@@ -29,7 +29,7 @@ Current implementation baseline:
 
 Main audit findings:
 - The product direction is coherent: density-first visual exploration with row evidence, local-first privacy, and careful performance claims.
-- The repository has already passed the stale `docs/AGENTS.md` "Current Next Task" note. The real baseline is closer to post-Milestone 5A: synthetic and local CSV scatter/timeline density, brushing, evidence export, and manifests.
+- The repository has already passed the stale `docs/AGENTS.md` "Current Next Task" note. The real baseline is closer to post-Milestone 5C: synthetic and local CSV scatter/timeline density, brushing, evidence export, manifests, and a first CPU-backed missingness slice.
 - The largest model mismatch is synthetic naming leaking into local data. CSV rows are mapped into `SyntheticPointRecord`, `SyntheticEventRecord`, and `SyntheticDatasetMetadata::new(0, row_count)`, so evidence still reads like synthetic proof even for local files.
 - Evidence v1 is useful but synthetic-scoped. It omits external dataset source, dataset fingerprint, column bindings, lane labels, selected original row values, view configuration, and visual context.
 - The workbench now has a small egui shell with visible controls, axis labels, export status, and selected-row drilldown, but it remains a correctness-first single-view tool without file dialogs, linked views, screenshot capture, or broader report polish.
@@ -80,7 +80,7 @@ Existing owner and pattern checks:
 | T006 | [x] | Add CPU-Backed Row Drilldown | Add a selection drilldown model and workbench route that exposes exact or sampled selected rows from CPU state without claiming GPU row-id preservation. |  | T004, T005 | [`tasks/T006.md`](tasks/T006.md) |
 | T007 | [x] | Add Egui Workbench Shell | Introduce a small egui/eframe-facing workbench shell with visible controls, axes labels, export status, and row-drilldown panel while preserving existing WGPU proof paths. |  | T006 | [`tasks/T007.md`](tasks/T007.md) |
 | T008 | [x] | Add Linked Selection Contract | Add a shared visual selection/query state so scatter and timeline views can report and consume the same selection without becoming a dashboard system. |  | T006, T007 | [`tasks/T008.md`](tasks/T008.md) |
-| T009 | [ ] | Add Missingness Heatmap Slice | Add the first data-quality view for null/missingness shape with CPU reference, deterministic fixtures, brushing, and evidence hooks. |  | T002, T004, T007, T008 | [`tasks/T009.md`](tasks/T009.md) |
+| T009 | [x] | Add Missingness Heatmap Slice | Add the first data-quality view for null/missingness shape with CPU reference, deterministic fixtures, brushing, and evidence hooks. |  | T002, T004, T007, T008 | [`tasks/T009.md`](tasks/T009.md) |
 | T010 | [ ] | Add Evidence Report Bundles | Add report-bundle export with evidence JSON, Markdown, manifest metadata, and rendered visual context after screenshot/readback design is explicit. |  | T005, T007 | [`tasks/T010.md`](tasks/T010.md) |
 | T011 | [ ] | Add Chunked Parquet Ingestion | Add Parquet/Arrow-backed chunked local dataset loading only after identity, row retention, evidence, and UI flows are stable. |  | T002, T003, T004, T005 | [`tasks/T011.md`](tasks/T011.md) |
 | T012 | [ ] | Add Benchmarks And Performance Gates | Add repeatable CPU/GPU/workbench benchmarks and documentation rules that allow measured performance claims without polluting interactive UI paths. |  | T003, T011 | [`tasks/T012.md`](tasks/T012.md) |
