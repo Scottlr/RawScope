@@ -90,8 +90,12 @@ pub fn timeline_selection_evidence_markdown(evidence: &TimelineSelectionEvidence
     markdown.push_str("| ---: | ---: | ---: | ---: | --- |\n");
     for sample in &evidence.selected_event_sample {
         markdown.push_str(&format!(
-            "| {} | {} | {} | {:.6} | {:?} |\n",
-            sample.row_id.0, sample.timestamp, sample.lane, sample.value, sample.event_type,
+            "| {} | {} | {} | {:.6} | {} |\n",
+            sample.row_id.0,
+            sample.timestamp,
+            sample.lane,
+            sample.value,
+            format_optional_event_type(sample.event_type),
         ));
     }
     if evidence.selected_event_sample.is_empty() {
@@ -246,7 +250,7 @@ impl From<&SelectedTimelineEventSample> for SelectedTimelineEventSampleArtifact 
             timestamp: sample.timestamp,
             lane: sample.lane,
             value: sample.value,
-            event_type: format_event_type(sample.event_type),
+            event_type: format_optional_event_type(sample.event_type),
         }
     }
 }

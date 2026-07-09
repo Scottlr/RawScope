@@ -75,8 +75,11 @@ pub fn scatter_selection_evidence_markdown(evidence: &ScatterSelectionEvidence) 
     markdown.push_str("| ---: | ---: | ---: | --- |\n");
     for sample in &evidence.selected_record_sample {
         markdown.push_str(&format!(
-            "| {} | {:.6} | {:.6} | {:?} |\n",
-            sample.row_id.0, sample.x, sample.y, sample.category,
+            "| {} | {:.6} | {:.6} | {} |\n",
+            sample.row_id.0,
+            sample.x,
+            sample.y,
+            format_optional_category(sample.category),
         ));
     }
     if evidence.selected_record_sample.is_empty() {
@@ -208,7 +211,7 @@ impl From<&SelectedPointSample> for SelectedPointSampleArtifact {
             row_id: sample.row_id.0,
             x: sample.x,
             y: sample.y,
-            category: format_category(sample.category),
+            category: format_optional_category(sample.category),
         }
     }
 }

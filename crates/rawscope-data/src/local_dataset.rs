@@ -8,7 +8,7 @@ use std::{
 
 use rawscope_core::{F32Range, U64Range};
 
-use crate::{DatasetIdentity, SyntheticEventRecord, SyntheticPointRecord};
+use crate::{DatasetIdentity, ScatterPointRecord, TimelineEventRecord};
 
 mod csv;
 
@@ -63,7 +63,7 @@ pub struct LoadedColumnSchema {
     pub kind: LoadedColumnKind,
 }
 
-/// Loaded scatter-ready dataset mapped into the existing point record path.
+/// Loaded scatter-ready dataset mapped into shared visual point records.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedScatterDataset {
     pub identity: DatasetIdentity,
@@ -72,10 +72,10 @@ pub struct LoadedScatterDataset {
     pub y_column: String,
     pub x_range: F32Range,
     pub y_range: F32Range,
-    pub points: Vec<SyntheticPointRecord>,
+    pub points: Vec<ScatterPointRecord>,
 }
 
-/// Loaded timeline-ready dataset mapped into the existing event record path.
+/// Loaded timeline-ready dataset mapped into shared visual event records.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedTimelineDataset {
     pub identity: DatasetIdentity,
@@ -85,7 +85,7 @@ pub struct LoadedTimelineDataset {
     pub time_range: U64Range,
     pub lane_count: u32,
     pub lane_labels: Vec<String>,
-    pub events: Vec<SyntheticEventRecord>,
+    pub events: Vec<TimelineEventRecord>,
 }
 
 /// Errors returned while opening a local dataset and binding columns.

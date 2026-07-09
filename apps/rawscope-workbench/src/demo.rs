@@ -238,13 +238,14 @@ fn format_evidence_summary(evidence: &ScatterSelectionEvidence) -> String {
         .join(",");
 
     format!(
-        "evidence rows {} ({:.2}%) sample [{}] cats c:{} b:{} o:{} top {:?}",
+        "evidence rows {} ({:.2}%) sample [{}] cats c:{} b:{} o:{} u:{} top {:?}",
         evidence.selected_row_count,
         evidence.selected_percentage,
         row_id_sample,
         evidence.category_counts.cluster,
         evidence.category_counts.background,
         evidence.category_counts.outlier,
+        evidence.category_counts.unclassified,
         evidence.top_category,
     )
 }
@@ -264,7 +265,7 @@ fn format_selection_summary(summary: SelectedRegionSummary) -> String {
         .unwrap_or_else(|| "none".to_string());
 
     format!(
-        "sel {} ({:.2}%) brush x {:.1}..{:.1} y {:.1}..{:.1} data x {} y {} cats c:{} b:{} o:{} top {}",
+        "sel {} ({:.2}%) brush x {:.1}..{:.1} y {:.1}..{:.1} data x {} y {} cats c:{} b:{} o:{} u:{} top {}",
         summary.selected_row_count,
         summary.selected_percentage,
         summary.brush_x_range.min,
@@ -276,6 +277,7 @@ fn format_selection_summary(summary: SelectedRegionSummary) -> String {
         summary.category_counts.cluster,
         summary.category_counts.background,
         summary.category_counts.outlier,
+        summary.category_counts.unclassified,
         top_category,
     )
 }

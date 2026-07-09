@@ -1,11 +1,11 @@
 //! CPU reference density implementations for deterministic testing.
 
 use rawscope_core::{DensityGrid, F32Range, GridSize, U64Range};
-use rawscope_data::{SyntheticEventRecord, SyntheticPointRecord};
+use rawscope_data::{ScatterPointRecord, TimelineEventRecord};
 
-/// Bins synthetic points into a simple scatter-density grid.
+/// Bins scatter points into a simple scatter-density grid.
 pub fn scatter_density(
-    points: &[SyntheticPointRecord],
+    points: &[ScatterPointRecord],
     x_range: F32Range,
     y_range: F32Range,
     width: u32,
@@ -27,9 +27,9 @@ pub fn scatter_density(
     grid
 }
 
-/// Bins synthetic timeline events into a density grid.
+/// Bins timeline events into a density grid.
 pub fn timeline_density(
-    events: &[SyntheticEventRecord],
+    events: &[TimelineEventRecord],
     time_range: U64Range,
     lane_count: u32,
     width: u32,

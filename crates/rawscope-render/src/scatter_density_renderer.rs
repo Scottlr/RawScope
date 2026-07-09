@@ -3,7 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 
 use rawscope_core::F32Range;
-use rawscope_data::SyntheticPointRecord;
+use rawscope_data::ScatterPointRecord;
 
 use crate::density_render_pipeline::{
     create_density_render_bind_group, create_density_render_bind_group_layout,
@@ -66,7 +66,7 @@ impl ScatterDensityRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         surface_format: wgpu::TextureFormat,
-        points: &[SyntheticPointRecord],
+        points: &[ScatterPointRecord],
         config: ScatterDensityRendererConfig,
     ) -> Result<Self, GpuScatterDensityError> {
         let compute_config = ScatterDensityComputeConfig {
@@ -138,7 +138,7 @@ impl ScatterDensityRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        points: &[SyntheticPointRecord],
+        points: &[ScatterPointRecord],
         config: ScatterDensityRendererConfig,
     ) -> Result<ScatterDensityRenderStats, GpuScatterDensityError> {
         let compute_config = ScatterDensityComputeConfig {

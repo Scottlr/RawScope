@@ -2,7 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::U64Range;
-use rawscope_data::SyntheticEventRecord;
+use rawscope_data::TimelineEventRecord;
 
 use crate::density_render_pipeline::{
     create_density_render_bind_group, create_density_render_bind_group_layout,
@@ -67,7 +67,7 @@ impl TimelineDensityRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         surface_format: wgpu::TextureFormat,
-        events: &[SyntheticEventRecord],
+        events: &[TimelineEventRecord],
         config: TimelineDensityRendererConfig,
     ) -> Result<Self, GpuTimelineDensityError> {
         let compute_config = TimelineDensityComputeConfig {
@@ -141,7 +141,7 @@ impl TimelineDensityRenderer {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        events: &[SyntheticEventRecord],
+        events: &[TimelineEventRecord],
         config: TimelineDensityRendererConfig,
     ) -> Result<TimelineDensityRenderStats, GpuTimelineDensityError> {
         let compute_config = TimelineDensityComputeConfig {

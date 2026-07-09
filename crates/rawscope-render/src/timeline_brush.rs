@@ -1,7 +1,7 @@
 //! Timeline-density brush geometry and CPU-side selected-event summaries.
 
 use rawscope_core::U64Range;
-use rawscope_data::{SyntheticEventRecord, SyntheticEventType};
+use rawscope_data::{SyntheticEventType, TimelineEventKind, TimelineEventRecord};
 
 use crate::{BrushScreenRect, BrushScreenSize, TimelineViewport};
 
@@ -121,7 +121,7 @@ impl TimelineBrushSelection {
     }
 
     /// Returns true when an event lies inside this brush's time and lane ranges.
-    pub fn contains_event(self, event: &SyntheticEventRecord) -> bool {
+    pub fn contains_event(self, event: &TimelineEventRecord) -> bool {
         self.time_range.contains(event.timestamp) && self.lane_range.contains(event.lane)
     }
 }
@@ -133,6 +133,7 @@ pub struct SelectedEventTypeCounts {
     pub spike: usize,
     pub stale_lane: usize,
     pub high_value_band: usize,
+    pub unclassified: usize,
 }
 
 impl SelectedEventTypeCounts {
@@ -151,12 +152,15 @@ impl SelectedEventTypeCounts {
             .and_then(|(event_type, count)| (count > 0).then_some(event_type))
     }
 
-    fn add(&mut self, event_type: SyntheticEventType) {
-        match event_type {
-            SyntheticEventType::Background => self.background += 1,
-            SyntheticEventType::Spike => self.spike += 1,
-            SyntheticEventType::StaleLane => self.stale_lane += 1,
-            SyntheticEventType::HighValueBand => self.high_value_band += 1,
+    fn add(&mut self, kind: TimelineEventKind) {
+        match kind {
+            TimelineEventKind::Synthetic(SyntheticEventType::Background) => self.background += 1,
+            TimelineEventKind::Synthetic(SyntheticEventType::Spike) => self.spike += 1,
+            TimelineEventKind::Synthetic(SyntheticEventType::StaleLane) => self.stale_lane += 1,
+            TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand) => {
+                self.high_value_band += 1
+            }
+            TimelineEventKind::Unclassified => self.unclassified += 1,
         }
     }
 }
@@ -178,9 +182,9 @@ pub struct TimelineSelectionSummary {
 }
 
 impl TimelineSelectionSummary {
-    /// Summarizes synthetic event records inside the given timeline brush.
+    /// Summarizes timeline event records inside the given timeline brush.
     pub fn from_events(
-        events: &[SyntheticEventRecord],
+        events: &[TimelineEventRecord],
         selection: TimelineBrushSelection,
         lane_count: u32,
     ) -> Self {
@@ -206,7 +210,7 @@ impl TimelineSelectionSummary {
             if let Some(lane_count) = lane_counts.get_mut(event.lane as usize) {
                 *lane_count += 1;
             }
-            event_type_counts.add(event.event_type);
+            event_type_counts.add(event.kind);
         }
 
         let selected_percentage = if events.is_empty() {

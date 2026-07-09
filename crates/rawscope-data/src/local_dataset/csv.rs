@@ -13,8 +13,7 @@ use crate::{
         LoadedScatterDataset, LoadedTimelineDataset, SCATTER_NUMERIC_TYPE_EXPECTATION,
         TIMELINE_LANE_TYPE_EXPECTATION, TIMELINE_TIME_TYPE_EXPECTATION,
     },
-    DatasetIdentity, SyntheticEventRecord, SyntheticEventType, SyntheticPointCategory,
-    SyntheticPointRecord,
+    DatasetIdentity, ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
 };
 
 /// Loads a local scatter dataset from CSV and binds explicit x/y columns.
@@ -54,11 +53,11 @@ pub fn load_scatter_dataset(
         x_max = x_max.max(x);
         y_min = y_min.min(y);
         y_max = y_max.max(y);
-        points.push(SyntheticPointRecord {
+        points.push(ScatterPointRecord {
             row_id: RowId(row_offset as u64),
             x,
             y,
-            category: SyntheticPointCategory::Cluster,
+            kind: ScatterPointKind::Unclassified,
         });
     }
 
@@ -116,12 +115,12 @@ pub fn load_timeline_dataset(
         let lane = lane_id_for_value(lane_value, &mut lane_ids, &mut lane_labels)?;
         time_min = time_min.min(timestamp);
         time_max = time_max.max(timestamp);
-        events.push(SyntheticEventRecord {
+        events.push(TimelineEventRecord {
             row_id: RowId(row_offset as u64),
             timestamp,
             lane,
             value: 1.0,
-            event_type: SyntheticEventType::Background,
+            kind: TimelineEventKind::Unclassified,
         });
     }
 

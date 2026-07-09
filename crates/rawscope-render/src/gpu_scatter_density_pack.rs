@@ -2,7 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
-use rawscope_data::SyntheticPointRecord;
+use rawscope_data::ScatterPointRecord;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -46,7 +46,7 @@ impl ScatterParams {
     }
 }
 
-pub(crate) fn pack_points(points: &[SyntheticPointRecord]) -> Vec<GpuPoint> {
+pub(crate) fn pack_points(points: &[ScatterPointRecord]) -> Vec<GpuPoint> {
     points
         .iter()
         .map(|point| GpuPoint {
