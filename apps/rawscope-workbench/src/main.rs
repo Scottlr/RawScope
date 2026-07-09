@@ -8,6 +8,9 @@ mod app_timeline;
 mod app_timeline_brush;
 mod cli;
 mod demo;
+mod ui;
+mod ui_controls;
+mod ui_drilldown;
 
 use std::{error::Error, io};
 

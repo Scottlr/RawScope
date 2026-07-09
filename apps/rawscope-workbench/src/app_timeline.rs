@@ -59,6 +59,7 @@ impl WorkbenchApp {
             self.timeline.viewport = Some(viewport);
             self.timeline.render_stats = Some(render_stats);
             self.timeline.density_renderer = Some(timeline_density_renderer);
+            self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
                 gpu.device(),
                 gpu.surface_format(),
@@ -89,6 +90,7 @@ impl WorkbenchApp {
         self.timeline.viewport = Some(viewport);
         self.timeline.render_stats = Some(render_stats);
         self.timeline.density_renderer = Some(timeline_density_renderer);
+        self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
             gpu.device(),
             gpu.surface_format(),

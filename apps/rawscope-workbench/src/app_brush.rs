@@ -58,7 +58,9 @@ impl WorkbenchApp {
         self.scatter.selection_evidence = None;
         self.scatter.selection_drilldown = None;
         self.scatter.brush_drag_start = None;
+        self.export_status = crate::ui::ExportStatus::Idle;
         self.update_window_title();
+        self.request_redraw();
 
         if had_selection {
             info!("RawScope scatter brush cleared");

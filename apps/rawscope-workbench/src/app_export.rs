@@ -13,11 +13,13 @@ use crate::{
         current_unix_timestamp_ms, SelectionExportPaths, EXPORT_DIR, SCATTER_SELECTION_FILE_STEM,
         TIMELINE_SELECTION_FILE_STEM,
     },
+    ui::ExportStatus,
 };
 
 impl WorkbenchApp {
     pub(crate) fn export_selection_evidence(&mut self) {
         let Some(evidence) = self.scatter_selection_evidence_v2() else {
+            self.export_status = ExportStatus::NoSelection;
             warn!(
                 reason = "no finalized scatter selection evidence",
                 "scatter selection evidence export skipped"
@@ -34,6 +36,9 @@ impl WorkbenchApp {
             export_counter,
         );
         if let Err(err) = export_paths.write_scatter(&evidence) {
+            self.export_status = ExportStatus::Failed {
+                message: err.to_string(),
+            };
             error!(
                 error = %err,
                 json_path = %export_paths.json_path.display(),
@@ -44,6 +49,10 @@ impl WorkbenchApp {
             return;
         }
         self.evidence_export_counter = export_paths.export_counter;
+        self.export_status = ExportStatus::Exported {
+            json_path: export_paths.json_path.display().to_string(),
+            markdown_path: export_paths.markdown_path.display().to_string(),
+        };
 
         info!(
             export_counter = export_paths.export_counter,
@@ -57,6 +66,7 @@ impl WorkbenchApp {
 
     pub(crate) fn export_timeline_selection_evidence(&mut self) {
         let Some(evidence) = self.timeline_selection_evidence_v2() else {
+            self.export_status = ExportStatus::NoSelection;
             warn!(
                 reason = "no finalized timeline selection evidence",
                 "timeline selection evidence export skipped"
@@ -73,6 +83,9 @@ impl WorkbenchApp {
             export_counter,
         );
         if let Err(err) = export_paths.write_timeline(&evidence) {
+            self.export_status = ExportStatus::Failed {
+                message: err.to_string(),
+            };
             error!(
                 error = %err,
                 json_path = %export_paths.json_path.display(),
@@ -83,6 +96,10 @@ impl WorkbenchApp {
             return;
         }
         self.evidence_export_counter = export_paths.export_counter;
+        self.export_status = ExportStatus::Exported {
+            json_path: export_paths.json_path.display().to_string(),
+            markdown_path: export_paths.markdown_path.display().to_string(),
+        };
 
         info!(
             export_counter = export_paths.export_counter,
