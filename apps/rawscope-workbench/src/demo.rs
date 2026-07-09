@@ -2,8 +2,8 @@
 
 use rawscope_render::{
     ScatterDensityRenderStats, ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
-    TimelineDensityRenderStats, TimelineSelectionEvidence, TimelineSelectionSummary,
-    TimelineViewport,
+    SelectionDrilldown, TimelineDensityRenderStats, TimelineSelectionEvidence,
+    TimelineSelectionSummary, TimelineViewport,
 };
 
 /// Workbench demo selected at startup.
@@ -103,6 +103,7 @@ pub struct DemoOverlayState {
     pub render_stats: ScatterDensityRenderStats,
     pub selection_summary: Option<SelectedRegionSummary>,
     pub selection_evidence: Option<ScatterSelectionEvidence>,
+    pub selection_drilldown: Option<SelectionDrilldown>,
 }
 
 impl DemoOverlayState {
@@ -114,9 +115,14 @@ impl DemoOverlayState {
             .map(format_evidence_summary)
             .or_else(|| self.selection_summary.map(format_selection_summary))
             .unwrap_or_else(|| "selection none".to_string());
+        let drilldown_summary = self
+            .selection_drilldown
+            .as_ref()
+            .map(format_drilldown_summary)
+            .unwrap_or_default();
 
         format!(
-            "RawScope | pts {} ({}) | grid {}x{} | x {:.1}..{:.1} y {:.1}..{:.1} | max {} | {} | wheel zoom, drag pan, right/shift-drag brush, Esc clear, R reset, 1-4 presets",
+            "RawScope | pts {} ({}) | grid {}x{} | x {:.1}..{:.1} y {:.1}..{:.1} | max {} | {}{} | wheel zoom, drag pan, right/shift-drag brush, Esc clear, R reset, 1-4 presets",
             self.render_stats.point_count,
             self.point_count_label,
             self.render_stats.grid_width,
@@ -127,6 +133,7 @@ impl DemoOverlayState {
             self.viewport.y_range().max,
             self.render_stats.max_bin_count,
             selection_summary,
+            drilldown_summary,
         )
     }
 }
@@ -138,6 +145,7 @@ pub struct TimelineOverlayState {
     pub render_stats: TimelineDensityRenderStats,
     pub selection_summary: Option<TimelineSelectionSummary>,
     pub selection_evidence: Option<TimelineSelectionEvidence>,
+    pub selection_drilldown: Option<SelectionDrilldown>,
 }
 
 impl TimelineOverlayState {
@@ -153,9 +161,14 @@ impl TimelineOverlayState {
                     .map(format_timeline_selection_summary)
             })
             .unwrap_or_else(|| "selection none".to_string());
+        let drilldown_summary = self
+            .selection_drilldown
+            .as_ref()
+            .map(format_drilldown_summary)
+            .unwrap_or_default();
 
         format!(
-            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | {} | wheel zoom time, drag pan time, right/shift-drag brush, Esc clear, R reset, --demo scatter for scatter view",
+            "RawScope | timeline events {} | lanes {} | grid {}x{} | time {}..{} full {}..{} | max {} | {}{} | wheel zoom time, drag pan time, right/shift-drag brush, Esc clear, R reset, --demo scatter for scatter view",
             self.render_stats.event_count,
             self.render_stats.lane_count,
             self.render_stats.grid_width,
@@ -166,8 +179,22 @@ impl TimelineOverlayState {
             self.viewport.full_time_range().max,
             self.render_stats.max_bin_count,
             selection_summary,
+            drilldown_summary,
         )
     }
+}
+
+fn format_drilldown_summary(drilldown: &SelectionDrilldown) -> String {
+    format!(
+        " drilldown {}/{}{}",
+        drilldown.displayed_row_count,
+        drilldown.selected_row_count,
+        if drilldown.rows_are_sampled {
+            " sampled"
+        } else {
+            ""
+        }
+    )
 }
 
 fn format_timeline_evidence_summary(evidence: &TimelineSelectionEvidence) -> String {
@@ -286,7 +313,8 @@ fn format_selection_summary(summary: SelectedRegionSummary) -> String {
 mod tests {
     use rawscope_core::{F32Range, U64Range};
     use rawscope_render::{
-        ScatterDensityRenderStats, ScatterViewport, TimelineDensityRenderStats, TimelineViewport,
+        ScatterDensityRenderStats, ScatterViewport, SelectionDrilldown, TimelineDensityRenderStats,
+        TimelineViewport,
     };
 
     use super::*;
@@ -330,6 +358,7 @@ mod tests {
             },
             selection_summary: None,
             selection_evidence: None,
+            selection_drilldown: None,
         };
 
         let title = overlay.title();
@@ -355,6 +384,7 @@ mod tests {
             },
             selection_summary: None,
             selection_evidence: None,
+            selection_drilldown: None,
         };
 
         let title = overlay.title();
@@ -365,5 +395,33 @@ mod tests {
         assert!(title.contains("max 99"));
         assert!(title.contains("wheel zoom time"));
         assert!(title.contains("--demo scatter"));
+    }
+
+    #[test]
+    fn title_includes_drilldown_hint_when_present() {
+        let viewport = ScatterViewport::new(F32Range::new(0.0, 100.0), F32Range::new(0.0, 100.0));
+        let overlay = DemoOverlayState {
+            point_count_label: PointCountPreset::default().row_count_label().to_string(),
+            viewport,
+            render_stats: ScatterDensityRenderStats {
+                point_count: 20_000,
+                grid_width: 256,
+                grid_height: 256,
+                max_bin_count: 42,
+            },
+            selection_summary: None,
+            selection_evidence: None,
+            selection_drilldown: Some(SelectionDrilldown {
+                selected_row_count: 24,
+                displayed_row_count: 10,
+                rows_are_sampled: true,
+                columns: vec![],
+                rows: vec![],
+            }),
+        };
+
+        let title = overlay.title();
+
+        assert!(title.contains("drilldown 10/24 sampled"));
     }
 }

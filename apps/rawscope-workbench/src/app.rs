@@ -10,8 +10,8 @@ use rawscope_gpu::GpuContext;
 use rawscope_render::{
     BrushScreenSize, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
-    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, TimelineBrushDrag,
-    TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
+    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
     TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::{error, info};
@@ -71,6 +71,7 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
     pub(crate) selection_evidence: Option<ScatterSelectionEvidence>,
+    pub(crate) selection_drilldown: Option<SelectionDrilldown>,
 }
 
 /// Timeline-specific workbench state.
@@ -86,6 +87,7 @@ pub(crate) struct TimelineWorkbenchState {
     pub(crate) active_brush_selection: Option<TimelineBrushSelection>,
     pub(crate) selection_summary: Option<TimelineSelectionSummary>,
     pub(crate) selection_evidence: Option<TimelineSelectionEvidence>,
+    pub(crate) selection_drilldown: Option<SelectionDrilldown>,
 }
 
 impl WorkbenchApp {
@@ -425,6 +427,7 @@ impl WorkbenchApp {
                     render_stats,
                     selection_summary: self.scatter.selection_summary,
                     selection_evidence: self.scatter.selection_evidence.clone(),
+                    selection_drilldown: self.scatter.selection_drilldown.clone(),
                 };
                 window.set_title(&overlay.title());
             }
@@ -440,6 +443,7 @@ impl WorkbenchApp {
                     render_stats,
                     selection_summary: self.timeline.selection_summary.clone(),
                     selection_evidence: self.timeline.selection_evidence.clone(),
+                    selection_drilldown: self.timeline.selection_drilldown.clone(),
                 };
                 window.set_title(&overlay.title());
             }

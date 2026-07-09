@@ -58,7 +58,7 @@ Core promise: pixels should be explainable back to rows.
 
 ## Current Next Task
 
-Execute the RawScope roadmap baseline: separate synthetic-only concepts from source-aware dataset identity, retain local row evidence, publish evidence schema v2, and add CPU-backed row drilldown before broad UI, Parquet, benchmarks, or plugin work.
+Execute the next unblocked RawScope roadmap task from `features/rawscope-execution-roadmap/tasks.md`. Keep RawScope evidence-centered and local-first; prioritize row-evidence credibility before broader UI polish, Parquet/Arrow ingestion, benchmarks, or plugin work.
 
 ## Suggested Future Prompt
 

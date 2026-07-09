@@ -14,6 +14,7 @@ mod scatter_density_renderer;
 mod scatter_selection_evidence;
 mod scatter_selection_export;
 mod scatter_viewport;
+mod selection_drilldown;
 mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_selection_evidence;
@@ -49,6 +50,10 @@ pub use scatter_selection_export::{
     SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 pub use scatter_viewport::ScatterViewport;
+pub use selection_drilldown::{
+    scatter_selection_drilldown, timeline_selection_drilldown, DrilldownColumn, DrilldownConfig,
+    DrilldownRow, SelectionDrilldown,
+};
 pub use timeline_brush::{
     SelectedEventTypeCounts, TimelineBrushDrag, TimelineBrushSelection, TimelineLaneRange,
     TimelineSelectionSummary,

@@ -1,8 +1,8 @@
 //! Timeline brush interaction helpers for the workbench timeline-density demo.
 
 use rawscope_render::{
-    BrushScreenPoint, BrushScreenRect, TimelineBrushDrag, TimelineEvidenceConfig,
-    TimelineSelectionEvidence, TimelineSelectionSummary,
+    timeline_selection_drilldown, BrushScreenPoint, BrushScreenRect, TimelineBrushDrag,
+    TimelineEvidenceConfig, TimelineSelectionEvidence, TimelineSelectionSummary,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -36,8 +36,10 @@ impl WorkbenchApp {
 
         self.finalize_timeline_brush_from_drag();
         self.build_timeline_selection_evidence();
+        self.build_timeline_selection_drilldown();
         self.log_timeline_selection_summary("finalized");
         self.log_timeline_selection_evidence();
+        self.log_timeline_selection_drilldown();
         self.timeline.brush_drag_start = None;
         self.timeline.active_brush_drag = None;
         self.update_window_title();
@@ -48,12 +50,14 @@ impl WorkbenchApp {
         let had_selection = self.timeline_brush_is_active()
             || self.timeline.active_brush_selection.is_some()
             || self.timeline.selection_summary.is_some()
-            || self.timeline.selection_evidence.is_some();
+            || self.timeline.selection_evidence.is_some()
+            || self.timeline.selection_drilldown.is_some();
         self.timeline.brush_drag_start = None;
         self.timeline.active_brush_drag = None;
         self.timeline.active_brush_selection = None;
         self.timeline.selection_summary = None;
         self.timeline.selection_evidence = None;
+        self.timeline.selection_drilldown = None;
         self.update_window_title();
         self.request_redraw();
 
@@ -95,6 +99,7 @@ impl WorkbenchApp {
             )
         });
         self.timeline.selection_evidence = None;
+        self.timeline.selection_drilldown = None;
         self.update_window_title();
         self.request_redraw();
     }
@@ -139,6 +144,20 @@ impl WorkbenchApp {
             dataset_metadata,
             self.timeline.events.len(),
             TimelineEvidenceConfig::default(),
+        ));
+    }
+
+    fn build_timeline_selection_drilldown(&mut self) {
+        let Some(selection) = self.timeline.active_brush_selection else {
+            self.timeline.selection_drilldown = None;
+            return;
+        };
+
+        self.timeline.selection_drilldown = Some(timeline_selection_drilldown(
+            &self.timeline.events,
+            selection,
+            self.timeline.source_rows.as_ref(),
+            rawscope_render::DrilldownConfig::default(),
         ));
     }
 
@@ -191,5 +210,84 @@ impl WorkbenchApp {
             event_sample = ?evidence.selected_event_sample,
             "RawScope timeline selection evidence"
         );
+    }
+
+    fn log_timeline_selection_drilldown(&self) {
+        let Some(drilldown) = &self.timeline.selection_drilldown else {
+            return;
+        };
+
+        info!(
+            selected_row_count = drilldown.selected_row_count,
+            displayed_row_count = drilldown.displayed_row_count,
+            sampled = drilldown.rows_are_sampled,
+            column_count = drilldown.columns.len(),
+            "RawScope timeline selection drilldown prepared"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rawscope_core::{RowId, U64Range};
+    use rawscope_data::{TimelineEventKind, TimelineEventRecord};
+    use rawscope_render::{SelectionDrilldown, TimelineBrushSelection, TimelineLaneRange};
+
+    use super::*;
+    use crate::demo::DemoMode;
+
+    #[test]
+    fn build_selection_drilldown_populates_timeline_fallback_rows() {
+        let mut app = WorkbenchApp::default();
+        app.demo_mode = DemoMode::Timeline;
+        app.timeline.events = vec![
+            TimelineEventRecord {
+                row_id: RowId(4),
+                timestamp: 140,
+                lane: 1,
+                value: 2.5,
+                kind: TimelineEventKind::Unclassified,
+            },
+            TimelineEventRecord {
+                row_id: RowId(1),
+                timestamp: 120,
+                lane: 0,
+                value: 1.5,
+                kind: TimelineEventKind::Unclassified,
+            },
+        ];
+        app.timeline.active_brush_selection = Some(TimelineBrushSelection {
+            time_range: U64Range::new(100, 200),
+            lane_range: TimelineLaneRange::new(0, 2),
+        });
+
+        app.build_timeline_selection_drilldown();
+
+        let drilldown = app
+            .timeline
+            .selection_drilldown
+            .expect("drilldown should exist");
+        assert_eq!(drilldown.selected_row_count, 2);
+        assert_eq!(drilldown.displayed_row_count, 2);
+        assert_eq!(drilldown.columns[1].name, "timestamp");
+        assert_eq!(drilldown.rows[0].row_id, RowId(1));
+        assert_eq!(drilldown.rows[0].values[4], "unclassified");
+    }
+
+    #[test]
+    fn clear_timeline_brush_clears_timeline_drilldown() {
+        let mut app = WorkbenchApp::default();
+        app.demo_mode = DemoMode::Timeline;
+        app.timeline.selection_drilldown = Some(SelectionDrilldown {
+            selected_row_count: 1,
+            displayed_row_count: 1,
+            rows_are_sampled: false,
+            columns: vec![],
+            rows: vec![],
+        });
+
+        app.clear_timeline_brush();
+
+        assert!(app.timeline.selection_drilldown.is_none());
     }
 }
