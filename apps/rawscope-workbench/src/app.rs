@@ -5,6 +5,7 @@ use std::{error::Error, sync::Arc};
 use egui::Context as EguiContext;
 use egui_wgpu::Renderer as EguiRenderer;
 use egui_winit::State as EguiWinitState;
+use rawscope_core::SelectionId;
 use rawscope_data::{
     generate_synthetic_points, load_scatter_dataset, DatasetIdentity, LoadedSourceTable,
     ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
@@ -27,6 +28,7 @@ use winit::{
 };
 
 use crate::{
+    app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
     ui::ExportStatus,
@@ -55,6 +57,8 @@ pub struct WorkbenchApp {
     pub(crate) dataset_identity: Option<DatasetIdentity>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
+    pub(crate) active_selection: Option<ActiveLinkedSelection>,
+    pub(crate) next_selection_id: SelectionId,
     pub(crate) export_status: ExportStatus,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
@@ -187,6 +191,7 @@ impl WorkbenchApp {
             self.dataset_identity = Some(dataset.identity);
             self.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
+            self.clear_active_selection();
             self.scatter.points = dataset.points;
             self.scatter.source_rows = Some(dataset.source_rows);
             self.scatter.point_count_label = "local".to_string();
@@ -231,6 +236,7 @@ impl WorkbenchApp {
         self.scatter.point_count_label = active_preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
+        self.clear_active_selection();
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
         self.scatter.viewport = Some(viewport);
@@ -280,6 +286,7 @@ impl WorkbenchApp {
         self.scatter.point_count_label = preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
+        self.clear_active_selection();
         self.scatter.viewport = Some(viewport);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.clear_brush();

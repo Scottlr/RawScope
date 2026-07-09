@@ -37,6 +37,7 @@ impl WorkbenchApp {
         self.finalize_timeline_brush_from_drag();
         self.build_timeline_selection_evidence();
         self.build_timeline_selection_drilldown();
+        self.publish_timeline_active_selection();
         self.log_timeline_selection_summary("finalized");
         self.log_timeline_selection_evidence();
         self.log_timeline_selection_drilldown();
@@ -58,6 +59,7 @@ impl WorkbenchApp {
         self.timeline.selection_summary = None;
         self.timeline.selection_evidence = None;
         self.timeline.selection_drilldown = None;
+        self.clear_active_selection();
         self.export_status = crate::ui::ExportStatus::Idle;
         self.update_window_title();
         self.request_redraw();
@@ -231,7 +233,9 @@ impl WorkbenchApp {
 #[cfg(test)]
 mod tests {
     use rawscope_core::{RowId, U64Range};
-    use rawscope_data::{TimelineEventKind, TimelineEventRecord};
+    use rawscope_data::{
+        generate_synthetic_events, SyntheticEventConfig, TimelineEventKind, TimelineEventRecord,
+    };
     use rawscope_render::{SelectionDrilldown, TimelineBrushSelection, TimelineLaneRange};
 
     use super::*;
@@ -279,6 +283,20 @@ mod tests {
     fn clear_timeline_brush_clears_timeline_drilldown() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Timeline;
+        app.dataset_identity =
+            Some(generate_synthetic_events(SyntheticEventConfig::new(42, 1)).identity);
+        app.timeline.events = vec![TimelineEventRecord {
+            row_id: RowId(1),
+            timestamp: 120,
+            lane: 0,
+            value: 1.5,
+            kind: TimelineEventKind::Unclassified,
+        }];
+        app.timeline.active_brush_selection = Some(TimelineBrushSelection {
+            time_range: U64Range::new(100, 200),
+            lane_range: TimelineLaneRange::new(0, 1),
+        });
+        app.publish_timeline_active_selection();
         app.timeline.selection_drilldown = Some(SelectionDrilldown {
             selected_row_count: 1,
             displayed_row_count: 1,
@@ -289,6 +307,7 @@ mod tests {
 
         app.clear_timeline_brush();
 
+        assert!(app.active_selection.is_none());
         assert!(app.timeline.selection_drilldown.is_none());
     }
 }
