@@ -11,7 +11,8 @@ pub use dataset::{
 };
 pub use local_dataset::{
     load_scatter_dataset, load_timeline_dataset, DatasetLoadError, LoadedColumnKind,
-    LoadedColumnSchema, LoadedScatterDataset, LoadedTimelineDataset,
+    LoadedColumnSchema, LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable,
+    LoadedTimelineDataset,
 };
 pub use synthetic::{
     generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,

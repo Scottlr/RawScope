@@ -10,8 +10,9 @@ use rawscope_core::{F32Range, RowId, U64Range};
 use crate::{
     local_dataset::{
         ensure_supported_csv, DatasetLoadError, LoadedColumnKind, LoadedColumnSchema,
-        LoadedScatterDataset, LoadedTimelineDataset, SCATTER_NUMERIC_TYPE_EXPECTATION,
-        TIMELINE_LANE_TYPE_EXPECTATION, TIMELINE_TIME_TYPE_EXPECTATION,
+        LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable, LoadedTimelineDataset,
+        SCATTER_NUMERIC_TYPE_EXPECTATION, TIMELINE_LANE_TYPE_EXPECTATION,
+        TIMELINE_TIME_TYPE_EXPECTATION,
     },
     DatasetIdentity, ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
 };
@@ -40,6 +41,7 @@ pub fn load_scatter_dataset(
     )?;
 
     let mut points = Vec::with_capacity(table.rows.len());
+    let source_rows = source_table(&table.schema, &table.rows);
     let mut x_min = f32::INFINITY;
     let mut x_max = f32::NEG_INFINITY;
     let mut y_min = f32::INFINITY;
@@ -70,6 +72,7 @@ pub fn load_scatter_dataset(
             y_column,
         ),
         schema: table.schema,
+        source_rows,
         x_column: x_column.to_string(),
         y_column: y_column.to_string(),
         x_range: F32Range::from_bounds_expanded(x_min, x_max),
@@ -103,6 +106,7 @@ pub fn load_timeline_dataset(
     let lane_kind = table.schema[lane_index].kind;
 
     let mut events = Vec::with_capacity(table.rows.len());
+    let source_rows = source_table(&table.schema, &table.rows);
     let mut lane_ids = HashMap::new();
     let mut lane_labels = Vec::new();
     let mut time_min = u64::MAX;
@@ -134,6 +138,7 @@ pub fn load_timeline_dataset(
             lane_labels.clone(),
         ),
         schema: table.schema,
+        source_rows,
         time_column: time_column.to_string(),
         lane_column: lane_column.to_string(),
         time_range: U64Range::from_bounds_expanded(time_min, time_max),
@@ -141,6 +146,22 @@ pub fn load_timeline_dataset(
         lane_labels,
         events,
     })
+}
+
+fn source_table(schema: &[LoadedColumnSchema], rows: &[::csv::StringRecord]) -> LoadedSourceTable {
+    let columns = schema.to_vec();
+    let rows = rows
+        .iter()
+        .enumerate()
+        .map(|(row_offset, row)| LoadedSourceRow {
+            row_id: RowId(row_offset as u64),
+            values: (0..schema.len())
+                .map(|column_index| row.get(column_index).unwrap_or("").trim().to_string())
+                .collect(),
+        })
+        .collect();
+
+    LoadedSourceTable { columns, rows }
 }
 
 struct CsvTable {
