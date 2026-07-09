@@ -10,9 +10,10 @@ pub use dataset::{
     SyntheticDatasetMetadata, VisualDatasetKind,
 };
 pub use local_dataset::{
-    load_scatter_dataset, load_timeline_dataset, DatasetLoadError, LoadedColumnKind,
-    LoadedColumnSchema, LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable,
-    LoadedTimelineDataset,
+    load_parquet_scatter_dataset, load_parquet_timeline_dataset, load_scatter_dataset,
+    load_timeline_dataset, DatasetChunkId, DatasetLoadError, LoadedColumnKind, LoadedColumnSchema,
+    LoadedColumnarChunk, LoadedColumnarDataset, LoadedScatterDataset, LoadedSourceRow,
+    LoadedSourceTable, LoadedTimelineDataset,
 };
 pub use synthetic::{
     generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,

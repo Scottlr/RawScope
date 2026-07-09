@@ -72,6 +72,7 @@ pub fn load_scatter_dataset(
             y_column,
         ),
         schema: table.schema,
+        columnar: None,
         source_rows,
         x_column: x_column.to_string(),
         y_column: y_column.to_string(),
@@ -138,6 +139,7 @@ pub fn load_timeline_dataset(
             lane_labels.clone(),
         ),
         schema: table.schema,
+        columnar: None,
         source_rows,
         time_column: time_column.to_string(),
         lane_column: lane_column.to_string(),
@@ -346,7 +348,7 @@ fn cell_value<'a>(
     Ok(value)
 }
 
-fn lane_id_for_value(
+pub(super) fn lane_id_for_value(
     value: String,
     lane_ids: &mut HashMap<String, u32>,
     lane_labels: &mut Vec<String>,
@@ -364,7 +366,7 @@ fn lane_id_for_value(
     Ok(next_lane)
 }
 
-fn invalid_value(
+pub(super) fn invalid_value(
     column: &str,
     row_number: usize,
     value: &str,
@@ -385,6 +387,6 @@ fn csv_error(path: &Path, source: ::csv::Error) -> DatasetLoadError {
     }
 }
 
-fn csv_row_number(row_offset: usize) -> usize {
+pub(super) fn csv_row_number(row_offset: usize) -> usize {
     row_offset + 2
 }

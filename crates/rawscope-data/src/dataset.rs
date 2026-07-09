@@ -35,6 +35,7 @@ pub enum VisualDatasetKind {
 pub enum DatasetSource {
     Synthetic { seed: u64, generator: &'static str },
     LocalCsv { path: PathBuf, limit: Option<usize> },
+    LocalParquet { path: PathBuf, limit: Option<usize> },
 }
 
 /// The role a field binding plays in a visual dataset.
@@ -141,6 +142,47 @@ impl DatasetIdentity {
         Self {
             visual_kind: VisualDatasetKind::Timeline,
             source: DatasetSource::LocalCsv { path, limit },
+            row_count,
+            field_bindings: vec![
+                DatasetFieldBinding::new(DatasetFieldRole::Time, time_column),
+                DatasetFieldBinding::new(DatasetFieldRole::Lane, lane_column),
+            ],
+            lane_labels,
+        }
+    }
+
+    /// Identity for a local Parquet scatter dataset.
+    pub fn local_parquet_scatter(
+        path: PathBuf,
+        row_count: usize,
+        limit: Option<usize>,
+        x_column: impl Into<String>,
+        y_column: impl Into<String>,
+    ) -> Self {
+        Self {
+            visual_kind: VisualDatasetKind::Scatter,
+            source: DatasetSource::LocalParquet { path, limit },
+            row_count,
+            field_bindings: vec![
+                DatasetFieldBinding::new(DatasetFieldRole::X, x_column),
+                DatasetFieldBinding::new(DatasetFieldRole::Y, y_column),
+            ],
+            lane_labels: Vec::new(),
+        }
+    }
+
+    /// Identity for a local Parquet timeline dataset.
+    pub fn local_parquet_timeline(
+        path: PathBuf,
+        row_count: usize,
+        limit: Option<usize>,
+        time_column: impl Into<String>,
+        lane_column: impl Into<String>,
+        lane_labels: Vec<String>,
+    ) -> Self {
+        Self {
+            visual_kind: VisualDatasetKind::Timeline,
+            source: DatasetSource::LocalParquet { path, limit },
             row_count,
             field_bindings: vec![
                 DatasetFieldBinding::new(DatasetFieldRole::Time, time_column),

@@ -391,6 +391,7 @@ impl From<&DatasetIdentity> for DatasetIdentityArtifact {
 enum DatasetSourceArtifact {
     Synthetic { seed: u64, generator: &'static str },
     LocalCsv { path: String, limit: Option<usize> },
+    LocalParquet { path: String, limit: Option<usize> },
 }
 
 impl From<&DatasetSource> for DatasetSourceArtifact {
@@ -401,6 +402,10 @@ impl From<&DatasetSource> for DatasetSourceArtifact {
                 generator,
             },
             DatasetSource::LocalCsv { path, limit } => Self::LocalCsv {
+                path: path.display().to_string(),
+                limit: *limit,
+            },
+            DatasetSource::LocalParquet { path, limit } => Self::LocalParquet {
                 path: path.display().to_string(),
                 limit: *limit,
             },
@@ -674,6 +679,10 @@ fn format_dataset_source(source: &DatasetSource) -> String {
         DatasetSource::LocalCsv { path, limit } => match limit {
             Some(limit) => format!("local_csv ({}, limit {limit})", path.display()),
             None => format!("local_csv ({})", path.display()),
+        },
+        DatasetSource::LocalParquet { path, limit } => match limit {
+            Some(limit) => format!("local_parquet ({}, limit {limit})", path.display()),
+            None => format!("local_parquet ({})", path.display()),
         },
     }
 }

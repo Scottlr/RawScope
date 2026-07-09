@@ -56,12 +56,12 @@
 - Context: Tauri introduces packaging, webview, and frontend concerns that are not needed for the first rendering milestones.
 - Consequences: Native desktop work should proceed directly in Rust for now. Revisit Tauri only if product needs later justify it.
 
-## ADR-0006: Arrow-Style Columnar Data Later
+## ADR-0006: Narrow Arrow-Style Columnar Data In rawscope-data
 
-- Decision: Aim for Arrow-style columnar chunks as the future data representation, but do not implement that model yet.
+- Decision: Use Arrow/Parquet narrowly in `rawscope-data` for local Parquet ingestion, chunk metadata, schema summaries, and retained source-row evidence for the current scatter and timeline bindings.
 - Status: Accepted
-- Context: Columnar layouts align well with large scans, visual aggregation, row-id mappings, and future ecosystem integration.
-- Consequences: Early data abstractions should leave space for chunked columnar ownership, schema summaries, and stable row identifiers.
+- Context: Columnar layouts align well with large scans, visual aggregation, row-id mappings, and future ecosystem integration, but RawScope's product boundary still depends on explicit dataset identity, row evidence, and local-first workflows rather than a general query engine.
+- Consequences: `arrow-array`, `arrow-schema`, and `parquet` are scoped to `rawscope-data`, the workbench can open `.parquet` files for the current scatter/timeline bindings, and `LoadedColumnarDataset` records chunk boundaries without turning RawScope into a dataframe or SQL layer.
 
 ## ADR-0007: DataFusion Deferred
 
