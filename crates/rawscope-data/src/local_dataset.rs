@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rawscope_core::{F32Range, U64Range};
+use rawscope_core::{F32Range, RowId, U64Range};
 
 use crate::{DatasetIdentity, ScatterPointRecord, TimelineEventRecord};
 
@@ -63,11 +63,39 @@ pub struct LoadedColumnSchema {
     pub kind: LoadedColumnKind,
 }
 
+/// One retained local source row keyed by the loaded visual row id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadedSourceRow {
+    pub row_id: RowId,
+    pub values: Vec<String>,
+}
+
+/// Retained local source rows for future evidence and drilldown lookup.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadedSourceTable {
+    pub columns: Vec<LoadedColumnSchema>,
+    pub rows: Vec<LoadedSourceRow>,
+}
+
+impl LoadedSourceTable {
+    /// Looks up one retained source row by its visual row id.
+    pub fn row(&self, row_id: RowId) -> Option<&LoadedSourceRow> {
+        let index = usize::try_from(row_id.0).ok()?;
+        self.rows.get(index).filter(|row| row.row_id == row_id)
+    }
+
+    /// Returns retained source column names in CSV order.
+    pub fn column_names(&self) -> impl Iterator<Item = &str> {
+        self.columns.iter().map(|column| column.name.as_str())
+    }
+}
+
 /// Loaded scatter-ready dataset mapped into shared visual point records.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedScatterDataset {
     pub identity: DatasetIdentity,
     pub schema: Vec<LoadedColumnSchema>,
+    pub source_rows: LoadedSourceTable,
     pub x_column: String,
     pub y_column: String,
     pub x_range: F32Range,
@@ -80,6 +108,7 @@ pub struct LoadedScatterDataset {
 pub struct LoadedTimelineDataset {
     pub identity: DatasetIdentity,
     pub schema: Vec<LoadedColumnSchema>,
+    pub source_rows: LoadedSourceTable,
     pub time_column: String,
     pub lane_column: String,
     pub time_range: U64Range,

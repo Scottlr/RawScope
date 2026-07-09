@@ -22,6 +22,7 @@ fn csv_scatter_loads_numeric_columns() {
     assert_eq!(dataset.points[0].x, 10.5);
     assert_eq!(dataset.points[0].y, 512.0);
     assert_eq!(dataset.points[0].kind, ScatterPointKind::Unclassified);
+    assert_eq!(dataset.source_rows.rows.len(), dataset.points.len());
     assert_eq!(dataset.x_range.min, 10.5);
     assert_eq!(dataset.x_range.max, 20.0);
     assert_eq!(dataset.y_range.min, 512.0);
@@ -55,6 +56,7 @@ fn csv_timeline_loads_timestamp_and_lane_columns() {
     assert_eq!(dataset.events[1].lane, 1);
     assert_eq!(dataset.events[2].lane, 0);
     assert_eq!(dataset.events[0].kind, TimelineEventKind::Unclassified);
+    assert_eq!(dataset.source_rows.rows.len(), dataset.events.len());
     remove_fixture(&path);
 }
 
@@ -124,6 +126,104 @@ fn parquet_input_returns_deferred_error() {
 
     assert!(matches!(err, DatasetLoadError::ParquetDeferred { .. }));
     assert!(err.to_string().contains("Parquet import is not included"));
+}
+
+#[test]
+fn csv_scatter_retains_source_rows_by_row_id() {
+    let path = write_fixture(
+        "scatter_source_rows",
+        "latency_ms,payload_size,label\n10.5,512,a\n20,1024,b\n",
+    );
+
+    let dataset = load_scatter_dataset(&path, "latency_ms", "payload_size", None).unwrap();
+    let first_row = dataset
+        .source_rows
+        .row(dataset.points[0].row_id)
+        .expect("first retained row should exist");
+
+    assert_eq!(
+        dataset.source_rows.column_names().collect::<Vec<_>>(),
+        vec!["latency_ms", "payload_size", "label"]
+    );
+    assert_eq!(first_row.values, vec!["10.5", "512", "a"]);
+    assert_eq!(
+        dataset
+            .source_rows
+            .row(dataset.points[1].row_id)
+            .unwrap()
+            .values,
+        vec!["20", "1024", "b"]
+    );
+    remove_fixture(&path);
+}
+
+#[test]
+fn csv_timeline_retains_source_rows_by_row_id() {
+    let path = write_fixture(
+        "timeline_source_rows",
+        "timestamp,provider,status\n100,aws,ok\n125,gcp,late\n",
+    );
+
+    let dataset = load_timeline_dataset(&path, "timestamp", "provider", None).unwrap();
+    let second_row = dataset
+        .source_rows
+        .row(dataset.events[1].row_id)
+        .expect("second retained row should exist");
+
+    assert_eq!(second_row.values, vec!["125", "gcp", "late"]);
+    assert_eq!(dataset.source_rows.row(rawscope_core::RowId(5)), None);
+    remove_fixture(&path);
+}
+
+#[test]
+fn csv_limit_limits_retained_source_rows() {
+    let path = write_fixture(
+        "scatter_limit_source_rows",
+        "latency_ms,payload_size\n1,10\n2,20\n3,30\n",
+    );
+
+    let dataset = load_scatter_dataset(&path, "latency_ms", "payload_size", Some(2)).unwrap();
+
+    assert_eq!(dataset.points.len(), 2);
+    assert_eq!(dataset.source_rows.rows.len(), 2);
+    assert_eq!(
+        dataset
+            .source_rows
+            .row(rawscope_core::RowId(0))
+            .unwrap()
+            .values,
+        vec!["1", "10"]
+    );
+    assert_eq!(
+        dataset
+            .source_rows
+            .row(rawscope_core::RowId(1))
+            .unwrap()
+            .values,
+        vec!["2", "20"]
+    );
+    assert_eq!(dataset.source_rows.row(rawscope_core::RowId(2)), None);
+    remove_fixture(&path);
+}
+
+#[test]
+fn source_table_preserves_empty_cell_as_empty_string() {
+    let path = write_fixture(
+        "timeline_empty_source_cell",
+        "timestamp,provider,status\n100,aws,\n",
+    );
+
+    let dataset = load_timeline_dataset(&path, "timestamp", "provider", None).unwrap();
+
+    assert_eq!(
+        dataset
+            .source_rows
+            .row(rawscope_core::RowId(0))
+            .unwrap()
+            .values,
+        vec!["100", "aws", ""]
+    );
+    remove_fixture(&path);
 }
 
 fn write_fixture(name: &str, contents: &str) -> PathBuf {
