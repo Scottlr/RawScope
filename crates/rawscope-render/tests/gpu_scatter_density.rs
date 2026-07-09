@@ -1,6 +1,7 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{
-    generate_synthetic_points, SyntheticPointCategory, SyntheticPointConfig, SyntheticPointRecord,
+    generate_synthetic_points, ScatterPointKind, ScatterPointRecord, SyntheticPointCategory,
+    SyntheticPointConfig,
 };
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{gpu_scatter_density, scatter_density};
@@ -77,11 +78,11 @@ fn cpu_counts(grid: &rawscope_core::DensityGrid) -> Vec<u32> {
     grid.bins().iter().map(|bin| bin.row_count).collect()
 }
 
-fn point(row_id: u64, x: f32, y: f32) -> SyntheticPointRecord {
-    SyntheticPointRecord {
+fn point(row_id: u64, x: f32, y: f32) -> ScatterPointRecord {
+    ScatterPointRecord {
         row_id: RowId(row_id),
         x,
         y,
-        category: SyntheticPointCategory::Background,
+        kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Background),
     }
 }

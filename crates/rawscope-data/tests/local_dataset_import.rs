@@ -5,6 +5,7 @@ use std::{
 
 use rawscope_data::{
     load_scatter_dataset, load_timeline_dataset, DatasetLoadError, LoadedColumnKind,
+    ScatterPointKind, TimelineEventKind,
 };
 
 #[test]
@@ -20,6 +21,7 @@ fn csv_scatter_loads_numeric_columns() {
     assert_eq!(dataset.points[0].row_id.0, 0);
     assert_eq!(dataset.points[0].x, 10.5);
     assert_eq!(dataset.points[0].y, 512.0);
+    assert_eq!(dataset.points[0].kind, ScatterPointKind::Unclassified);
     assert_eq!(dataset.x_range.min, 10.5);
     assert_eq!(dataset.x_range.max, 20.0);
     assert_eq!(dataset.y_range.min, 512.0);
@@ -52,6 +54,7 @@ fn csv_timeline_loads_timestamp_and_lane_columns() {
     assert_eq!(dataset.events[0].lane, 0);
     assert_eq!(dataset.events[1].lane, 1);
     assert_eq!(dataset.events[2].lane, 0);
+    assert_eq!(dataset.events[0].kind, TimelineEventKind::Unclassified);
     remove_fixture(&path);
 }
 

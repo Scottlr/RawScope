@@ -1,5 +1,5 @@
 use rawscope_core::{RowId, U64Range};
-use rawscope_data::{SyntheticEventRecord, SyntheticEventType};
+use rawscope_data::{SyntheticEventType, TimelineEventKind, TimelineEventRecord};
 use rawscope_render::{
     BrushScreenPoint, BrushScreenRect, BrushScreenSize, TimelineBrushDrag, TimelineBrushSelection,
     TimelineLaneRange, TimelineSelectionSummary, TimelineViewport,
@@ -15,13 +15,23 @@ fn event(
     lane: u32,
     value: f32,
     event_type: SyntheticEventType,
-) -> SyntheticEventRecord {
-    SyntheticEventRecord {
+) -> TimelineEventRecord {
+    TimelineEventRecord {
         row_id: RowId(row_id),
         timestamp,
         lane,
         value,
-        event_type,
+        kind: TimelineEventKind::Synthetic(event_type),
+    }
+}
+
+fn unclassified_event(row_id: u64, timestamp: u64, lane: u32, value: f32) -> TimelineEventRecord {
+    TimelineEventRecord {
+        row_id: RowId(row_id),
+        timestamp,
+        lane,
+        value,
+        kind: TimelineEventKind::Unclassified,
     }
 }
 
@@ -167,6 +177,7 @@ fn selected_summary_counts_events_lanes_and_types() {
     assert_eq!(summary.lane_counts, vec![0, 2, 1, 0, 0]);
     assert_eq!(summary.event_type_counts.background, 1);
     assert_eq!(summary.event_type_counts.spike, 2);
+    assert_eq!(summary.event_type_counts.unclassified, 0);
     assert_eq!(summary.top_lane, Some(1));
     assert_eq!(summary.top_event_type, Some(SyntheticEventType::Spike));
     assert_eq!(
@@ -192,4 +203,25 @@ fn empty_selection_summary_has_zero_counts() {
     assert_eq!(summary.top_event_type, None);
     assert_eq!(summary.selected_timestamp_range, None);
     assert_eq!(summary.selected_value_range, None);
+}
+
+#[test]
+fn selected_summary_tracks_unclassified_local_events_without_synthetic_top_type() {
+    let selection = TimelineBrushSelection {
+        time_range: U64Range::new(100, 300),
+        lane_range: TimelineLaneRange::new(0, 2),
+    };
+    let events = vec![
+        unclassified_event(0, 120, 0, 1.0),
+        unclassified_event(1, 150, 1, 2.0),
+    ];
+
+    let summary = TimelineSelectionSummary::from_events(&events, selection, 2);
+
+    assert_eq!(summary.event_type_counts.background, 0);
+    assert_eq!(summary.event_type_counts.spike, 0);
+    assert_eq!(summary.event_type_counts.stale_lane, 0);
+    assert_eq!(summary.event_type_counts.high_value_band, 0);
+    assert_eq!(summary.event_type_counts.unclassified, 2);
+    assert_eq!(summary.top_event_type, None);
 }

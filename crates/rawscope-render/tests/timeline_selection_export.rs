@@ -1,5 +1,7 @@
 use rawscope_core::{RowId, U64Range};
-use rawscope_data::{SyntheticDatasetMetadata, SyntheticEventRecord, SyntheticEventType};
+use rawscope_data::{
+    SyntheticDatasetMetadata, SyntheticEventType, TimelineEventKind, TimelineEventRecord,
+};
 use rawscope_render::{
     timeline_selection_evidence_json, timeline_selection_evidence_markdown, TimelineBrushSelection,
     TimelineEvidenceConfig, TimelineLaneRange, TimelineSelectionEvidence,
@@ -11,13 +13,13 @@ fn event(
     lane: u32,
     value: f32,
     event_type: SyntheticEventType,
-) -> SyntheticEventRecord {
-    SyntheticEventRecord {
+) -> TimelineEventRecord {
+    TimelineEventRecord {
         row_id: RowId(row_id),
         timestamp,
         lane,
         value,
-        event_type,
+        kind: TimelineEventKind::Synthetic(event_type),
     }
 }
 

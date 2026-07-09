@@ -1,16 +1,18 @@
 use rawscope_core::{F32Range, RowId};
-use rawscope_data::{SyntheticDatasetMetadata, SyntheticPointCategory, SyntheticPointRecord};
+use rawscope_data::{
+    ScatterPointKind, ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointCategory,
+};
 use rawscope_render::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown, ScatterBrushSelection,
     ScatterSelectionEvidence, SelectionEvidenceConfig,
 };
 
-fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> SyntheticPointRecord {
-    SyntheticPointRecord {
+fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> ScatterPointRecord {
+    ScatterPointRecord {
         row_id: RowId(row_id),
         x,
         y,
-        category,
+        kind: ScatterPointKind::Synthetic(category),
     }
 }
 

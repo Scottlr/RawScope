@@ -3,6 +3,7 @@
 use rawscope_core::{F32Range, RowId};
 
 use crate::dataset::{DatasetIdentity, SyntheticDatasetMetadata};
+use crate::{ScatterPointKind, ScatterPointRecord};
 
 use super::rng::SyntheticRng;
 
@@ -20,15 +21,6 @@ pub enum SyntheticPointCategory {
     Cluster,
     Background,
     Outlier,
-}
-
-/// One synthetic point for scatter-density testing.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SyntheticPointRecord {
-    pub row_id: RowId,
-    pub x: f32,
-    pub y: f32,
-    pub category: SyntheticPointCategory,
 }
 
 /// Configuration for deterministic synthetic point generation.
@@ -59,7 +51,7 @@ pub struct SyntheticPointDataset {
     pub metadata: SyntheticDatasetMetadata,
     pub x_range: F32Range,
     pub y_range: F32Range,
-    pub points: Vec<SyntheticPointRecord>,
+    pub points: Vec<ScatterPointRecord>,
 }
 
 /// Generates synthetic points with one dense cluster plus sparse outliers.
@@ -75,11 +67,11 @@ pub fn generate_synthetic_points(config: SyntheticPointConfig) -> SyntheticPoint
 
     let cluster_rows = 0..cluster_count;
     for row_index in cluster_rows {
-        points.push(SyntheticPointRecord {
+        points.push(ScatterPointRecord {
             row_id: RowId(row_index as u64),
             x: sample_cluster_value(&mut rng, config.x_range, CLUSTER_X_CENTER, CLUSTER_SPREAD),
             y: sample_cluster_value(&mut rng, config.y_range, CLUSTER_Y_CENTER, CLUSTER_SPREAD),
-            category: SyntheticPointCategory::Cluster,
+            kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster),
         });
     }
 
@@ -87,22 +79,22 @@ pub fn generate_synthetic_points(config: SyntheticPointConfig) -> SyntheticPoint
     let background_end = background_start + background_count;
     let background_rows = background_start..background_end;
     for row_index in background_rows {
-        points.push(SyntheticPointRecord {
+        points.push(ScatterPointRecord {
             row_id: RowId(row_index as u64),
             x: rng.f32_in_range(config.x_range.min, config.x_range.max),
             y: rng.f32_in_range(config.y_range.min, config.y_range.max),
-            category: SyntheticPointCategory::Background,
+            kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Background),
         });
     }
 
     let outlier_rows = background_end..config.row_count;
     for row_index in outlier_rows {
         let (x, y) = sample_outlier(&mut rng, config.x_range, config.y_range);
-        points.push(SyntheticPointRecord {
+        points.push(ScatterPointRecord {
             row_id: RowId(row_index as u64),
             x,
             y,
-            category: SyntheticPointCategory::Outlier,
+            kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Outlier),
         });
     }
 

@@ -3,6 +3,7 @@
 mod dataset;
 mod local_dataset;
 mod synthetic;
+mod visual_record;
 
 pub use dataset::{
     DatasetFieldBinding, DatasetFieldRole, DatasetIdentity, DatasetSource,
@@ -14,6 +15,9 @@ pub use local_dataset::{
 };
 pub use synthetic::{
     generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,
-    SyntheticEventDataset, SyntheticEventRecord, SyntheticEventType, SyntheticPointCategory,
-    SyntheticPointConfig, SyntheticPointDataset, SyntheticPointRecord,
+    SyntheticEventDataset, SyntheticEventType, SyntheticPointCategory, SyntheticPointConfig,
+    SyntheticPointDataset,
+};
+pub use visual_record::{
+    ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
 };

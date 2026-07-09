@@ -1,7 +1,7 @@
 //! Scatter-density brush geometry and CPU-side selected-region summaries.
 
 use rawscope_core::F32Range;
-use rawscope_data::{SyntheticPointCategory, SyntheticPointRecord};
+use rawscope_data::{ScatterPointKind, ScatterPointRecord, SyntheticPointCategory};
 
 use crate::ScatterViewport;
 
@@ -186,7 +186,7 @@ impl ScatterBrushSelection {
     }
 
     /// Returns true when a point lies inside this brush's data-space ranges.
-    pub fn contains_point(self, point: &SyntheticPointRecord) -> bool {
+    pub fn contains_point(self, point: &ScatterPointRecord) -> bool {
         self.x_range.contains(point.x) && self.y_range.contains(point.y)
     }
 }
@@ -204,6 +204,7 @@ pub struct SelectedCategoryCounts {
     pub cluster: usize,
     pub background: usize,
     pub outlier: usize,
+    pub unclassified: usize,
 }
 
 impl SelectedCategoryCounts {
@@ -221,11 +222,12 @@ impl SelectedCategoryCounts {
             .and_then(|(category, count)| (count > 0).then_some(category))
     }
 
-    fn add(&mut self, category: SyntheticPointCategory) {
-        match category {
-            SyntheticPointCategory::Cluster => self.cluster += 1,
-            SyntheticPointCategory::Background => self.background += 1,
-            SyntheticPointCategory::Outlier => self.outlier += 1,
+    fn add(&mut self, kind: ScatterPointKind) {
+        match kind {
+            ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster) => self.cluster += 1,
+            ScatterPointKind::Synthetic(SyntheticPointCategory::Background) => self.background += 1,
+            ScatterPointKind::Synthetic(SyntheticPointCategory::Outlier) => self.outlier += 1,
+            ScatterPointKind::Unclassified => self.unclassified += 1,
         }
     }
 }
@@ -245,8 +247,8 @@ pub struct SelectedRegionSummary {
 }
 
 impl SelectedRegionSummary {
-    /// Summarizes synthetic point records inside the given brush.
-    pub fn from_points(points: &[SyntheticPointRecord], brush: ScatterBrushSelection) -> Self {
+    /// Summarizes scatter point records inside the given brush.
+    pub fn from_points(points: &[ScatterPointRecord], brush: ScatterBrushSelection) -> Self {
         let mut selected_row_count = 0;
         let mut selected_min_x = f32::INFINITY;
         let mut selected_max_x = f32::NEG_INFINITY;
@@ -265,7 +267,7 @@ impl SelectedRegionSummary {
             selected_max_x = selected_max_x.max(point.x);
             selected_min_y = selected_min_y.min(point.y);
             selected_max_y = selected_max_y.max(point.y);
-            category_counts.add(point.category);
+            category_counts.add(point.kind);
         }
 
         let selected_percentage = if points.is_empty() {

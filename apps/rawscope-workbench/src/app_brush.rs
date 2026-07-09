@@ -154,6 +154,7 @@ impl WorkbenchApp {
             cluster_count = summary.category_counts.cluster,
             background_count = summary.category_counts.background,
             outlier_count = summary.category_counts.outlier,
+            unclassified_count = summary.category_counts.unclassified,
             top_category = ?summary.top_category,
             "RawScope scatter brush summary"
         );

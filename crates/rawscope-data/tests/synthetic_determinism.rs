@@ -1,7 +1,7 @@
 use rawscope_core::{F32Range, U64Range};
 use rawscope_data::{
-    generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig, SyntheticEventType,
-    SyntheticPointCategory, SyntheticPointConfig,
+    generate_synthetic_events, generate_synthetic_points, ScatterPointKind, SyntheticEventConfig,
+    SyntheticEventType, SyntheticPointCategory, SyntheticPointConfig, TimelineEventKind,
 };
 
 #[test]
@@ -28,12 +28,12 @@ fn point_generator_includes_dense_cluster_and_sparse_outliers() {
     let cluster_count = dataset
         .points
         .iter()
-        .filter(|point| point.category == SyntheticPointCategory::Cluster)
+        .filter(|point| point.kind == ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster))
         .count();
     let outlier_count = dataset
         .points
         .iter()
-        .filter(|point| point.category == SyntheticPointCategory::Outlier)
+        .filter(|point| point.kind == ScatterPointKind::Synthetic(SyntheticPointCategory::Outlier))
         .count();
 
     assert!(cluster_count > outlier_count);
@@ -71,10 +71,12 @@ fn event_generator_includes_gap_stale_lane_and_high_value_band() {
         .all(|event| event.timestamp < 220 || event.timestamp > 280));
 
     assert!(dataset.events.iter().any(|event| {
-        event.event_type == SyntheticEventType::StaleLane && event.timestamp <= 120
+        event.kind == TimelineEventKind::Synthetic(SyntheticEventType::StaleLane)
+            && event.timestamp <= 120
     }));
 
     assert!(dataset.events.iter().any(|event| {
-        event.event_type == SyntheticEventType::HighValueBand && event.value >= 80.0
+        event.kind == TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand)
+            && event.value >= 80.0
     }));
 }

@@ -1,7 +1,7 @@
 use rawscope_core::{F32Range, U64Range};
 use rawscope_data::{
-    generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,
-    SyntheticPointConfig, SyntheticPointRecord,
+    generate_synthetic_events, generate_synthetic_points, ScatterPointKind, ScatterPointRecord,
+    SyntheticEventConfig, SyntheticPointCategory, SyntheticPointConfig,
 };
 use rawscope_render::{scatter_density, timeline_density};
 
@@ -77,17 +77,17 @@ fn total_timeline_binned_count_matches_input_when_all_events_are_in_range() {
 #[test]
 fn rows_outside_scatter_range_are_excluded() {
     let points = vec![
-        SyntheticPointRecord {
+        ScatterPointRecord {
             row_id: rawscope_core::RowId(0),
             x: 10.0,
             y: 10.0,
-            category: rawscope_data::SyntheticPointCategory::Background,
+            kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Background),
         },
-        SyntheticPointRecord {
+        ScatterPointRecord {
             row_id: rawscope_core::RowId(1),
             x: 250.0,
             y: 10.0,
-            category: rawscope_data::SyntheticPointCategory::Outlier,
+            kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Outlier),
         },
     ];
 

@@ -3,6 +3,7 @@
 use rawscope_core::{RowId, U64Range};
 
 use crate::dataset::{DatasetIdentity, SyntheticDatasetMetadata};
+use crate::{TimelineEventKind, TimelineEventRecord};
 
 use super::rng::SyntheticRng;
 
@@ -24,16 +25,6 @@ pub enum SyntheticEventType {
     Spike,
     StaleLane,
     HighValueBand,
-}
-
-/// One synthetic event for timeline-density testing.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SyntheticEventRecord {
-    pub row_id: RowId,
-    pub timestamp: u64,
-    pub lane: u32,
-    pub value: f32,
-    pub event_type: SyntheticEventType,
 }
 
 /// Configuration for deterministic synthetic event generation.
@@ -64,7 +55,7 @@ pub struct SyntheticEventDataset {
     pub metadata: SyntheticDatasetMetadata,
     pub time_range: U64Range,
     pub lane_count: u32,
-    pub events: Vec<SyntheticEventRecord>,
+    pub events: Vec<TimelineEventRecord>,
 }
 
 /// Generates synthetic events with spike, gap, stale-lane, and anomaly patterns.
@@ -85,12 +76,12 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
 
     let background_rows = 0..background_count;
     for row_index in background_rows {
-        events.push(SyntheticEventRecord {
+        events.push(TimelineEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_time_outside_gap(&mut rng, config.time_range),
             lane: rng.u32_in_range(0, stale_lane),
             value: rng.f32_in_range(5.0, 25.0),
-            event_type: SyntheticEventType::Background,
+            kind: TimelineEventKind::Synthetic(SyntheticEventType::Background),
         });
     }
 
@@ -98,12 +89,12 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
     let spike_end_row = spike_start_row + spike_count;
     let spike_rows = spike_start_row..spike_end_row;
     for row_index in spike_rows {
-        events.push(SyntheticEventRecord {
+        events.push(TimelineEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_window_time(&mut rng, config.time_range, SPIKE_START, SPIKE_END),
             lane: rng.u32_in_range(0, stale_lane),
             value: rng.f32_in_range(15.0, 35.0),
-            event_type: SyntheticEventType::Spike,
+            kind: TimelineEventKind::Synthetic(SyntheticEventType::Spike),
         });
     }
 
@@ -111,7 +102,7 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
     let stale_lane_end_row = stale_lane_start_row + stale_lane_count;
     let stale_lane_rows = stale_lane_start_row..stale_lane_end_row;
     for row_index in stale_lane_rows {
-        events.push(SyntheticEventRecord {
+        events.push(TimelineEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_window_time(
                 &mut rng,
@@ -121,7 +112,7 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
             ),
             lane: stale_lane,
             value: rng.f32_in_range(4.0, 18.0),
-            event_type: SyntheticEventType::StaleLane,
+            kind: TimelineEventKind::Synthetic(SyntheticEventType::StaleLane),
         });
     }
 
@@ -133,12 +124,12 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
         } else {
             0
         };
-        events.push(SyntheticEventRecord {
+        events.push(TimelineEventRecord {
             row_id: RowId(row_index as u64),
             timestamp: sample_window_time(&mut rng, config.time_range, ANOMALY_START, ANOMALY_END),
             lane,
             value: rng.f32_in_range(80.0, 120.0),
-            event_type: SyntheticEventType::HighValueBand,
+            kind: TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand),
         });
     }
 

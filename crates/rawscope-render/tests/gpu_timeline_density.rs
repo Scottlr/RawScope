@@ -1,6 +1,7 @@
 use rawscope_core::{DensityGrid, RowId, U64Range};
 use rawscope_data::{
-    generate_synthetic_events, SyntheticEventConfig, SyntheticEventRecord, SyntheticEventType,
+    generate_synthetic_events, SyntheticEventConfig, SyntheticEventType, TimelineEventKind,
+    TimelineEventRecord,
 };
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{gpu_timeline_density, timeline_density};
@@ -141,12 +142,12 @@ fn sum_gpu_timeline_bins(
         .sum()
 }
 
-fn event(row_id: u64, timestamp: u64, lane: u32) -> SyntheticEventRecord {
-    SyntheticEventRecord {
+fn event(row_id: u64, timestamp: u64, lane: u32) -> TimelineEventRecord {
+    TimelineEventRecord {
         row_id: RowId(row_id),
         timestamp,
         lane,
         value: 1.0,
-        event_type: SyntheticEventType::Background,
+        kind: TimelineEventKind::Synthetic(SyntheticEventType::Background),
     }
 }

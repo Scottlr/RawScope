@@ -3,7 +3,7 @@
 use std::{error::Error, fmt, sync::mpsc::RecvError};
 
 use rawscope_core::{DensityCountGrid, GridSize, U64Range};
-use rawscope_data::SyntheticEventRecord;
+use rawscope_data::TimelineEventRecord;
 use rawscope_gpu::ComputeContext;
 
 use crate::gpu_density_pipeline::{
@@ -134,7 +134,7 @@ pub(crate) struct TimelineDensityComputeConfig {
 /// row evidence remain deferred to later timeline milestones.
 pub async fn gpu_timeline_density(
     context: &ComputeContext,
-    events: &[SyntheticEventRecord],
+    events: &[TimelineEventRecord],
     time_range: U64Range,
     lane_count: u32,
     width: u32,
@@ -156,7 +156,7 @@ pub async fn gpu_timeline_density(
 pub async fn gpu_timeline_density_on_device(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    events: &[SyntheticEventRecord],
+    events: &[TimelineEventRecord],
     time_range: U64Range,
     lane_count: u32,
     width: u32,
@@ -197,7 +197,7 @@ pub(crate) struct TimelineDensityComputeOutput {
 pub(crate) fn dispatch_timeline_density(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    events: &[SyntheticEventRecord],
+    events: &[TimelineEventRecord],
     config: TimelineDensityComputeConfig,
     readback_counts: bool,
 ) -> Result<TimelineDensityComputeOutput, GpuTimelineDensityError> {

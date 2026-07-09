@@ -1,5 +1,5 @@
 use rawscope_core::{F32Range, RowId};
-use rawscope_data::{SyntheticPointCategory, SyntheticPointRecord};
+use rawscope_data::{ScatterPointKind, ScatterPointRecord, SyntheticPointCategory};
 use rawscope_render::{
     BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
     ScatterViewport, SelectedRegionSummary,
@@ -9,12 +9,21 @@ fn viewport() -> ScatterViewport {
     ScatterViewport::new(F32Range::new(0.0, 100.0), F32Range::new(0.0, 100.0))
 }
 
-fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> SyntheticPointRecord {
-    SyntheticPointRecord {
+fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> ScatterPointRecord {
+    ScatterPointRecord {
         row_id: RowId(row_id),
         x,
         y,
-        category,
+        kind: ScatterPointKind::Synthetic(category),
+    }
+}
+
+fn unclassified_point(row_id: u64, x: f32, y: f32) -> ScatterPointRecord {
+    ScatterPointRecord {
+        row_id: RowId(row_id),
+        x,
+        y,
+        kind: ScatterPointKind::Unclassified,
     }
 }
 
@@ -213,5 +222,29 @@ fn selected_summary_counts_categories() {
     assert_eq!(summary.category_counts.cluster, 2);
     assert_eq!(summary.category_counts.background, 0);
     assert_eq!(summary.category_counts.outlier, 1);
+    assert_eq!(summary.category_counts.unclassified, 0);
     assert_eq!(summary.top_category, Some(SyntheticPointCategory::Cluster));
+}
+
+#[test]
+fn selected_summary_tracks_unclassified_local_points_without_synthetic_top_category() {
+    let brush = ScatterBrushSelection::from_screen_points(
+        BrushScreenPoint::new(0.0, 0.0),
+        BrushScreenPoint::new(100.0, 100.0),
+        BrushScreenSize::new(100.0, 100.0),
+        viewport(),
+    )
+    .unwrap();
+    let points = vec![
+        unclassified_point(0, 10.0, 10.0),
+        unclassified_point(1, 20.0, 20.0),
+    ];
+
+    let summary = SelectedRegionSummary::from_points(&points, brush);
+
+    assert_eq!(summary.category_counts.cluster, 0);
+    assert_eq!(summary.category_counts.background, 0);
+    assert_eq!(summary.category_counts.outlier, 0);
+    assert_eq!(summary.category_counts.unclassified, 2);
+    assert_eq!(summary.top_category, None);
 }

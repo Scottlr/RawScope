@@ -1,15 +1,17 @@
 use rawscope_core::{F32Range, RowId};
-use rawscope_data::{SyntheticDatasetMetadata, SyntheticPointCategory, SyntheticPointRecord};
+use rawscope_data::{
+    ScatterPointKind, ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointCategory,
+};
 use rawscope_render::{
     ScatterBrushSelection, ScatterSelectionEvidence, SelectedPointSample, SelectionEvidenceConfig,
 };
 
-fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> SyntheticPointRecord {
-    SyntheticPointRecord {
+fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> ScatterPointRecord {
+    ScatterPointRecord {
         row_id: RowId(row_id),
         x,
         y,
-        category,
+        kind: ScatterPointKind::Synthetic(category),
     }
 }
 
@@ -65,13 +67,13 @@ fn selected_record_sample_is_stable() {
                 row_id: RowId(1),
                 x: 10.0,
                 y: 20.0,
-                category: SyntheticPointCategory::Cluster,
+                category: Some(SyntheticPointCategory::Cluster),
             },
             SelectedPointSample {
                 row_id: RowId(3),
                 x: 30.0,
                 y: 40.0,
-                category: SyntheticPointCategory::Background,
+                category: Some(SyntheticPointCategory::Background),
             },
         ]
     );
@@ -140,6 +142,7 @@ fn category_counts_and_top_category_are_deterministic() {
     assert_eq!(evidence.category_counts.cluster, 2);
     assert_eq!(evidence.category_counts.background, 0);
     assert_eq!(evidence.category_counts.outlier, 1);
+    assert_eq!(evidence.category_counts.unclassified, 0);
     assert_eq!(evidence.top_category, Some(SyntheticPointCategory::Cluster));
 }
 

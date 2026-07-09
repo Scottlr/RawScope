@@ -5,10 +5,8 @@ mod point;
 mod rng;
 
 pub use event::{
-    generate_synthetic_events, SyntheticEventConfig, SyntheticEventDataset, SyntheticEventRecord,
-    SyntheticEventType,
+    generate_synthetic_events, SyntheticEventConfig, SyntheticEventDataset, SyntheticEventType,
 };
 pub use point::{
     generate_synthetic_points, SyntheticPointCategory, SyntheticPointConfig, SyntheticPointDataset,
-    SyntheticPointRecord,
 };

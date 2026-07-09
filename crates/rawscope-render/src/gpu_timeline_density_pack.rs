@@ -2,7 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::U64Range;
-use rawscope_data::SyntheticEventRecord;
+use rawscope_data::TimelineEventRecord;
 
 use crate::gpu_timeline_density::GpuTimelineDensityError;
 
@@ -47,7 +47,7 @@ impl TimelineParams {
 }
 
 pub(crate) fn pack_events(
-    events: &[SyntheticEventRecord],
+    events: &[TimelineEventRecord],
     time_range: U64Range,
 ) -> Result<Vec<GpuTimelineEvent>, GpuTimelineDensityError> {
     events
@@ -62,7 +62,7 @@ pub(crate) fn timeline_span_u32(time_range: U64Range) -> Result<u32, GpuTimeline
 }
 
 fn pack_event(
-    event: &SyntheticEventRecord,
+    event: &TimelineEventRecord,
     time_range: U64Range,
 ) -> Result<GpuTimelineEvent, GpuTimelineDensityError> {
     let timestamp_is_before_range = event.timestamp < time_range.min;
@@ -86,7 +86,7 @@ fn pack_event(
 #[cfg(test)]
 mod tests {
     use rawscope_core::{RowId, U64Range};
-    use rawscope_data::{SyntheticEventRecord, SyntheticEventType};
+    use rawscope_data::{TimelineEventKind, TimelineEventRecord};
 
     use super::{pack_event, timeline_span_u32};
     use crate::gpu_timeline_density::GpuTimelineDensityError;
@@ -118,13 +118,13 @@ mod tests {
         ));
     }
 
-    fn event(row_id: u64, timestamp: u64, lane: u32) -> SyntheticEventRecord {
-        SyntheticEventRecord {
+    fn event(row_id: u64, timestamp: u64, lane: u32) -> TimelineEventRecord {
+        TimelineEventRecord {
             row_id: RowId(row_id),
             timestamp,
             lane,
             value: 1.0,
-            event_type: SyntheticEventType::Background,
+            kind: TimelineEventKind::Unclassified,
         }
     }
 }

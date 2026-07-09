@@ -3,8 +3,8 @@
 use std::{error::Error, sync::Arc};
 
 use rawscope_data::{
-    generate_synthetic_points, load_scatter_dataset, DatasetIdentity, SyntheticDatasetMetadata,
-    SyntheticEventRecord, SyntheticPointConfig, SyntheticPointRecord,
+    generate_synthetic_points, load_scatter_dataset, DatasetIdentity, ScatterPointRecord,
+    SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
@@ -60,7 +60,7 @@ pub struct WorkbenchApp {
 #[derive(Default)]
 pub(crate) struct ScatterWorkbenchState {
     pub(crate) density_renderer: Option<ScatterDensityRenderer>,
-    pub(crate) points: Vec<SyntheticPointRecord>,
+    pub(crate) points: Vec<ScatterPointRecord>,
     pub(crate) active_preset: PointCountPreset,
     pub(crate) point_count_label: String,
     pub(crate) viewport: Option<ScatterViewport>,
@@ -76,7 +76,7 @@ pub(crate) struct ScatterWorkbenchState {
 #[derive(Default)]
 pub(crate) struct TimelineWorkbenchState {
     pub(crate) density_renderer: Option<TimelineDensityRenderer>,
-    pub(crate) events: Vec<SyntheticEventRecord>,
+    pub(crate) events: Vec<TimelineEventRecord>,
     pub(crate) viewport: Option<TimelineViewport>,
     pub(crate) render_stats: Option<TimelineDensityRenderStats>,
     pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,

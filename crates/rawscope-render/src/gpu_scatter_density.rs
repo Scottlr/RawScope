@@ -3,7 +3,7 @@
 use std::{error::Error, fmt, sync::mpsc::RecvError};
 
 use rawscope_core::{DensityCountGrid, F32Range, GridSize};
-use rawscope_data::SyntheticPointRecord;
+use rawscope_data::ScatterPointRecord;
 use rawscope_gpu::ComputeContext;
 
 use crate::gpu_density_pipeline::{
@@ -127,7 +127,7 @@ impl From<GpuDensityReadbackError> for GpuScatterDensityError {
 /// reference until a later GPU milestone introduces an explicit row-evidence design.
 pub async fn gpu_scatter_density(
     context: &ComputeContext,
-    points: &[SyntheticPointRecord],
+    points: &[ScatterPointRecord],
     x_range: F32Range,
     y_range: F32Range,
     width: u32,
@@ -152,7 +152,7 @@ pub async fn gpu_scatter_density(
 pub async fn gpu_scatter_density_on_device(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    points: &[SyntheticPointRecord],
+    points: &[ScatterPointRecord],
     x_range: F32Range,
     y_range: F32Range,
     width: u32,
@@ -193,7 +193,7 @@ pub(crate) struct ScatterDensityComputeOutput {
 pub(crate) fn dispatch_scatter_density(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    points: &[SyntheticPointRecord],
+    points: &[ScatterPointRecord],
     config: ScatterDensityComputeConfig,
     readback_counts: bool,
 ) -> Result<ScatterDensityComputeOutput, GpuScatterDensityError> {

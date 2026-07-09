@@ -1,7 +1,7 @@
 //! CPU-side event evidence for finalized timeline brush selections.
 
 use rawscope_core::{RowId, U64Range};
-use rawscope_data::{SyntheticDatasetMetadata, SyntheticEventRecord, SyntheticEventType};
+use rawscope_data::{SyntheticDatasetMetadata, SyntheticEventType, TimelineEventRecord};
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
 use crate::{
@@ -24,24 +24,24 @@ impl Default for TimelineEvidenceConfig {
     }
 }
 
-/// Small sampled synthetic timeline event included in selection evidence.
+/// Small sampled timeline event included in selection evidence.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SelectedTimelineEventSample {
     pub row_id: RowId,
     pub timestamp: u64,
     pub lane: u32,
     pub value: f32,
-    pub event_type: SyntheticEventType,
+    pub event_type: Option<SyntheticEventType>,
 }
 
-impl From<&SyntheticEventRecord> for SelectedTimelineEventSample {
-    fn from(event: &SyntheticEventRecord) -> Self {
+impl From<&TimelineEventRecord> for SelectedTimelineEventSample {
+    fn from(event: &TimelineEventRecord) -> Self {
         Self {
             row_id: event.row_id,
             timestamp: event.timestamp,
             lane: event.lane,
             value: event.value,
-            event_type: event.event_type,
+            event_type: event.kind.synthetic_event_type(),
         }
     }
 }
@@ -72,12 +72,12 @@ pub struct TimelineSelectionEvidence {
 }
 
 impl TimelineSelectionEvidence {
-    /// Builds deterministic selected-event evidence from synthetic timeline event records.
+    /// Builds deterministic selected-event evidence from timeline event records.
     ///
     /// Sampling uses the lowest selected row ids so the same selection and dataset always produce
     /// the same evidence without random state.
     pub fn from_events(
-        events: &[SyntheticEventRecord],
+        events: &[TimelineEventRecord],
         selection: TimelineBrushSelection,
         lane_count: u32,
         dataset_metadata: SyntheticDatasetMetadata,

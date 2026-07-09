@@ -1,5 +1,7 @@
 use rawscope_core::{RowId, U64Range};
-use rawscope_data::{SyntheticDatasetMetadata, SyntheticEventRecord, SyntheticEventType};
+use rawscope_data::{
+    SyntheticDatasetMetadata, SyntheticEventType, TimelineEventKind, TimelineEventRecord,
+};
 use rawscope_render::{
     TimelineBrushSelection, TimelineEvidenceConfig, TimelineLaneRange, TimelineSelectionEvidence,
 };
@@ -10,13 +12,13 @@ fn event(
     lane: u32,
     value: f32,
     event_type: SyntheticEventType,
-) -> SyntheticEventRecord {
-    SyntheticEventRecord {
+) -> TimelineEventRecord {
+    TimelineEventRecord {
         row_id: RowId(row_id),
         timestamp,
         lane,
         value,
-        event_type,
+        kind: TimelineEventKind::Synthetic(event_type),
     }
 }
 
@@ -27,7 +29,7 @@ fn selection() -> TimelineBrushSelection {
     }
 }
 
-fn events() -> Vec<SyntheticEventRecord> {
+fn events() -> Vec<TimelineEventRecord> {
     vec![
         event(20, 120, 1, 10.0, SyntheticEventType::Background),
         event(5, 180, 1, 20.0, SyntheticEventType::Spike),
@@ -102,6 +104,7 @@ fn lane_counts_and_event_type_counts_are_correct() {
     assert_eq!(evidence.event_type_counts.spike, 2);
     assert_eq!(evidence.event_type_counts.stale_lane, 0);
     assert_eq!(evidence.event_type_counts.high_value_band, 0);
+    assert_eq!(evidence.event_type_counts.unclassified, 0);
 }
 
 #[test]
