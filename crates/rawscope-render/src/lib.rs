@@ -8,6 +8,7 @@ mod gpu_scatter_density;
 mod gpu_scatter_density_pack;
 mod gpu_timeline_density;
 mod gpu_timeline_density_pack;
+mod missingness_reference;
 mod scatter_brush;
 mod scatter_brush_overlay;
 mod scatter_density_renderer;
@@ -29,6 +30,10 @@ pub use gpu_scatter_density::{
 pub use gpu_timeline_density::{
     gpu_timeline_density, gpu_timeline_density_on_device, GpuTimelineDensityError,
     GpuTimelineDensityGrid,
+};
+pub use missingness_reference::{
+    missingness_grid, missingness_selection_summary, MissingnessCell, MissingnessGrid,
+    MissingnessSelection, MissingnessSelectionSummary,
 };
 pub use scatter_brush::{
     BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,

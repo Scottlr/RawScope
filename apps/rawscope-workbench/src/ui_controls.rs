@@ -3,16 +3,19 @@
 use egui::{Align, Button, Layout, Panel, RichText, Ui};
 
 use crate::{
-    ui::{ActiveView, WorkbenchUiState},
+    ui::{ActiveView, WorkbenchSurface, WorkbenchUiState},
     ui_drilldown::show_selection_drilldown,
+    ui_missingness::{show_missingness_summary, show_missingness_view, MissingnessAction},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct UiActions {
     pub(crate) activate_view: Option<ActiveView>,
+    pub(crate) activate_surface: Option<WorkbenchSurface>,
     pub(crate) reset_requested: bool,
     pub(crate) export_requested: bool,
     pub(crate) clear_selection_requested: bool,
+    pub(crate) missingness_action: Option<MissingnessAction>,
 }
 
 pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActions {
@@ -31,6 +34,7 @@ pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActi
                 .clicked()
             {
                 actions.activate_view = Some(ActiveView::Scatter);
+                actions.activate_surface = Some(WorkbenchSurface::Primary);
             }
 
             let timeline_button =
@@ -40,6 +44,16 @@ pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActi
                 .clicked()
             {
                 actions.activate_view = Some(ActiveView::Timeline);
+                actions.activate_surface = Some(WorkbenchSurface::Primary);
+            }
+
+            let missingness_button = Button::new("Missingness")
+                .selected(state.visible_surface == WorkbenchSurface::Missingness);
+            if ui
+                .add_enabled(state.can_show_missingness, missingness_button)
+                .clicked()
+            {
+                actions.activate_surface = Some(WorkbenchSurface::Missingness);
             }
 
             ui.separator();
@@ -77,10 +91,14 @@ pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActi
         .default_size(360.0)
         .min_size(300.0)
         .show(ui, |ui| {
-            ui.heading("Selected Rows");
-            ui.label(&state.view_label);
-            ui.separator();
-            show_selection_drilldown(ui, state.drilldown.as_ref());
+            if state.visible_surface == WorkbenchSurface::Missingness {
+                show_missingness_summary(ui, state.missingness.as_ref());
+            } else {
+                ui.heading("Selected Rows");
+                ui.label(&state.view_label);
+                ui.separator();
+                show_selection_drilldown(ui, state.drilldown.as_ref());
+            }
         });
 
     Panel::bottom("workbench_status_bar").show(ui, |ui| {
@@ -94,6 +112,13 @@ pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActi
         });
         ui.add_space(4.0);
     });
+
+    if state.visible_surface == WorkbenchSurface::Missingness {
+        actions.missingness_action = state
+            .missingness
+            .as_ref()
+            .and_then(|missingness| show_missingness_view(ui, missingness));
+    }
 
     actions
 }

@@ -65,6 +65,7 @@ impl WorkbenchApp {
                 gpu.device(),
                 gpu.surface_format(),
             ));
+            self.rebuild_missingness_state();
 
             return Ok(());
         }
@@ -97,6 +98,7 @@ impl WorkbenchApp {
             gpu.device(),
             gpu.surface_format(),
         ));
+        self.rebuild_missingness_state();
 
         Ok(())
     }
