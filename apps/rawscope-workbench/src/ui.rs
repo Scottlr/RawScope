@@ -2,6 +2,7 @@
 
 use egui::ViewportId;
 use egui_wgpu::RendererOptions;
+use rawscope_core::VisualSelectionKind;
 use rawscope_data::{DatasetFieldRole, DatasetSource};
 use rawscope_render::SelectionDrilldown;
 
@@ -54,6 +55,7 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) dataset_label: String,
     pub(crate) view_label: String,
     pub(crate) selection_label: String,
+    pub(crate) linked_selection_label: String,
     pub(crate) axis_primary_label: String,
     pub(crate) axis_secondary_label: String,
     pub(crate) export_status: ExportStatus,
@@ -130,6 +132,7 @@ impl WorkbenchApp {
         let dataset_label = dataset_label(self);
         let view_label = view_label(self);
         let selection_label = selection_label(self);
+        let linked_selection_label = linked_selection_label(self);
         let (axis_primary_label, axis_secondary_label) = axis_labels(self);
         let drilldown = match self.demo_mode {
             DemoMode::Scatter => self.scatter.selection_drilldown.clone(),
@@ -173,6 +176,7 @@ impl WorkbenchApp {
             dataset_label,
             view_label,
             selection_label,
+            linked_selection_label,
             axis_primary_label,
             axis_secondary_label,
             export_status: self.export_status.clone(),
@@ -424,6 +428,23 @@ fn axis_labels(app: &WorkbenchApp) -> (String, String) {
     }
 }
 
+fn linked_selection_label(app: &WorkbenchApp) -> String {
+    let Some(active_selection) = app.active_selection.as_ref() else {
+        return "Linked selection idle".to_string();
+    };
+
+    let source_view = match active_selection.visual_selection.kind {
+        VisualSelectionKind::ScatterRect => "scatter",
+        VisualSelectionKind::TimelineRect => "timeline",
+    };
+
+    format!(
+        "Linked {} rows from {}",
+        app.active_linked_selection_count(),
+        source_view
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{ActiveView, ExportStatus, WorkbenchUiState};
@@ -447,6 +468,7 @@ mod tests {
             dataset_label: "Synthetic scatter | 20000 rows".to_string(),
             view_label: "grid 256x256 | x 0.0..100.0 | y 0.0..100.0".to_string(),
             selection_label: "Selection 42 rows (0.21%)".to_string(),
+            linked_selection_label: "Linked 42 rows from scatter".to_string(),
             axis_primary_label: "x 0.0..100.0".to_string(),
             axis_secondary_label: "y 0.0..100.0".to_string(),
             export_status: ExportStatus::Idle,

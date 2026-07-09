@@ -46,6 +46,8 @@ pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActi
             ui.label(RichText::new(&state.dataset_label).strong());
             ui.separator();
             ui.label(&state.selection_label);
+            ui.separator();
+            ui.label(&state.linked_selection_label);
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui

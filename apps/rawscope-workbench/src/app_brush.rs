@@ -37,6 +37,7 @@ impl WorkbenchApp {
         self.finalize_brush_from_drag();
         self.build_selection_evidence();
         self.build_selection_drilldown();
+        self.publish_scatter_active_selection();
         self.log_selection_summary("finalized");
         self.log_selection_evidence();
         self.log_selection_drilldown();
@@ -58,6 +59,7 @@ impl WorkbenchApp {
         self.scatter.selection_evidence = None;
         self.scatter.selection_drilldown = None;
         self.scatter.brush_drag_start = None;
+        self.clear_active_selection();
         self.export_status = crate::ui::ExportStatus::Idle;
         self.update_window_title();
         self.request_redraw();
@@ -224,7 +226,9 @@ impl WorkbenchApp {
 #[cfg(test)]
 mod tests {
     use rawscope_core::{F32Range, RowId};
-    use rawscope_data::{ScatterPointKind, ScatterPointRecord};
+    use rawscope_data::{
+        generate_synthetic_points, ScatterPointKind, ScatterPointRecord, SyntheticPointConfig,
+    };
     use rawscope_render::{ScatterBrushSelection, SelectionDrilldown};
 
     use super::*;
@@ -279,6 +283,19 @@ mod tests {
     fn clear_brush_clears_scatter_drilldown() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
+        app.dataset_identity =
+            Some(generate_synthetic_points(SyntheticPointConfig::new(42, 1)).identity);
+        app.scatter.points = vec![ScatterPointRecord {
+            row_id: RowId(1),
+            x: 10.0,
+            y: 20.0,
+            kind: ScatterPointKind::Unclassified,
+        }];
+        app.scatter.active_brush_selection = Some(ScatterBrushSelection {
+            x_range: F32Range::new(0.0, 50.0),
+            y_range: F32Range::new(0.0, 50.0),
+        });
+        app.publish_scatter_active_selection();
         app.scatter.selection_drilldown = Some(SelectionDrilldown {
             selected_row_count: 1,
             displayed_row_count: 1,
@@ -289,6 +306,7 @@ mod tests {
 
         app.clear_brush();
 
+        assert!(app.active_selection.is_none());
         assert!(app.scatter.selection_drilldown.is_none());
     }
 }
