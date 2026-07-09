@@ -1,9 +1,13 @@
 //! CPU-side event evidence for finalized timeline brush selections.
 
 use rawscope_core::{RowId, U64Range};
-use rawscope_data::{SyntheticDatasetMetadata, SyntheticEventType, TimelineEventRecord};
+use rawscope_data::{
+    DatasetIdentity, LoadedSourceTable, SyntheticDatasetMetadata, SyntheticEventType,
+    TimelineEventKind, TimelineEventRecord,
+};
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
+use crate::scatter_selection_evidence::SelectedSourceRowSample;
 use crate::{
     SelectedEventTypeCounts, TimelineBrushSelection, TimelineLaneRange, TimelineSelectionSummary,
 };
@@ -52,6 +56,42 @@ impl RowIdSample for SelectedTimelineEventSample {
     }
 }
 
+/// View configuration included in timeline evidence v2 artifacts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimelineEvidenceView {
+    pub time_range: U64Range,
+    pub full_time_range: U64Range,
+    pub lane_count: u32,
+    pub grid_width: u32,
+    pub grid_height: u32,
+}
+
+/// Small sampled timeline event included in selection evidence v2.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SelectedTimelineEventSampleV2 {
+    pub row_id: RowId,
+    pub timestamp: u64,
+    pub lane: u32,
+    pub value: f32,
+    pub kind: TimelineEventKind,
+}
+
+impl From<&SelectedTimelineEventSample> for SelectedTimelineEventSampleV2 {
+    fn from(sample: &SelectedTimelineEventSample) -> Self {
+        let kind = sample
+            .event_type
+            .map(TimelineEventKind::Synthetic)
+            .unwrap_or(TimelineEventKind::Unclassified);
+        Self {
+            row_id: sample.row_id,
+            timestamp: sample.timestamp,
+            lane: sample.lane,
+            value: sample.value,
+            kind,
+        }
+    }
+}
+
 /// Deterministic CPU-side evidence for a finalized timeline brush selection.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TimelineSelectionEvidence {
@@ -69,6 +109,73 @@ pub struct TimelineSelectionEvidence {
     pub top_event_type: Option<SyntheticEventType>,
     pub selected_timestamp_range: Option<U64Range>,
     pub selected_value_range: Option<(f32, f32)>,
+}
+
+/// Source-aware CPU-side timeline selection evidence for v2 artifacts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimelineSelectionEvidenceV2 {
+    pub dataset_identity: DatasetIdentity,
+    pub view: TimelineEvidenceView,
+    pub selected_event_count: usize,
+    pub selected_percentage: f32,
+    pub selected_time_range: U64Range,
+    pub selected_lane_range: TimelineLaneRange,
+    pub selected_row_id_sample: Vec<RowId>,
+    pub selected_event_sample: Vec<SelectedTimelineEventSampleV2>,
+    pub selected_source_column_names: Vec<String>,
+    pub selected_source_row_sample: Vec<SelectedSourceRowSample>,
+    pub lane_counts: Vec<usize>,
+    pub event_kind_counts: SelectedEventTypeCounts,
+    pub top_lane: Option<u32>,
+    pub top_event_kind: Option<TimelineEventKind>,
+    pub selected_timestamp_range: Option<U64Range>,
+    pub selected_value_range: Option<(f32, f32)>,
+}
+
+impl TimelineSelectionEvidenceV2 {
+    /// Builds source-aware evidence from cached v1 evidence plus current dataset context.
+    pub fn from_v1(
+        evidence: &TimelineSelectionEvidence,
+        dataset_identity: DatasetIdentity,
+        view: TimelineEvidenceView,
+        source_rows: Option<&LoadedSourceTable>,
+    ) -> Self {
+        let selected_source_column_names = source_rows
+            .map(|table| table.column_names().map(str::to_string).collect())
+            .unwrap_or_default();
+        let selected_source_row_sample = source_rows
+            .map(|table| {
+                evidence
+                    .selected_row_id_sample
+                    .iter()
+                    .filter_map(|row_id| table.row(*row_id).map(SelectedSourceRowSample::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Self {
+            dataset_identity,
+            view,
+            selected_event_count: evidence.selected_event_count,
+            selected_percentage: evidence.selected_percentage,
+            selected_time_range: evidence.selected_time_range,
+            selected_lane_range: evidence.selected_lane_range,
+            selected_row_id_sample: evidence.selected_row_id_sample.clone(),
+            selected_event_sample: evidence
+                .selected_event_sample
+                .iter()
+                .map(SelectedTimelineEventSampleV2::from)
+                .collect(),
+            selected_source_column_names,
+            selected_source_row_sample,
+            lane_counts: evidence.lane_counts.clone(),
+            event_kind_counts: evidence.event_type_counts,
+            top_lane: evidence.top_lane,
+            top_event_kind: evidence.event_type_counts.top_event_kind(),
+            selected_timestamp_range: evidence.selected_timestamp_range,
+            selected_value_range: evidence.selected_value_range,
+        }
+    }
 }
 
 impl TimelineSelectionEvidence {

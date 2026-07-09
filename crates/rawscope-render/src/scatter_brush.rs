@@ -222,6 +222,30 @@ impl SelectedCategoryCounts {
             .and_then(|(category, count)| (count > 0).then_some(category))
     }
 
+    /// Returns the largest selected point kind, including unclassified local rows.
+    pub fn top_point_kind(self) -> Option<ScatterPointKind> {
+        let kinds = [
+            (
+                ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster),
+                self.cluster,
+            ),
+            (
+                ScatterPointKind::Synthetic(SyntheticPointCategory::Background),
+                self.background,
+            ),
+            (
+                ScatterPointKind::Synthetic(SyntheticPointCategory::Outlier),
+                self.outlier,
+            ),
+            (ScatterPointKind::Unclassified, self.unclassified),
+        ];
+
+        kinds
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .and_then(|(kind, count)| (count > 0).then_some(kind))
+    }
+
     fn add(&mut self, kind: ScatterPointKind) {
         match kind {
             ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster) => self.cluster += 1,

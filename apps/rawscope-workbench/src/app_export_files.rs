@@ -10,11 +10,11 @@ use std::{
 };
 
 use rawscope_render::{
-    scatter_selection_evidence_json, scatter_selection_evidence_markdown,
-    timeline_selection_evidence_json, timeline_selection_evidence_markdown,
-    ScatterSelectionEvidence, TimelineSelectionEvidence, SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND,
-    SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION, TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND,
-    TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
+    scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
+    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
+    ScatterSelectionEvidenceV2, TimelineSelectionEvidenceV2,
+    SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+    TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 use serde::Serialize;
 
@@ -78,15 +78,15 @@ impl SelectionExportPaths {
 
     pub(crate) fn write_scatter(
         &self,
-        evidence: &ScatterSelectionEvidence,
+        evidence: &ScatterSelectionEvidenceV2,
     ) -> Result<(), Box<dyn Error>> {
         let Some(output_dir) = self.json_path.parent() else {
             return Err("scatter selection export path has no parent directory".into());
         };
 
         fs::create_dir_all(output_dir)?;
-        let json = scatter_selection_evidence_json(evidence)?;
-        let markdown = scatter_selection_evidence_markdown(evidence);
+        let json = scatter_selection_evidence_v2_json(evidence)?;
+        let markdown = scatter_selection_evidence_v2_markdown(evidence);
         fs::write(&self.json_path, json)?;
         fs::write(&self.markdown_path, markdown)?;
         self.append_scatter_manifest_record(evidence)?;
@@ -96,15 +96,15 @@ impl SelectionExportPaths {
 
     pub(crate) fn write_timeline(
         &self,
-        evidence: &TimelineSelectionEvidence,
+        evidence: &TimelineSelectionEvidenceV2,
     ) -> Result<(), Box<dyn Error>> {
         let Some(output_dir) = self.json_path.parent() else {
             return Err("timeline selection export path has no parent directory".into());
         };
 
         fs::create_dir_all(output_dir)?;
-        let json = timeline_selection_evidence_json(evidence)?;
-        let markdown = timeline_selection_evidence_markdown(evidence);
+        let json = timeline_selection_evidence_v2_json(evidence)?;
+        let markdown = timeline_selection_evidence_v2_markdown(evidence);
         fs::write(&self.json_path, json)?;
         fs::write(&self.markdown_path, markdown)?;
         self.append_timeline_manifest_record(evidence)?;
@@ -114,16 +114,16 @@ impl SelectionExportPaths {
 
     fn append_scatter_manifest_record(
         &self,
-        evidence: &ScatterSelectionEvidence,
+        evidence: &ScatterSelectionEvidenceV2,
     ) -> Result<(), Box<dyn Error>> {
         let manifest_record = ScatterSelectionManifestRecord {
-            artifact_kind: SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND,
-            schema_version: SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
+            artifact_kind: SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
+            schema_version: SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
             json_path: &self.json_path,
             markdown_path: &self.markdown_path,
             selected_row_count: evidence.selected_row_count,
             selected_percentage: evidence.selected_percentage,
-            point_preset_row_count: evidence.point_preset_row_count,
+            dataset_row_count: evidence.dataset_identity.row_count,
             export_timestamp_unix_ms: self.export_timestamp_unix_ms,
             export_counter: self.export_counter,
         };
@@ -132,16 +132,16 @@ impl SelectionExportPaths {
 
     fn append_timeline_manifest_record(
         &self,
-        evidence: &TimelineSelectionEvidence,
+        evidence: &TimelineSelectionEvidenceV2,
     ) -> Result<(), Box<dyn Error>> {
         let manifest_record = TimelineSelectionManifestRecord {
-            artifact_kind: TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND,
-            schema_version: TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
+            artifact_kind: TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
+            schema_version: TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
             json_path: &self.json_path,
             markdown_path: &self.markdown_path,
             selected_event_count: evidence.selected_event_count,
             selected_percentage: evidence.selected_percentage,
-            event_count: evidence.event_count,
+            dataset_row_count: evidence.dataset_identity.row_count,
             export_timestamp_unix_ms: self.export_timestamp_unix_ms,
             export_counter: self.export_counter,
         };
@@ -171,7 +171,7 @@ struct ScatterSelectionManifestRecord<'a> {
     markdown_path: &'a Path,
     selected_row_count: usize,
     selected_percentage: f32,
-    point_preset_row_count: usize,
+    dataset_row_count: usize,
     export_timestamp_unix_ms: u128,
     export_counter: u64,
 }
@@ -184,7 +184,7 @@ struct TimelineSelectionManifestRecord<'a> {
     markdown_path: &'a Path,
     selected_event_count: usize,
     selected_percentage: f32,
-    event_count: usize,
+    dataset_row_count: usize,
     export_timestamp_unix_ms: u128,
     export_counter: u64,
 }
@@ -262,12 +262,12 @@ mod tests {
     fn manifest_record_is_valid_json_line_with_expected_fields() {
         let record = ScatterSelectionManifestRecord {
             artifact_kind: "scatter-selection-evidence",
-            schema_version: 1,
+            schema_version: 2,
             json_path: Path::new("target/rawscope-exports/scatter-selection-1234-1.json"),
             markdown_path: Path::new("target/rawscope-exports/scatter-selection-1234-1.md"),
             selected_row_count: 42,
             selected_percentage: 2.5,
-            point_preset_row_count: 20_000,
+            dataset_row_count: 20_000,
             export_timestamp_unix_ms: 1234,
             export_counter: 1,
         };
@@ -276,10 +276,10 @@ mod tests {
         assert!(line.starts_with('{'));
         assert!(line.ends_with('}'));
         assert!(line.contains("\"artifact_kind\":\"scatter-selection-evidence\""));
-        assert!(line.contains("\"schema_version\":1"));
+        assert!(line.contains("\"schema_version\":2"));
         assert!(line.contains("\"selected_row_count\":42"));
         assert!(line.contains("\"selected_percentage\":2.5"));
-        assert!(line.contains("\"point_preset_row_count\":20000"));
+        assert!(line.contains("\"dataset_row_count\":20000"));
         assert!(line.contains("\"export_timestamp_unix_ms\":1234"));
         assert!(line.contains("\"export_counter\":1"));
         assert!(line.contains("scatter-selection-1234-1.json"));
@@ -289,12 +289,12 @@ mod tests {
     fn timeline_manifest_record_is_valid_json_line_with_expected_fields() {
         let record = TimelineSelectionManifestRecord {
             artifact_kind: "timeline-selection-evidence",
-            schema_version: 1,
+            schema_version: 2,
             json_path: Path::new("target/rawscope-exports/timeline-selection-1234-1.json"),
             markdown_path: Path::new("target/rawscope-exports/timeline-selection-1234-1.md"),
             selected_event_count: 88,
             selected_percentage: 4.25,
-            event_count: 20_000,
+            dataset_row_count: 20_000,
             export_timestamp_unix_ms: 1234,
             export_counter: 1,
         };
@@ -303,10 +303,10 @@ mod tests {
         assert!(line.starts_with('{'));
         assert!(line.ends_with('}'));
         assert!(line.contains("\"artifact_kind\":\"timeline-selection-evidence\""));
-        assert!(line.contains("\"schema_version\":1"));
+        assert!(line.contains("\"schema_version\":2"));
         assert!(line.contains("\"selected_event_count\":88"));
         assert!(line.contains("\"selected_percentage\":4.25"));
-        assert!(line.contains("\"event_count\":20000"));
+        assert!(line.contains("\"dataset_row_count\":20000"));
         assert!(line.contains("\"export_timestamp_unix_ms\":1234"));
         assert!(line.contains("\"export_counter\":1"));
         assert!(line.contains("timeline-selection-1234-1.json"));
