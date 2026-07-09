@@ -39,11 +39,14 @@ pub use scatter_density_renderer::{
     ScatterDensityRendererConfig,
 };
 pub use scatter_selection_evidence::{
-    ScatterSelectionEvidence, SelectedPointSample, SelectionEvidenceConfig,
+    ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,
+    SelectedPointSampleV2, SelectedSourceRowSample, SelectionEvidenceConfig,
 };
 pub use scatter_selection_export::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown,
+    scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
     SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
+    SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 pub use scatter_viewport::ScatterViewport;
 pub use timeline_brush::{
@@ -54,10 +57,13 @@ pub use timeline_density_renderer::{
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineDensityRendererConfig,
 };
 pub use timeline_selection_evidence::{
-    SelectedTimelineEventSample, TimelineEvidenceConfig, TimelineSelectionEvidence,
+    SelectedTimelineEventSample, SelectedTimelineEventSampleV2, TimelineEvidenceConfig,
+    TimelineEvidenceView, TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
 };
 pub use timeline_selection_export::{
     timeline_selection_evidence_json, timeline_selection_evidence_markdown,
+    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
     TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
+    TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 pub use timeline_viewport::TimelineViewport;

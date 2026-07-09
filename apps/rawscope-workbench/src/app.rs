@@ -3,8 +3,8 @@
 use std::{error::Error, sync::Arc};
 
 use rawscope_data::{
-    generate_synthetic_points, load_scatter_dataset, DatasetIdentity, ScatterPointRecord,
-    SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
+    generate_synthetic_points, load_scatter_dataset, DatasetIdentity, LoadedSourceTable,
+    ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
@@ -61,6 +61,7 @@ pub struct WorkbenchApp {
 pub(crate) struct ScatterWorkbenchState {
     pub(crate) density_renderer: Option<ScatterDensityRenderer>,
     pub(crate) points: Vec<ScatterPointRecord>,
+    pub(crate) source_rows: Option<LoadedSourceTable>,
     pub(crate) active_preset: PointCountPreset,
     pub(crate) point_count_label: String,
     pub(crate) viewport: Option<ScatterViewport>,
@@ -77,6 +78,7 @@ pub(crate) struct ScatterWorkbenchState {
 pub(crate) struct TimelineWorkbenchState {
     pub(crate) density_renderer: Option<TimelineDensityRenderer>,
     pub(crate) events: Vec<TimelineEventRecord>,
+    pub(crate) source_rows: Option<LoadedSourceTable>,
     pub(crate) viewport: Option<TimelineViewport>,
     pub(crate) render_stats: Option<TimelineDensityRenderStats>,
     pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
@@ -175,6 +177,7 @@ impl WorkbenchApp {
             self.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
             self.scatter.points = dataset.points;
+            self.scatter.source_rows = Some(dataset.source_rows);
             self.scatter.point_count_label = "local".to_string();
             self.scatter.viewport = Some(viewport);
             self.scatter.render_stats = Some(render_stats);
@@ -217,6 +220,7 @@ impl WorkbenchApp {
         self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
         self.scatter.points = dataset.points;
+        self.scatter.source_rows = None;
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
         self.scatter.density_renderer = Some(scatter_density_renderer);
@@ -258,6 +262,7 @@ impl WorkbenchApp {
             generate_synthetic_points(SyntheticPointConfig::new(DEMO_SEED, preset.row_count));
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
         self.scatter.points = dataset.points;
+        self.scatter.source_rows = None;
         self.scatter.active_preset = preset;
         self.scatter.point_count_label = preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);

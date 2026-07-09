@@ -55,6 +55,7 @@ impl WorkbenchApp {
                 render_stats.event_count,
             ));
             self.timeline.events = dataset.events;
+            self.timeline.source_rows = Some(dataset.source_rows);
             self.timeline.viewport = Some(viewport);
             self.timeline.render_stats = Some(render_stats);
             self.timeline.density_renderer = Some(timeline_density_renderer);
@@ -84,6 +85,7 @@ impl WorkbenchApp {
         self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
         self.timeline.events = dataset.events;
+        self.timeline.source_rows = None;
         self.timeline.viewport = Some(viewport);
         self.timeline.render_stats = Some(render_stats);
         self.timeline.density_renderer = Some(timeline_density_renderer);

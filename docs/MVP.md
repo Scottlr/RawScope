@@ -60,4 +60,4 @@
 - Purpose: make findings shareable and repeatable.
 - Acceptance criteria: a selected region can export Markdown, HTML, or JSON containing view config, generation seed or dataset fingerprint, summary data, sample rows, and visual context.
 - Non-goals: polished reporting templates, collaboration features, cloud publishing, and broad report customization.
-- Status note: Scatter and timeline v1 JSON/Markdown selection evidence exports exist for cached CPU-side evidence. The remaining Milestone 6 work is a production evidence-report workflow with source-aware dataset identity, view configuration, selected source rows, and rendered visual context.
+- Status note: The workbench now exports scatter and timeline selection evidence as source-aware v2 JSON/Markdown artifacts by default, including dataset identity, view configuration, retained local source-row samples when available, and manifest schema version 2. v1 formatters and schema docs remain for compatibility. The remaining Milestone 6 work is a broader production evidence-report workflow with rendered visual context and a fuller report bundle.

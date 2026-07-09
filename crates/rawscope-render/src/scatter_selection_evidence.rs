@@ -2,7 +2,8 @@
 
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{
-    ScatterPointKind, ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointCategory,
+    DatasetIdentity, LoadedSourceRow, LoadedSourceTable, ScatterPointKind, ScatterPointRecord,
+    SyntheticDatasetMetadata, SyntheticPointCategory,
 };
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
@@ -50,6 +51,55 @@ impl RowIdSample for SelectedPointSample {
     }
 }
 
+/// View configuration included in scatter evidence v2 artifacts.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScatterEvidenceView {
+    pub x_range: F32Range,
+    pub y_range: F32Range,
+    pub grid_width: u32,
+    pub grid_height: u32,
+}
+
+/// Small sampled scatter point record included in selection evidence v2.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SelectedPointSampleV2 {
+    pub row_id: RowId,
+    pub x: f32,
+    pub y: f32,
+    pub kind: ScatterPointKind,
+}
+
+impl From<&SelectedPointSample> for SelectedPointSampleV2 {
+    fn from(sample: &SelectedPointSample) -> Self {
+        let kind = sample
+            .category
+            .map(ScatterPointKind::Synthetic)
+            .unwrap_or(ScatterPointKind::Unclassified);
+        Self {
+            row_id: sample.row_id,
+            x: sample.x,
+            y: sample.y,
+            kind,
+        }
+    }
+}
+
+/// Deterministic retained source-row sample included in evidence v2.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SelectedSourceRowSample {
+    pub row_id: RowId,
+    pub values: Vec<String>,
+}
+
+impl From<&LoadedSourceRow> for SelectedSourceRowSample {
+    fn from(row: &LoadedSourceRow) -> Self {
+        Self {
+            row_id: row.row_id,
+            values: row.values.clone(),
+        }
+    }
+}
+
 /// Deterministic CPU-side evidence for a finalized scatter brush selection.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScatterSelectionEvidence {
@@ -65,6 +115,69 @@ pub struct ScatterSelectionEvidence {
     pub selected_y_range: Option<F32Range>,
     pub brush_x_range: F32Range,
     pub brush_y_range: F32Range,
+}
+
+/// Source-aware CPU-side scatter selection evidence for v2 artifacts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterSelectionEvidenceV2 {
+    pub dataset_identity: DatasetIdentity,
+    pub view: ScatterEvidenceView,
+    pub selected_row_count: usize,
+    pub selected_percentage: f32,
+    pub selected_row_id_sample: Vec<RowId>,
+    pub selected_record_sample: Vec<SelectedPointSampleV2>,
+    pub selected_source_column_names: Vec<String>,
+    pub selected_source_row_sample: Vec<SelectedSourceRowSample>,
+    pub point_kind_counts: SelectedCategoryCounts,
+    pub top_point_kind: Option<ScatterPointKind>,
+    pub selected_x_range: Option<F32Range>,
+    pub selected_y_range: Option<F32Range>,
+    pub brush_x_range: F32Range,
+    pub brush_y_range: F32Range,
+}
+
+impl ScatterSelectionEvidenceV2 {
+    /// Builds source-aware evidence from cached v1 evidence plus current dataset context.
+    pub fn from_v1(
+        evidence: &ScatterSelectionEvidence,
+        dataset_identity: DatasetIdentity,
+        view: ScatterEvidenceView,
+        source_rows: Option<&LoadedSourceTable>,
+    ) -> Self {
+        let selected_source_column_names = source_rows
+            .map(|table| table.column_names().map(str::to_string).collect())
+            .unwrap_or_default();
+        let selected_source_row_sample = source_rows
+            .map(|table| {
+                evidence
+                    .selected_row_id_sample
+                    .iter()
+                    .filter_map(|row_id| table.row(*row_id).map(SelectedSourceRowSample::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Self {
+            dataset_identity,
+            view,
+            selected_row_count: evidence.selected_row_count,
+            selected_percentage: evidence.selected_percentage,
+            selected_row_id_sample: evidence.selected_row_id_sample.clone(),
+            selected_record_sample: evidence
+                .selected_record_sample
+                .iter()
+                .map(SelectedPointSampleV2::from)
+                .collect(),
+            selected_source_column_names,
+            selected_source_row_sample,
+            point_kind_counts: evidence.category_counts,
+            top_point_kind: evidence.category_counts.top_point_kind(),
+            selected_x_range: evidence.selected_x_range,
+            selected_y_range: evidence.selected_y_range,
+            brush_x_range: evidence.brush_x_range,
+            brush_y_range: evidence.brush_y_range,
+        }
+    }
 }
 
 impl ScatterSelectionEvidence {

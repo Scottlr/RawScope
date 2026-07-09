@@ -152,6 +152,34 @@ impl SelectedEventTypeCounts {
             .and_then(|(event_type, count)| (count > 0).then_some(event_type))
     }
 
+    /// Returns the most frequent selected event kind, including unclassified local rows.
+    pub fn top_event_kind(self) -> Option<TimelineEventKind> {
+        let event_kinds = [
+            (
+                TimelineEventKind::Synthetic(SyntheticEventType::Background),
+                self.background,
+            ),
+            (
+                TimelineEventKind::Synthetic(SyntheticEventType::Spike),
+                self.spike,
+            ),
+            (
+                TimelineEventKind::Synthetic(SyntheticEventType::StaleLane),
+                self.stale_lane,
+            ),
+            (
+                TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand),
+                self.high_value_band,
+            ),
+            (TimelineEventKind::Unclassified, self.unclassified),
+        ];
+
+        event_kinds
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .and_then(|(kind, count)| (count > 0).then_some(kind))
+    }
+
     fn add(&mut self, kind: TimelineEventKind) {
         match kind {
             TimelineEventKind::Synthetic(SyntheticEventType::Background) => self.background += 1,

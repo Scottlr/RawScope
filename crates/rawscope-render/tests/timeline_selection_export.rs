@@ -1,10 +1,15 @@
+use std::path::PathBuf;
+
 use rawscope_core::{RowId, U64Range};
 use rawscope_data::{
+    DatasetIdentity, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
     SyntheticDatasetMetadata, SyntheticEventType, TimelineEventKind, TimelineEventRecord,
 };
 use rawscope_render::{
-    timeline_selection_evidence_json, timeline_selection_evidence_markdown, TimelineBrushSelection,
-    TimelineEvidenceConfig, TimelineLaneRange, TimelineSelectionEvidence,
+    timeline_selection_evidence_json, timeline_selection_evidence_markdown,
+    timeline_selection_evidence_v2_json, TimelineBrushSelection, TimelineEvidenceConfig,
+    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
+    TimelineSelectionEvidenceV2,
 };
 
 fn event(
@@ -45,6 +50,95 @@ fn timeline_evidence() -> TimelineSelectionEvidence {
         SyntheticDatasetMetadata::new(42, events.len()),
         events.len(),
         TimelineEvidenceConfig { max_sample_size: 2 },
+    )
+}
+
+fn local_timeline_evidence_v2() -> TimelineSelectionEvidenceV2 {
+    let events = vec![
+        TimelineEventRecord {
+            row_id: RowId(0),
+            timestamp: 100,
+            lane: 0,
+            value: 1.0,
+            kind: TimelineEventKind::Unclassified,
+        },
+        TimelineEventRecord {
+            row_id: RowId(1),
+            timestamp: 140,
+            lane: 1,
+            value: 2.0,
+            kind: TimelineEventKind::Unclassified,
+        },
+        TimelineEventRecord {
+            row_id: RowId(2),
+            timestamp: 340,
+            lane: 1,
+            value: 3.0,
+            kind: TimelineEventKind::Unclassified,
+        },
+    ];
+    let selection = TimelineBrushSelection {
+        time_range: U64Range::new(90, 200),
+        lane_range: TimelineLaneRange::new(0, 2),
+    };
+    let v1 = TimelineSelectionEvidence::from_events(
+        &events,
+        selection,
+        2,
+        SyntheticDatasetMetadata::new(0, 3),
+        3,
+        TimelineEvidenceConfig { max_sample_size: 2 },
+    );
+    let dataset_identity = DatasetIdentity::local_csv_timeline(
+        PathBuf::from("C:/data/timeline.csv"),
+        3,
+        Some(3),
+        "timestamp",
+        "provider",
+        vec!["aws".to_string(), "gcp".to_string()],
+    );
+    let source_rows = LoadedSourceTable {
+        columns: vec![
+            LoadedColumnSchema {
+                name: "timestamp".to_string(),
+                kind: LoadedColumnKind::Integer,
+            },
+            LoadedColumnSchema {
+                name: "provider".to_string(),
+                kind: LoadedColumnKind::String,
+            },
+            LoadedColumnSchema {
+                name: "status".to_string(),
+                kind: LoadedColumnKind::String,
+            },
+        ],
+        rows: vec![
+            LoadedSourceRow {
+                row_id: RowId(0),
+                values: vec!["100".to_string(), "aws".to_string(), "ok".to_string()],
+            },
+            LoadedSourceRow {
+                row_id: RowId(1),
+                values: vec!["140".to_string(), "gcp".to_string(), "late".to_string()],
+            },
+            LoadedSourceRow {
+                row_id: RowId(2),
+                values: vec!["340".to_string(), "gcp".to_string(), "tail".to_string()],
+            },
+        ],
+    };
+
+    TimelineSelectionEvidenceV2::from_v1(
+        &v1,
+        dataset_identity,
+        TimelineEvidenceView {
+            time_range: U64Range::new(90, 200),
+            full_time_range: U64Range::new(100, 340),
+            lane_count: 2,
+            grid_width: 256,
+            grid_height: 2,
+        },
+        Some(&source_rows),
     )
 }
 
@@ -110,4 +204,36 @@ fn markdown_export_handles_empty_selection() {
     assert!(markdown.contains("- Selected events: 0"));
     assert!(markdown.contains("_No selected row ids._"));
     assert!(markdown.contains("| _none_ |  |  |  |  |"));
+}
+
+#[test]
+fn timeline_v2_json_contains_lane_labels() {
+    let json = timeline_selection_evidence_v2_json(&local_timeline_evidence_v2()).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(value["artifact_kind"], "timeline-selection-evidence");
+    assert_eq!(value["schema_version"], 2);
+    assert_eq!(value["dataset_identity"]["source"]["kind"], "local_csv");
+    assert_eq!(
+        value["dataset_identity"]["lane_labels"],
+        serde_json::json!(["aws", "gcp"])
+    );
+    assert_eq!(value["event_kind_counts"]["unclassified"], 2);
+    assert_eq!(value["top_event_kind"], "unclassified");
+    assert_eq!(
+        value["selected_source_row_sample"][1]["values"],
+        serde_json::json!(["140", "gcp", "late"])
+    );
+}
+
+#[test]
+fn timeline_v2_json_contains_view_range() {
+    let json = timeline_selection_evidence_v2_json(&local_timeline_evidence_v2()).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(value["view"]["time_range"]["min"], 90);
+    assert_eq!(value["view"]["time_range"]["max"], 200);
+    assert_eq!(value["view"]["full_time_range"]["min"], 100);
+    assert_eq!(value["view"]["full_time_range"]["max"], 340);
+    assert_eq!(value["view"]["grid_width"], 256);
 }
