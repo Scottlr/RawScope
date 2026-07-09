@@ -139,3 +139,10 @@
 - Status: Accepted
 - Context: Milestone 4B needs to show the timeline-density visual path without adding a UI framework, live mode switching, or timeline interaction state.
 - Consequences: Scatter controls remain unchanged in the default demo, timeline mode stays focused on rendering deterministic synthetic event density, and richer workbench mode management remains deferred.
+
+## ADR-0018: Local Report Visual Context Capture
+
+- Decision: Ship report bundles now with a deterministic `visual-context.txt` placeholder, and defer image capture until WGPU readback ownership plus a narrow PNG dependency are explicitly approved.
+- Status: Accepted
+- Context: T010 needs a local report-bundle slice with visual context, but the roadmap also says to stop and document screenshot/readback design before adding an image encoding dependency or surface readback path.
+- Consequences: Each bundle records evidence JSON, Markdown, manifest metadata, and a placeholder text artifact that names the exact view configuration it represents. The analytical truth remains evidence v2. A later image-capture task should prefer render-owned readback and a narrow PNG encoder instead of a broad image stack.

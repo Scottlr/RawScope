@@ -1,4 +1,4 @@
-//! Evidence artifact export routing for the workbench density demos.
+//! Evidence report-bundle export routing for the workbench density demos.
 
 use tracing::{error, info, warn};
 
@@ -9,9 +9,9 @@ use rawscope_render::{
 
 use crate::{
     app::WorkbenchApp,
-    app_export_files::{
-        current_unix_timestamp_ms, SelectionExportPaths, EXPORT_DIR, SCATTER_SELECTION_FILE_STEM,
-        TIMELINE_SELECTION_FILE_STEM,
+    app_report_bundle::{
+        current_unix_timestamp_ms, EvidenceReportBundlePaths, EXPORT_DIR,
+        SCATTER_REPORT_BUNDLE_DIR_PREFIX, TIMELINE_REPORT_BUNDLE_DIR_PREFIX,
     },
     ui::ExportStatus,
 };
@@ -29,9 +29,9 @@ impl WorkbenchApp {
 
         let export_counter = self.next_evidence_export_counter();
         let export_timestamp_unix_ms = current_unix_timestamp_ms();
-        let export_paths = SelectionExportPaths::next_available(
+        let export_paths = EvidenceReportBundlePaths::next_available(
             EXPORT_DIR,
-            SCATTER_SELECTION_FILE_STEM,
+            SCATTER_REPORT_BUNDLE_DIR_PREFIX,
             export_timestamp_unix_ms,
             export_counter,
         );
@@ -41,26 +41,29 @@ impl WorkbenchApp {
             };
             error!(
                 error = %err,
-                json_path = %export_paths.json_path.display(),
-                markdown_path = %export_paths.markdown_path.display(),
+                bundle_dir = %export_paths.bundle_dir.display(),
+                evidence_json_path = %export_paths.evidence_json_path.display(),
+                evidence_markdown_path = %export_paths.evidence_markdown_path.display(),
+                visual_context_path = %export_paths.visual_context_path.display(),
                 manifest_path = %export_paths.manifest_path.display(),
-                "failed to export scatter selection evidence"
+                "failed to export scatter selection evidence report bundle"
             );
             return;
         }
         self.evidence_export_counter = export_paths.export_counter;
         self.export_status = ExportStatus::Exported {
-            json_path: export_paths.json_path.display().to_string(),
-            markdown_path: export_paths.markdown_path.display().to_string(),
+            bundle_dir: export_paths.bundle_dir.display().to_string(),
         };
 
         info!(
             export_counter = export_paths.export_counter,
-            json_path = %export_paths.json_path.display(),
-            markdown_path = %export_paths.markdown_path.display(),
+            bundle_dir = %export_paths.bundle_dir.display(),
+            evidence_json_path = %export_paths.evidence_json_path.display(),
+            evidence_markdown_path = %export_paths.evidence_markdown_path.display(),
+            visual_context_path = %export_paths.visual_context_path.display(),
             manifest_path = %export_paths.manifest_path.display(),
             selected_row_count = evidence.selected_row_count,
-            "RawScope scatter selection evidence exported"
+            "RawScope scatter selection evidence report bundle exported"
         );
     }
 
@@ -76,9 +79,9 @@ impl WorkbenchApp {
 
         let export_counter = self.next_evidence_export_counter();
         let export_timestamp_unix_ms = current_unix_timestamp_ms();
-        let export_paths = SelectionExportPaths::next_available(
+        let export_paths = EvidenceReportBundlePaths::next_available(
             EXPORT_DIR,
-            TIMELINE_SELECTION_FILE_STEM,
+            TIMELINE_REPORT_BUNDLE_DIR_PREFIX,
             export_timestamp_unix_ms,
             export_counter,
         );
@@ -88,26 +91,29 @@ impl WorkbenchApp {
             };
             error!(
                 error = %err,
-                json_path = %export_paths.json_path.display(),
-                markdown_path = %export_paths.markdown_path.display(),
+                bundle_dir = %export_paths.bundle_dir.display(),
+                evidence_json_path = %export_paths.evidence_json_path.display(),
+                evidence_markdown_path = %export_paths.evidence_markdown_path.display(),
+                visual_context_path = %export_paths.visual_context_path.display(),
                 manifest_path = %export_paths.manifest_path.display(),
-                "failed to export timeline selection evidence"
+                "failed to export timeline selection evidence report bundle"
             );
             return;
         }
         self.evidence_export_counter = export_paths.export_counter;
         self.export_status = ExportStatus::Exported {
-            json_path: export_paths.json_path.display().to_string(),
-            markdown_path: export_paths.markdown_path.display().to_string(),
+            bundle_dir: export_paths.bundle_dir.display().to_string(),
         };
 
         info!(
             export_counter = export_paths.export_counter,
-            json_path = %export_paths.json_path.display(),
-            markdown_path = %export_paths.markdown_path.display(),
+            bundle_dir = %export_paths.bundle_dir.display(),
+            evidence_json_path = %export_paths.evidence_json_path.display(),
+            evidence_markdown_path = %export_paths.evidence_markdown_path.display(),
+            visual_context_path = %export_paths.visual_context_path.display(),
             manifest_path = %export_paths.manifest_path.display(),
             selected_event_count = evidence.selected_event_count,
-            "RawScope timeline selection evidence exported"
+            "RawScope timeline selection evidence report bundle exported"
         );
     }
 
