@@ -2,6 +2,9 @@
 
 use std::{error::Error, sync::Arc};
 
+use egui::Context as EguiContext;
+use egui_wgpu::Renderer as EguiRenderer;
+use egui_winit::State as EguiWinitState;
 use rawscope_data::{
     generate_synthetic_points, load_scatter_dataset, DatasetIdentity, LoadedSourceTable,
     ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
@@ -25,7 +28,8 @@ use winit::{
 
 use crate::{
     cli::{WorkbenchArgs, WorkbenchInput},
-    demo::{DemoMode, DemoOverlayState, PointCountPreset, TimelineOverlayState},
+    demo::{DemoMode, PointCountPreset},
+    ui::ExportStatus,
 };
 
 pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
@@ -44,10 +48,14 @@ pub struct WorkbenchApp {
     pub(crate) input: Option<WorkbenchInput>,
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
+    pub(crate) egui_context: EguiContext,
+    pub(crate) egui_state: Option<EguiWinitState>,
+    pub(crate) egui_renderer: Option<EguiRenderer>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
+    pub(crate) export_status: ExportStatus,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,
@@ -135,12 +143,13 @@ impl WorkbenchApp {
         window.request_redraw();
         self.window = Some(window);
         self.gpu = Some(gpu);
+        self.initialize_ui_integration();
         self.update_window_title();
 
         Ok(())
     }
 
-    fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         if let Some(WorkbenchInput::Scatter {
             path,
             x_column,
@@ -184,6 +193,7 @@ impl WorkbenchApp {
             self.scatter.viewport = Some(viewport);
             self.scatter.render_stats = Some(render_stats);
             self.scatter.density_renderer = Some(scatter_density_renderer);
+            self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
 
             return Ok(());
@@ -226,6 +236,7 @@ impl WorkbenchApp {
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
         self.scatter.density_renderer = Some(scatter_density_renderer);
+        self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
 
         Ok(())
@@ -270,6 +281,7 @@ impl WorkbenchApp {
         self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
         self.scatter.viewport = Some(viewport);
+        self.export_status = crate::ui::ExportStatus::Idle;
         self.clear_brush();
 
         if let Err(err) = self.recompute_density() {
@@ -413,41 +425,7 @@ impl WorkbenchApp {
         let Some(window) = &self.window else {
             return;
         };
-        match self.demo_mode {
-            DemoMode::Scatter => {
-                let Some(viewport) = self.scatter.viewport else {
-                    return;
-                };
-                let Some(render_stats) = self.scatter.render_stats else {
-                    return;
-                };
-                let overlay = DemoOverlayState {
-                    point_count_label: self.scatter.point_count_label.clone(),
-                    viewport,
-                    render_stats,
-                    selection_summary: self.scatter.selection_summary,
-                    selection_evidence: self.scatter.selection_evidence.clone(),
-                    selection_drilldown: self.scatter.selection_drilldown.clone(),
-                };
-                window.set_title(&overlay.title());
-            }
-            DemoMode::Timeline => {
-                let Some(render_stats) = self.timeline.render_stats else {
-                    return;
-                };
-                let Some(viewport) = self.timeline.viewport else {
-                    return;
-                };
-                let overlay = TimelineOverlayState {
-                    viewport,
-                    render_stats,
-                    selection_summary: self.timeline.selection_summary.clone(),
-                    selection_evidence: self.timeline.selection_evidence.clone(),
-                    selection_drilldown: self.timeline.selection_drilldown.clone(),
-                };
-                window.set_title(&overlay.title());
-            }
-        }
+        window.set_title(&self.ui_state().window_title());
     }
 
     pub(crate) fn cursor_fraction(&self) -> Option<(f32, f32)> {

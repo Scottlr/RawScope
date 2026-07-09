@@ -54,6 +54,7 @@
 - Acceptance criteria: a user can brush a region, see a selection summary, inspect top contributors, and drill down to sample or exact synthetic row ids.
 - Non-goals: full crossfilter dashboards, arbitrary multi-view coordination, and data editing.
 - Status note: Milestone 5A adds the first real-data vertical slice: the native workbench can load local CSV files with explicit column bindings for scatter density (`--x`/`--y`) and timeline density (`--time`/`--lane`). CSV scatter accepts integer or float-compatible x/y values; CSV timeline accepts integer timestamps and string or integer lanes, mapping lanes deterministically. Parquet is explicitly deferred to avoid pulling in Arrow/Parquet before the import path proves useful. This does not add egui, Tauri, row tables, SQL/DataFusion, a dataframe abstraction, or new schema work.
+- Status note: Milestone 5B adds the first analyst-facing egui shell at the workbench boundary. The app now exposes visible view controls, dataset and selection status, axis labels, export status, and a CPU-backed selected-row drilldown panel while preserving the existing direct WGPU density render paths. Keyboard shortcuts remain available during the transition, but title-bar-only state is no longer the primary UI.
 
 ## Milestone 6: First Evidence Export
 

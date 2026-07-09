@@ -58,6 +58,7 @@ impl WorkbenchApp {
         self.timeline.selection_summary = None;
         self.timeline.selection_evidence = None;
         self.timeline.selection_drilldown = None;
+        self.export_status = crate::ui::ExportStatus::Idle;
         self.update_window_title();
         self.request_redraw();
 
