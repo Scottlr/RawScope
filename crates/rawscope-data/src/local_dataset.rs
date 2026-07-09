@@ -8,7 +8,7 @@ use std::{
 
 use rawscope_core::{F32Range, U64Range};
 
-use crate::{SyntheticEventRecord, SyntheticPointRecord};
+use crate::{DatasetIdentity, SyntheticEventRecord, SyntheticPointRecord};
 
 mod csv;
 
@@ -66,6 +66,7 @@ pub struct LoadedColumnSchema {
 /// Loaded scatter-ready dataset mapped into the existing point record path.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedScatterDataset {
+    pub identity: DatasetIdentity,
     pub schema: Vec<LoadedColumnSchema>,
     pub x_column: String,
     pub y_column: String,
@@ -77,6 +78,7 @@ pub struct LoadedScatterDataset {
 /// Loaded timeline-ready dataset mapped into the existing event record path.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadedTimelineDataset {
+    pub identity: DatasetIdentity,
     pub schema: Vec<LoadedColumnSchema>,
     pub time_column: String,
     pub lane_column: String,

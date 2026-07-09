@@ -49,6 +49,7 @@ impl WorkbenchApp {
                 "RawScope local CSV timeline-density dataset prepared"
             );
 
+            self.dataset_identity = Some(dataset.identity);
             self.dataset_metadata = Some(rawscope_data::SyntheticDatasetMetadata::new(
                 0,
                 render_stats.event_count,
@@ -80,6 +81,7 @@ impl WorkbenchApp {
         )?;
         let render_stats = timeline_density_renderer.stats();
 
+        self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
         self.timeline.events = dataset.events;
         self.timeline.viewport = Some(viewport);

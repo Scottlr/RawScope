@@ -2,7 +2,7 @@
 
 use rawscope_core::{RowId, U64Range};
 
-use crate::dataset::SyntheticDatasetMetadata;
+use crate::dataset::{DatasetIdentity, SyntheticDatasetMetadata};
 
 use super::rng::SyntheticRng;
 
@@ -60,6 +60,7 @@ impl SyntheticEventConfig {
 /// A deterministic synthetic event dataset plus generation metadata.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SyntheticEventDataset {
+    pub identity: DatasetIdentity,
     pub metadata: SyntheticDatasetMetadata,
     pub time_range: U64Range,
     pub lane_count: u32,
@@ -142,6 +143,11 @@ pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEvent
     }
 
     SyntheticEventDataset {
+        identity: DatasetIdentity::synthetic_timeline(
+            config.seed,
+            config.row_count,
+            config.lane_count,
+        ),
         metadata: SyntheticDatasetMetadata::new(config.seed, config.row_count),
         time_range: config.time_range,
         lane_count: config.lane_count,

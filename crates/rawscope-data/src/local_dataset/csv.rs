@@ -13,7 +13,8 @@ use crate::{
         LoadedScatterDataset, LoadedTimelineDataset, SCATTER_NUMERIC_TYPE_EXPECTATION,
         TIMELINE_LANE_TYPE_EXPECTATION, TIMELINE_TIME_TYPE_EXPECTATION,
     },
-    SyntheticEventRecord, SyntheticEventType, SyntheticPointCategory, SyntheticPointRecord,
+    DatasetIdentity, SyntheticEventRecord, SyntheticEventType, SyntheticPointCategory,
+    SyntheticPointRecord,
 };
 
 /// Loads a local scatter dataset from CSV and binds explicit x/y columns.
@@ -62,6 +63,13 @@ pub fn load_scatter_dataset(
     }
 
     Ok(LoadedScatterDataset {
+        identity: DatasetIdentity::local_csv_scatter(
+            path.to_path_buf(),
+            points.len(),
+            limit,
+            x_column,
+            y_column,
+        ),
         schema: table.schema,
         x_column: x_column.to_string(),
         y_column: y_column.to_string(),
@@ -118,6 +126,14 @@ pub fn load_timeline_dataset(
     }
 
     Ok(LoadedTimelineDataset {
+        identity: DatasetIdentity::local_csv_timeline(
+            path.to_path_buf(),
+            events.len(),
+            limit,
+            time_column,
+            lane_column,
+            lane_labels.clone(),
+        ),
         schema: table.schema,
         time_column: time_column.to_string(),
         lane_column: lane_column.to_string(),

@@ -2,7 +2,7 @@
 
 use rawscope_core::{F32Range, RowId};
 
-use crate::dataset::SyntheticDatasetMetadata;
+use crate::dataset::{DatasetIdentity, SyntheticDatasetMetadata};
 
 use super::rng::SyntheticRng;
 
@@ -55,6 +55,7 @@ impl SyntheticPointConfig {
 /// A deterministic synthetic point dataset plus generation metadata.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SyntheticPointDataset {
+    pub identity: DatasetIdentity,
     pub metadata: SyntheticDatasetMetadata,
     pub x_range: F32Range,
     pub y_range: F32Range,
@@ -106,6 +107,7 @@ pub fn generate_synthetic_points(config: SyntheticPointConfig) -> SyntheticPoint
     }
 
     SyntheticPointDataset {
+        identity: DatasetIdentity::synthetic_scatter(config.seed, config.row_count),
         metadata: SyntheticDatasetMetadata::new(config.seed, config.row_count),
         x_range: config.x_range,
         y_range: config.y_range,
