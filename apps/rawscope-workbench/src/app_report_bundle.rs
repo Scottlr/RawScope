@@ -302,6 +302,13 @@ fn dataset_source_label(source: &DatasetSource) -> String {
                 .map(|value| format!(":limit={value}"))
                 .unwrap_or_default()
         ),
+        DatasetSource::LocalParquet { path, limit } => format!(
+            "local_parquet:{}{}",
+            path.display(),
+            limit
+                .map(|value| format!(":limit={value}"))
+                .unwrap_or_default()
+        ),
     }
 }
 

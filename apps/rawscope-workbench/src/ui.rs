@@ -354,6 +354,14 @@ fn dataset_label(app: &WorkbenchApp) -> String {
                 .map(|value| format!(" (limit {value})"))
                 .unwrap_or_default()
         ),
+        DatasetSource::LocalParquet { path, limit } => format!(
+            "Parquet {} | {} rows{} | {bindings}",
+            path.display(),
+            identity.row_count,
+            limit
+                .map(|value| format!(" (limit {value})"))
+                .unwrap_or_default()
+        ),
     }
 }
 

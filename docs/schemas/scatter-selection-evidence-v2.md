@@ -34,6 +34,7 @@ This document describes the source-aware JSON artifact written by the RawScope w
 - `source`: tagged source object.
   - Synthetic source: `{"kind":"synthetic","seed":...,"generator":"..."}`
   - Local CSV source: `{"kind":"local_csv","path":"...","limit":...}`
+  - Local Parquet source: `{"kind":"local_parquet","path":"...","limit":...}`
 - `row_count`: dataset row count.
 - `field_bindings`: current scatter field bindings such as `x` and `y`.
 - `lane_labels`: empty for scatter v2.
@@ -60,7 +61,7 @@ This is the current visual context, distinct from the finalized `brush_range`.
 - `outlier`
 - `unclassified`
 
-Synthetic datasets use the synthetic labels. Local CSV datasets use `unclassified` unless a later task defines a richer local kind model.
+Synthetic datasets use the synthetic labels. Local CSV and Parquet datasets use `unclassified` unless a later task defines a richer local kind model.
 
 ## Sampled Visual Records
 

@@ -21,21 +21,21 @@ Files inspected:
 Current implementation baseline:
 - The workspace has five members: `rawscope-core`, `rawscope-data`, `rawscope-gpu`, `rawscope-render`, and `rawscope-workbench`.
 - `rawscope-core` owns foundational range, row-id, selection-id, and density-grid types with no dependencies.
-- `rawscope-data` owns deterministic synthetic point/event datasets and a first CSV loader for scatter/timeline column bindings.
+- `rawscope-data` owns deterministic synthetic point/event datasets, local CSV loaders, and narrow chunked Parquet ingestion for current scatter/timeline bindings.
 - `rawscope-gpu` owns WGPU context/bootstrap, headless compute context, adapter metadata, and surface resize behavior.
 - `rawscope-render` owns CPU density references, WGPU scatter/timeline density compute, simple renderers, viewport math, data-anchored brushing, CPU-side summaries/evidence, and JSON/Markdown evidence formatting.
 - `rawscope-workbench` owns the current `winit` app shell, startup CLI, active scatter/timeline state, input handling, title-bar summaries, brush/export routing, and file writes.
-- Tests cover deterministic synthetic data, CSV loader behavior, CPU reference density, ignored local GPU correctness, viewport math, brush projection, selection evidence, and export formatting.
+- Tests cover deterministic synthetic data, CSV and Parquet loader behavior, CPU reference density, ignored local GPU correctness, viewport math, brush projection, selection evidence, and export formatting.
 
 Main audit findings:
 - The product direction is coherent: density-first visual exploration with row evidence, local-first privacy, and careful performance claims.
-- The repository has already passed the stale `docs/AGENTS.md` "Current Next Task" note. The real baseline is closer to post-Milestone 6: synthetic and local CSV scatter/timeline density, brushing, evidence export, report bundles, manifests, and a first CPU-backed missingness slice.
-- The largest model mismatch is synthetic naming leaking into local data. CSV rows are mapped into `SyntheticPointRecord`, `SyntheticEventRecord`, and `SyntheticDatasetMetadata::new(0, row_count)`, so evidence still reads like synthetic proof even for local files.
+- The repository has already passed the stale `docs/AGENTS.md` "Current Next Task" note. The real baseline is closer to post-Milestone 6 plus T011: synthetic and local CSV/Parquet scatter/timeline density, brushing, evidence export, report bundles, manifests, retained source rows, and a first CPU-backed missingness slice.
+- The current import boundary is intentionally narrow: Parquet support stops at explicit scatter/timeline bindings, retained source rows, and chunk metadata rather than broad dataframe or query-engine behavior.
 - Evidence v1 is useful but synthetic-scoped. It omits external dataset source, dataset fingerprint, column bindings, lane labels, selected original row values, view configuration, and visual context.
 - The workbench now has a small egui shell with visible controls, axis labels, export status, and selected-row drilldown, but it remains a correctness-first single-view tool without file dialogs, linked views, screenshot capture, or broader report polish.
 - `apps/rawscope-workbench/src/app.rs` is at 405 lines, slightly over the repository's 400-line review threshold. The app has already been split into domain helper files, but central state can become a coordination bottleneck.
 - GPU density currently returns count buffers, not row-id-preserving bins or selection masks. That is correct for the current slice but should remain explicit until a row-evidence design exists.
-- The next execution arc should move from visual proof to evidence-centric local workflow before adding Parquet/Arrow, performance claims, DataFusion, Tauri, web, cloud, or plugins.
+- The next execution arc should move from evidence-centric local workflow to measured benchmark evidence before broader performance claims, DataFusion, Tauri, web, cloud, or plugins.
 
 Existing owner and pattern checks:
 - Data ownership should extend `crates/rawscope-data/src/dataset.rs`, `local_dataset.rs`, `local_dataset/csv.rs`, and synthetic modules before creating a new generic data bucket.
@@ -51,10 +51,10 @@ Existing owner and pattern checks:
 - Keep the current crate separation: `rawscope-core` stays foundational and dependency-light; `rawscope-data` owns dataset loading/identity/rows; `rawscope-gpu` owns GPU context/resource concerns; `rawscope-render` owns render/evidence logic; `rawscope-workbench` owns app coordination and UI.
 - Do not add a dumping-ground `utils.rs`, `helpers.rs`, `types.rs`, `models.rs`, `contracts.rs`, `dto.rs`, or global `constants.rs`.
 - Do not add DataFusion, Tauri, WASM/web, cloud flows, or plugins in this roadmap wave.
-- Do not add Parquet/Arrow before dataset identity, local row retention, evidence v2, and row drilldown are stable.
+- Do not broaden Parquet/Arrow beyond the current scatter/timeline ingestion slice without an explicit roadmap task.
 - Do not claim benchmarked performance, zero-copy behavior, or production scale until the benchmark task lands and produces repeatable evidence.
 - Prefer copy-minimising wording. Do not call the current CSV path, GPU upload, or evidence export zero-copy.
-- Treat local CSV evidence as real local-data evidence only after the artifact includes source identity, column bindings, and original selected row values or an explicit sampled-row policy.
+- Treat local source evidence as real local-data evidence only after the artifact includes source identity, column bindings, and original selected row values or an explicit sampled-row policy.
 - Evidence schemas are versioned. Do not silently mutate v1 shapes; add v2 artifacts or maintain compatibility with documented migration behavior.
 - A selected region must be data-anchored after finalization. Zoom, pan, resize, and reset must not silently change the data-space selection.
 - Selection summaries and exports must be deterministic for the same dataset, view configuration, and selection.
@@ -82,7 +82,7 @@ Existing owner and pattern checks:
 | T008 | [x] | Add Linked Selection Contract | Add a shared visual selection/query state so scatter and timeline views can report and consume the same selection without becoming a dashboard system. |  | T006, T007 | [`tasks/T008.md`](tasks/T008.md) |
 | T009 | [x] | Add Missingness Heatmap Slice | Add the first data-quality view for null/missingness shape with CPU reference, deterministic fixtures, brushing, and evidence hooks. |  | T002, T004, T007, T008 | [`tasks/T009.md`](tasks/T009.md) |
 | T010 | [x] | Add Evidence Report Bundles | Add report-bundle export with evidence JSON, Markdown, manifest metadata, and rendered visual context after screenshot/readback design is explicit. |  | T005, T007 | [`tasks/T010.md`](tasks/T010.md) |
-| T011 | [ ] | Add Chunked Parquet Ingestion | Add Parquet/Arrow-backed chunked local dataset loading only after identity, row retention, evidence, and UI flows are stable. |  | T002, T003, T004, T005 | [`tasks/T011.md`](tasks/T011.md) |
+| T011 | [x] | Add Chunked Parquet Ingestion | Add Parquet/Arrow-backed chunked local dataset loading only after identity, row retention, evidence, and UI flows are stable. |  | T002, T003, T004, T005 | [`tasks/T011.md`](tasks/T011.md) |
 | T012 | [ ] | Add Benchmarks And Performance Gates | Add repeatable CPU/GPU/workbench benchmarks and documentation rules that allow measured performance claims without polluting interactive UI paths. |  | T003, T011 | [`tasks/T012.md`](tasks/T012.md) |
 
 Task details live in separate files under `tasks/`, named by task ID.
@@ -90,8 +90,8 @@ Task details live in separate files under `tasks/`, named by task ID.
 ## Final Notes
 
 - Recommended implementation order: T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011, T012.
-- Product priority: evidence credibility before UI polish, UI shell before linked multi-view workflows, row/source contracts before Parquet, benchmarks before performance claims.
+- Product priority: evidence credibility before UI polish, UI shell before linked multi-view workflows, row/source contracts before broadening file-import scope, benchmarks before performance claims.
 - Unresolved questions: whether evidence v2 should replace v1 exports by default or live behind a temporary explicit export mode; how much local source-row data is acceptable to keep in memory for very large CSV files; when the app should move from `winit` directly to `eframe`; whether screenshot/readback should live in `rawscope-gpu`, `rawscope-render`, or a narrow report/export owner.
-- Risks: synthetic-only naming can harden into public API; app state can centralize in `WorkbenchApp`; row drilldown can drift toward dataframe behavior; egui work can become a general UI rewrite; Parquet/Arrow can arrive before RawScope knows its evidence contract; benchmark numbers can be mistaken for product guarantees.
-- Areas that need human review before implementation: evidence v2 schema shape, local row retention limits, UI shell direction, screenshot/readback dependency choices, Parquet dependency acceptance, and benchmark datasets/thresholds.
+- Risks: app state can centralize in `WorkbenchApp`; row drilldown can drift toward dataframe behavior; egui work can become a general UI rewrite; Parquet/Arrow scope can drift toward dataframe or query-engine behavior; benchmark numbers can be mistaken for product guarantees.
+- Areas that need human review before implementation: evidence v2 defaulting strategy, local row retention limits, UI shell direction, screenshot/readback dependency choices, and benchmark datasets/thresholds.
 - Manual adversarial review notes folded into this bundle: do not rely on field-incompatible type aliases during the generic record migration; keep source rows in workbench state before row drilldown; make missingness depend on retained source rows; convert dataset identity into export DTOs rather than adding serde to `rawscope-data`; use checked row-id-to-index conversion for source-row lookup.

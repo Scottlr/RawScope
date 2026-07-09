@@ -37,6 +37,7 @@ This document describes the source-aware JSON artifact written by the RawScope w
 - `source`: tagged source object.
   - Synthetic source: `{"kind":"synthetic","seed":...,"generator":"..."}`
   - Local CSV source: `{"kind":"local_csv","path":"...","limit":...}`
+  - Local Parquet source: `{"kind":"local_parquet","path":"...","limit":...}`
 - `row_count`: dataset row count.
 - `field_bindings`: current timeline field bindings such as `time` and `lane`.
 - `lane_labels`: timeline lane labels when available.
@@ -65,7 +66,7 @@ This is the current visible and full timeline context, distinct from the finaliz
 - `high_value_band`
 - `unclassified`
 
-Synthetic datasets use the synthetic labels. Local CSV datasets use `unclassified` unless a later task defines a richer local kind model.
+Synthetic datasets use the synthetic labels. Local CSV and Parquet datasets use `unclassified` unless a later task defines a richer local kind model.
 
 ## Sampled Visual Events
 
