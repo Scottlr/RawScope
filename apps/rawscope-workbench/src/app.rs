@@ -3,7 +3,7 @@
 use std::{error::Error, sync::Arc};
 
 use rawscope_data::{
-    generate_synthetic_points, load_scatter_dataset, SyntheticDatasetMetadata,
+    generate_synthetic_points, load_scatter_dataset, DatasetIdentity, SyntheticDatasetMetadata,
     SyntheticEventRecord, SyntheticPointConfig, SyntheticPointRecord,
 };
 use rawscope_gpu::GpuContext;
@@ -45,6 +45,8 @@ pub struct WorkbenchApp {
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
+    pub(crate) dataset_identity: Option<DatasetIdentity>,
+    // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
@@ -169,6 +171,7 @@ impl WorkbenchApp {
                 "RawScope local CSV scatter-density dataset prepared"
             );
 
+            self.dataset_identity = Some(dataset.identity);
             self.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
             self.scatter.points = dataset.points;
@@ -211,6 +214,7 @@ impl WorkbenchApp {
 
         self.scatter.active_preset = active_preset;
         self.scatter.point_count_label = active_preset.row_count_label().to_string();
+        self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
         self.scatter.points = dataset.points;
         self.scatter.viewport = Some(viewport);
@@ -256,6 +260,7 @@ impl WorkbenchApp {
         self.scatter.points = dataset.points;
         self.scatter.active_preset = preset;
         self.scatter.point_count_label = preset.row_count_label().to_string();
+        self.dataset_identity = Some(dataset.identity);
         self.dataset_metadata = Some(dataset.metadata);
         self.scatter.viewport = Some(viewport);
         self.clear_brush();

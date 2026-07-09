@@ -4,7 +4,10 @@ mod dataset;
 mod local_dataset;
 mod synthetic;
 
-pub use dataset::SyntheticDatasetMetadata;
+pub use dataset::{
+    DatasetFieldBinding, DatasetFieldRole, DatasetIdentity, DatasetSource,
+    SyntheticDatasetMetadata, VisualDatasetKind,
+};
 pub use local_dataset::{
     load_scatter_dataset, load_timeline_dataset, DatasetLoadError, LoadedColumnKind,
     LoadedColumnSchema, LoadedScatterDataset, LoadedTimelineDataset,
