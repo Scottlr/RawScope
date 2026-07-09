@@ -58,8 +58,8 @@ Core promise: pixels should be explainable back to rows.
 
 ## Current Next Task
 
-Build deterministic synthetic point/event datasets and a CPU-side density reference implementation for testing future GPU output.
+Execute the RawScope roadmap baseline: separate synthetic-only concepts from source-aware dataset identity, retain local row evidence, publish evidence schema v2, and add CPU-backed row drilldown before broad UI, Parquet, benchmarks, or plugin work.
 
 ## Suggested Future Prompt
 
-Implement Milestone 1 for RawScope: add deterministic synthetic point/event datasets and a CPU-side density binning reference, with focused tests proving deterministic generation and stable density output. Keep dependencies minimal and do not add WGPU, egui, file import, or UI features yet.
+Implement the next unblocked RawScope roadmap task from `features/rawscope-execution-roadmap/tasks.md`. Keep RawScope local-first and evidence-centered; do not add DataFusion, Tauri, WASM, cloud workflows, plugins, Parquet/Arrow, or benchmark claims unless that specific task calls for them.
