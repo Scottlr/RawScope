@@ -1,8 +1,8 @@
 //! Brush interaction helpers for the workbench scatter-density demo.
 
 use rawscope_render::{
-    BrushScreenPoint, ScatterBrushDrag, ScatterSelectionEvidence, SelectedRegionSummary,
-    SelectionEvidenceConfig,
+    scatter_selection_drilldown, BrushScreenPoint, ScatterBrushDrag, ScatterSelectionEvidence,
+    SelectedRegionSummary, SelectionEvidenceConfig,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -36,8 +36,10 @@ impl WorkbenchApp {
 
         self.finalize_brush_from_drag();
         self.build_selection_evidence();
+        self.build_selection_drilldown();
         self.log_selection_summary("finalized");
         self.log_selection_evidence();
+        self.log_selection_drilldown();
         self.scatter.brush_drag_start = None;
         self.scatter.active_brush_drag = None;
         self.update_window_title();
@@ -48,11 +50,13 @@ impl WorkbenchApp {
         let had_selection = self.scatter.active_brush_selection.is_some()
             || self.scatter.active_brush_drag.is_some()
             || self.scatter.selection_summary.is_some()
-            || self.scatter.selection_evidence.is_some();
+            || self.scatter.selection_evidence.is_some()
+            || self.scatter.selection_drilldown.is_some();
         self.scatter.active_brush_drag = None;
         self.scatter.active_brush_selection = None;
         self.scatter.selection_summary = None;
         self.scatter.selection_evidence = None;
+        self.scatter.selection_drilldown = None;
         self.scatter.brush_drag_start = None;
         self.update_window_title();
 
@@ -90,6 +94,7 @@ impl WorkbenchApp {
             .active_brush_selection
             .map(|selection| SelectedRegionSummary::from_points(&self.scatter.points, selection));
         self.scatter.selection_evidence = None;
+        self.scatter.selection_drilldown = None;
         self.update_window_title();
         self.request_redraw();
     }
@@ -126,6 +131,20 @@ impl WorkbenchApp {
             dataset_metadata,
             self.scatter_evidence_row_count(),
             SelectionEvidenceConfig::default(),
+        ));
+    }
+
+    fn build_selection_drilldown(&mut self) {
+        let Some(selection) = self.scatter.active_brush_selection else {
+            self.scatter.selection_drilldown = None;
+            return;
+        };
+
+        self.scatter.selection_drilldown = Some(scatter_selection_drilldown(
+            &self.scatter.points,
+            selection,
+            self.scatter.source_rows.as_ref(),
+            rawscope_render::DrilldownConfig::default(),
         ));
     }
 
@@ -183,5 +202,91 @@ impl WorkbenchApp {
             record_sample = ?evidence.selected_record_sample,
             "RawScope scatter selection evidence"
         );
+    }
+
+    fn log_selection_drilldown(&self) {
+        let Some(drilldown) = &self.scatter.selection_drilldown else {
+            return;
+        };
+
+        info!(
+            selected_row_count = drilldown.selected_row_count,
+            displayed_row_count = drilldown.displayed_row_count,
+            sampled = drilldown.rows_are_sampled,
+            column_count = drilldown.columns.len(),
+            "RawScope selection drilldown prepared"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rawscope_core::{F32Range, RowId};
+    use rawscope_data::{ScatterPointKind, ScatterPointRecord};
+    use rawscope_render::{ScatterBrushSelection, SelectionDrilldown};
+
+    use super::*;
+    use crate::demo::DemoMode;
+
+    #[test]
+    fn build_selection_drilldown_populates_scatter_fallback_rows() {
+        let mut app = WorkbenchApp::default();
+        app.demo_mode = DemoMode::Scatter;
+        app.scatter.points = vec![
+            ScatterPointRecord {
+                row_id: RowId(3),
+                x: 30.0,
+                y: 40.0,
+                kind: ScatterPointKind::Unclassified,
+            },
+            ScatterPointRecord {
+                row_id: RowId(1),
+                x: 10.0,
+                y: 20.0,
+                kind: ScatterPointKind::Unclassified,
+            },
+        ];
+        app.scatter.active_brush_selection = Some(ScatterBrushSelection {
+            x_range: F32Range::new(0.0, 50.0),
+            y_range: F32Range::new(0.0, 50.0),
+        });
+
+        app.build_selection_drilldown();
+
+        let drilldown = app
+            .scatter
+            .selection_drilldown
+            .expect("drilldown should exist");
+        assert_eq!(drilldown.selected_row_count, 2);
+        assert_eq!(drilldown.displayed_row_count, 2);
+        assert!(!drilldown.rows_are_sampled);
+        assert_eq!(drilldown.columns[0].name, "row_id");
+        assert_eq!(drilldown.rows[0].row_id, RowId(1));
+        assert_eq!(
+            drilldown.rows[0].values,
+            vec![
+                "1".to_string(),
+                "10.000000".to_string(),
+                "20.000000".to_string(),
+                "unclassified".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn clear_brush_clears_scatter_drilldown() {
+        let mut app = WorkbenchApp::default();
+        app.demo_mode = DemoMode::Scatter;
+        app.scatter.selection_drilldown = Some(SelectionDrilldown {
+            selected_row_count: 1,
+            displayed_row_count: 1,
+            rows_are_sampled: false,
+            columns: vec![],
+            rows: vec![],
+        });
+
+        app.clear_brush();
+
+        assert!(app.scatter.selection_drilldown.is_none());
     }
 }
