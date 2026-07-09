@@ -83,7 +83,7 @@ Existing owner and pattern checks:
 | T009 | [x] | Add Missingness Heatmap Slice | Add the first data-quality view for null/missingness shape with CPU reference, deterministic fixtures, brushing, and evidence hooks. |  | T002, T004, T007, T008 | [`tasks/T009.md`](tasks/T009.md) |
 | T010 | [x] | Add Evidence Report Bundles | Add report-bundle export with evidence JSON, Markdown, manifest metadata, and rendered visual context after screenshot/readback design is explicit. |  | T005, T007 | [`tasks/T010.md`](tasks/T010.md) |
 | T011 | [x] | Add Chunked Parquet Ingestion | Add Parquet/Arrow-backed chunked local dataset loading only after identity, row retention, evidence, and UI flows are stable. |  | T002, T003, T004, T005 | [`tasks/T011.md`](tasks/T011.md) |
-| T012 | [ ] | Add Benchmarks And Performance Gates | Add repeatable CPU/GPU/workbench benchmarks and documentation rules that allow measured performance claims without polluting interactive UI paths. |  | T003, T011 | [`tasks/T012.md`](tasks/T012.md) |
+| T012 | [x] | Add Benchmarks And Performance Gates | Add repeatable CPU/GPU/workbench benchmarks and documentation rules that allow measured performance claims without polluting interactive UI paths. |  | T003, T011 | [`tasks/T012.md`](tasks/T012.md) |
 
 Task details live in separate files under `tasks/`, named by task ID.
 

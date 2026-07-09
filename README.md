@@ -50,6 +50,8 @@ RawScope currently supports:
 
 These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, screenshot/report capture, or production report workflows.
 
+Benchmark commands, benchmark input sizes, GPU opt-in rules, and claim guidance live in `docs/BENCHMARKS.md`.
+
 ## Current Workbench
 
 Run the native scatter-density demo with:
@@ -126,7 +128,7 @@ The next larger areas remain intentionally deferred:
 - Linked multi-view selection, selected-vs-baseline comparison, and visual query persistence across scatter, timeline, and missingness.
 - Native screenshot/readback capture and image-backed visual context inside report bundles.
 - Arbitrary timestamp normalization for timeline data beyond the current `u32` GPU time-span guard.
-- Benchmarks and performance claims.
+- Broader performance analysis, optimization follow-up, and claim-backed benchmark result tracking.
 - Tauri, web/WASM, cloud workflows, plugin systems, SQL/DataFusion, and dataframe-style execution.
 
 ## Non-Goals

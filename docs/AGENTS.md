@@ -46,6 +46,7 @@ Core promise: pixels should be explainable back to rows.
 - Do not claim zero-copy unless technically exact.
 - Use copy-minimising language where appropriate.
 - Do not claim performance without benchmark evidence.
+- Do not cite benchmark results without naming command, dataset, hardware, and date.
 - Add benchmarks before making optimization claims.
 - Avoid claims like infinite scale, renders every row, or replaces BI.
 
