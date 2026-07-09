@@ -46,8 +46,7 @@ pub(crate) enum ExportStatus {
     Idle,
     NoSelection,
     Exported {
-        json_path: String,
-        markdown_path: String,
+        bundle_dir: String,
     },
     Failed {
         message: String,
@@ -59,10 +58,7 @@ impl ExportStatus {
         match self {
             Self::Idle => "Export idle".to_string(),
             Self::NoSelection => "Export skipped: no finalized selection".to_string(),
-            Self::Exported {
-                json_path,
-                markdown_path,
-            } => format!("Exported {json_path} and {markdown_path}"),
+            Self::Exported { bundle_dir } => format!("Exported bundle {bundle_dir}"),
             Self::Failed { message } => format!("Export failed: {message}"),
         }
     }
@@ -577,13 +573,11 @@ mod tests {
     #[test]
     fn exported_status_label_includes_paths() {
         let label = ExportStatus::Exported {
-            json_path: "target/rawscope-exports/a.json".to_string(),
-            markdown_path: "target/rawscope-exports/a.md".to_string(),
+            bundle_dir: "target/rawscope-exports/report-scatter-1234-1".to_string(),
         }
         .label();
 
-        assert!(label.contains("a.json"));
-        assert!(label.contains("a.md"));
+        assert!(label.contains("report-scatter-1234-1"));
     }
 
     #[test]

@@ -107,4 +107,12 @@ When source rows are unavailable, such as current synthetic datasets, both colle
 
 ## Manifest
 
-Each workbench export appends one line to `target/rawscope-exports/manifest.jsonl`. For v2 timeline exports the manifest includes artifact kind, schema version, JSON path, Markdown path, selected event count, selected percentage, dataset row count, UNIX timestamp milliseconds, and export counter.
+Current workbench exports place this artifact inside a collision-safe report bundle directory such as `target/rawscope-exports/report-timeline-<unix-ms>-<counter>/evidence.json`.
+
+The same bundle also includes:
+
+- `evidence.md`
+- `manifest.json`
+- `visual-context.txt`
+
+The bundle manifest records the evidence artifact kind/schema version, bundle paths, visual-context path, selected event count, selected percentage, dataset row count, UNIX timestamp milliseconds, and export counter. The placeholder visual-context file records the exact view configuration while native image capture remains deferred.

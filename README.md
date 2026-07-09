@@ -4,7 +4,7 @@ See the shape before writing the query.
 
 RawScope is a GPU-scale visual analytics engine for large raw datasets. It helps analysts, researchers, data scientists, and big data engineers visually inspect the shape of data before they know exactly what SQL query, notebook analysis, dashboard, or model they need.
 
-Current status: early native workbench with deterministic synthetic data, CPU reference density outputs, WGPU scatter/timeline density rendering, a small egui control shell, a CPU-backed local missingness slice, local CSV loading, and JSON/Markdown selection evidence export.
+Current status: early native workbench with deterministic synthetic data, CPU reference density outputs, WGPU scatter/timeline density rendering, a small egui control shell, a CPU-backed local missingness slice, local CSV loading, and local evidence report-bundle export.
 
 ## Target Users
 
@@ -41,7 +41,7 @@ RawScope currently supports:
 - CPU-side selected-region summaries for scatter brushes, including selected count, percentage, data extents, category counts, and top category.
 - CPU-side selected-event summaries for timeline brushes, including selected count, percentage, lane counts, event-type counts, top lane/type, timestamp extent, and value extent.
 - Deterministic CPU-side evidence objects for finalized scatter and timeline selections, including lowest-row-id samples.
-- JSON and Markdown evidence export for scatter and timeline selections, plus collision-safe filenames and an appended `manifest.jsonl`.
+- Local report-bundle export for scatter and timeline selections, including `evidence.json`, `evidence.md`, `manifest.json`, and a deterministic `visual-context.txt` placeholder.
 - Local CSV loading for scatter density with explicit numeric `--x`/`--y` columns.
 - Local CSV loading for timeline density with explicit integer `--time` and string or integer `--lane` columns.
 - Optional `--limit <rows>` for local CSV loading.
@@ -85,7 +85,7 @@ Controls:
 - Left or middle mouse drag: pan the current data viewport. Timeline mode pans time while lane mapping remains stable.
 - Right mouse drag or Shift + left mouse drag: create or replace a visible rectangular brush selection.
 - `Escape`: clear the current brush selection.
-- `E`: export the latest finalized selection evidence for the active demo to JSON and Markdown under `target/rawscope-exports/`.
+- `E`: export the latest finalized selection evidence for the active demo as a local report bundle under `target/rawscope-exports/`.
 - `R`: reset to the full synthetic data range.
 - `1`: switch to 20,000 synthetic points.
 - `2`: switch to 200,000 synthetic points.
@@ -103,7 +103,7 @@ Brush overlay note: the current rectangle overlay is intentionally simple: a fai
 
 Selection evidence note: finalized brushes also build a small CPU-side evidence object from active records. Scatter evidence includes selected counts, category counts, min/max x/y, brush range, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus point records. Timeline evidence includes selected counts, lane and event-type counts, selected timestamp/value ranges, brush time/lane ranges, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus event records. This is logged once when the brush finalizes and remains a CPU evidence path rather than GPU row-id preservation.
 
-Evidence export note: pressing `E` writes the active demo's cached selection evidence to `target/rawscope-exports/`, then appends a matching entry to `target/rawscope-exports/manifest.jsonl`. Scatter exports use `scatter-selection-<unix-ms>-<counter>.json` and `.md`; timeline exports use `timeline-selection-<unix-ms>-<counter>.json` and `.md`. If no finalized brush evidence exists in the active demo, the app logs a warning and does not write files. These artifacts are deterministic synthetic CPU-side evidence, not the final report system. The JSON schemas are documented in `docs/schemas/scatter-selection-evidence-v1.md` and `docs/schemas/timeline-selection-evidence-v1.md`.
+Evidence export note: pressing `E` writes the active demo's cached selection evidence into a collision-safe bundle directory under `target/rawscope-exports/`. Scatter exports use `report-scatter-<unix-ms>-<counter>/`; timeline exports use `report-timeline-<unix-ms>-<counter>/`. Each bundle currently contains `evidence.json`, `evidence.md`, `manifest.json`, and `visual-context.txt`. The visual-context file is a deterministic placeholder that records the exact view configuration while native image capture remains deferred. If no finalized brush evidence exists in the active demo, the app logs a warning and does not write files. These bundles are local-first CPU-side evidence artifacts, not cloud publishing or a final screenshot pipeline.
 
 Screenshot capture note: in-app screenshot capture is intentionally deferred because native surface readback and image encoding would add a dedicated capture path or extra dependencies. For Milestone 3D, OS-level screenshots are the recommended path.
 
@@ -124,7 +124,7 @@ The next larger areas remain intentionally deferred:
 - GPU row-id preservation and exact row drilldown from rendered density bins.
 - Parquet/Arrow-backed columnar data and chunked local dataset ownership.
 - Linked multi-view selection, selected-vs-baseline comparison, and visual query persistence across scatter, timeline, and missingness.
-- Screenshot/readback capture and evidence reports with rendered visual context.
+- Native screenshot/readback capture and image-backed visual context inside report bundles.
 - Arbitrary timestamp normalization for timeline data beyond the current `u32` GPU time-span guard.
 - Benchmarks and performance claims.
 - Tauri, web/WASM, cloud workflows, plugin systems, SQL/DataFusion, and dataframe-style execution.

@@ -2,9 +2,11 @@ mod app;
 mod app_brush;
 mod app_events;
 mod app_export;
-mod app_export_files;
 mod app_missingness;
 mod app_render;
+mod app_report_bundle;
+#[cfg(test)]
+mod app_report_bundle_tests;
 mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;
