@@ -14,4 +14,13 @@ serde_json = "1.0.145"
 wgpu = "29.0.3"
 
 [dev-dependencies]
+criterion = { workspace = true }
 pollster = "0.4.0"
+
+[[bench]]
+name = "density_reference"
+harness = false
+
+[[bench]]
+name = "gpu_density"
+harness = false

@@ -616,4 +616,34 @@ mod tests {
         assert!(title.contains("grid 256x256"));
         assert!(title.contains("Selection 42 rows"));
     }
+
+    #[test]
+    fn window_title_avoids_benchmark_language() {
+        let state = WorkbenchUiState {
+            active_view: ActiveView::Scatter,
+            visible_surface: WorkbenchSurface::Primary,
+            dataset_label: "Synthetic scatter | 20000 rows".to_string(),
+            view_label: "grid 256x256 | pts 20000 (20k) | max 32".to_string(),
+            selection_label: "Selection 42 rows (0.21%)".to_string(),
+            linked_selection_label: "Linked 42 rows from scatter".to_string(),
+            axis_primary_label: "x 0.0..100.0".to_string(),
+            axis_secondary_label: "y 0.0..100.0".to_string(),
+            export_status: ExportStatus::Idle,
+            drilldown: None,
+            missingness: None,
+            can_switch_to_scatter: true,
+            can_switch_to_timeline: true,
+            can_show_missingness: false,
+            can_reset: true,
+            can_export: true,
+            can_clear_selection: true,
+        };
+
+        let title = state.window_title().to_ascii_lowercase();
+
+        assert!(!title.contains("benchmark"));
+        assert!(!title.contains("throughput"));
+        assert!(!title.contains("fps"));
+        assert!(!title.contains("frame time"));
+    }
 }

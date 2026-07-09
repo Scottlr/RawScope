@@ -89,7 +89,7 @@
 - Decision: Avoid performance claims until they are backed by benchmarks.
 - Status: Accepted
 - Context: GPU-scale language is a product direction, not a measured result in the scaffold. Claims about speed, scale, or copy behavior need evidence.
-- Consequences: Documentation and pull requests should use careful language, prefer "copy-minimising" where accurate, and add benchmarks before optimization claims.
+- Consequences: Documentation and pull requests should use careful language, prefer "copy-minimising" where accurate, and add benchmarks before optimization claims. Benchmark commands, dataset sizes, and reporting rules now live in `docs/BENCHMARKS.md`.
 
 ## ADR-0011: Bytemuck For GPU Buffer Packing
 
@@ -124,7 +124,7 @@
 - Decision: Keep benchmark-style timing out of the workbench title and routine logs.
 - Status: Accepted
 - Context: Proper GPU timestamp queries are not part of this slice, and CPU-observed timings can be mistaken for benchmark evidence.
-- Consequences: GPU execution timing and benchmark evidence remain deferred until a dedicated benchmark path exists.
+- Consequences: GPU execution timing stays out of routine UI and logs even now that dedicated benchmark harnesses exist. Benchmark evidence belongs in the explicit bench targets documented in `docs/BENCHMARKS.md`.
 
 ## ADR-0016: Serde For Evidence Artifact Serialization
 
