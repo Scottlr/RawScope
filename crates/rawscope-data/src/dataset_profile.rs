@@ -2,7 +2,7 @@
 
 use std::{error::Error, fmt};
 
-use crate::{LoadedColumnKind, LoadedColumnSchema};
+use crate::{LoadedColumnKind, LoadedColumnSchema, VisualFieldCatalog, VisualFieldSummary};
 
 const LICHESS_GAMES_PROFILE_VALUE: &str = "lichess-games";
 const LICHESS_GAMES_DISPLAY_NAME: &str = "Lichess-style chess games";
@@ -18,6 +18,16 @@ const LICHESS_GAMES_SCATTER_BINDING: ScatterDatasetProfileBinding =
     ScatterDatasetProfileBinding::new("white_rating", "black_rating");
 const LICHESS_GAMES_TIMELINE_BINDING: TimelineDatasetProfileBinding =
     TimelineDatasetProfileBinding::new("created_at", "winner");
+const LICHESS_FILTER_HINTS: [DatasetProfileFilterHint; 8] = [
+    DatasetProfileFilterHint::categorical("winner", 1),
+    DatasetProfileFilterHint::categorical("category", 2),
+    DatasetProfileFilterHint::categorical("time_control", 3),
+    DatasetProfileFilterHint::categorical("termination", 4),
+    DatasetProfileFilterHint::categorical("event", 5),
+    DatasetProfileFilterHint::categorical("weekday", 6),
+    DatasetProfileFilterHint::categorical("eco", 7),
+    DatasetProfileFilterHint::categorical("opening", 8),
+];
 
 const LICHESS_GAMES_PROFILE: DatasetProfile = DatasetProfile {
     id: DatasetProfileId::LichessGames,
@@ -25,6 +35,11 @@ const LICHESS_GAMES_PROFILE: DatasetProfile = DatasetProfile {
     required_columns: &LICHESS_GAMES_REQUIRED_COLUMNS,
     scatter_binding: Some(LICHESS_GAMES_SCATTER_BINDING),
     timeline_binding: Some(LICHESS_GAMES_TIMELINE_BINDING),
+    scatter_hints: ScatterDatasetProfileHints {
+        show_equality_guide: true,
+        supports_mean_difference: true,
+        filter_columns: &LICHESS_FILTER_HINTS,
+    },
 };
 
 const SUPPORTED_DATASET_PROFILE_IDS: [DatasetProfileId; 1] = [DatasetProfileId::LichessGames];
@@ -83,6 +98,36 @@ pub struct TimelineDatasetProfileBinding {
     pub lane_column: &'static str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DatasetProfileFilterKind {
+    NumericRange,
+    Categorical,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DatasetProfileFilterHint {
+    pub column_name: &'static str,
+    pub kind: DatasetProfileFilterKind,
+    pub priority: u8,
+}
+
+impl DatasetProfileFilterHint {
+    pub const fn categorical(column_name: &'static str, priority: u8) -> Self {
+        Self {
+            column_name,
+            kind: DatasetProfileFilterKind::Categorical,
+            priority,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ScatterDatasetProfileHints {
+    pub show_equality_guide: bool,
+    pub supports_mean_difference: bool,
+    pub filter_columns: &'static [DatasetProfileFilterHint],
+}
+
 impl TimelineDatasetProfileBinding {
     pub const fn new(time_column: &'static str, lane_column: &'static str) -> Self {
         Self {
@@ -100,6 +145,32 @@ pub struct DatasetProfile {
     pub required_columns: &'static [DatasetProfileColumn],
     pub scatter_binding: Option<ScatterDatasetProfileBinding>,
     pub timeline_binding: Option<TimelineDatasetProfileBinding>,
+    pub scatter_hints: ScatterDatasetProfileHints,
+}
+
+pub fn available_profile_filter_hints(
+    profile: &DatasetProfile,
+    catalog: &VisualFieldCatalog,
+) -> Vec<DatasetProfileFilterHint> {
+    profile
+        .scatter_hints
+        .filter_columns
+        .iter()
+        .copied()
+        .filter(|hint| {
+            catalog.fields.iter().any(|field| {
+                field.column_name == hint.column_name
+                    && match hint.kind {
+                        DatasetProfileFilterKind::NumericRange => {
+                            matches!(field.summary, VisualFieldSummary::Numeric(_))
+                        }
+                        DatasetProfileFilterKind::Categorical => {
+                            matches!(field.summary, VisualFieldSummary::Categorical(_))
+                        }
+                    }
+            })
+        })
+        .collect()
 }
 
 /// Parses one stable dataset profile identifier.

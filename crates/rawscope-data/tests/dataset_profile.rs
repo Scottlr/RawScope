@@ -1,6 +1,8 @@
+use rawscope_core::RowId;
 use rawscope_data::{
-    dataset_profile, parse_dataset_profile_id, validate_dataset_profile, DatasetProfileId,
-    LoadedColumnKind, LoadedColumnSchema,
+    available_profile_filter_hints, build_visual_field_catalog, dataset_profile,
+    parse_dataset_profile_id, validate_dataset_profile, DatasetProfileId, LoadedColumnKind,
+    LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable, VisualFieldCatalogConfig,
 };
 
 fn schema(columns: &[(&str, LoadedColumnKind)]) -> Vec<LoadedColumnSchema> {
@@ -84,4 +86,47 @@ fn validate_profile_reports_type_mismatch() {
     assert!(err
         .to_string()
         .contains("black_rating expected integer but found float"));
+}
+
+#[test]
+fn lichess_optional_hints_do_not_change_profile_validation() {
+    let profile = dataset_profile(DatasetProfileId::LichessGames);
+    let required_only = schema(&[
+        ("created_at", LoadedColumnKind::Integer),
+        ("white_rating", LoadedColumnKind::Integer),
+        ("black_rating", LoadedColumnKind::Integer),
+        ("winner", LoadedColumnKind::String),
+    ]);
+
+    validate_dataset_profile(profile, &required_only).unwrap();
+    assert!(profile.scatter_hints.show_equality_guide);
+    assert!(profile.scatter_hints.supports_mean_difference);
+    assert_eq!(profile.required_columns.len(), 4);
+}
+
+#[test]
+fn available_hints_skip_missing_columns() {
+    let profile = dataset_profile(DatasetProfileId::LichessGames);
+    let source = LoadedSourceTable {
+        columns: schema(&[
+            ("winner", LoadedColumnKind::String),
+            ("category", LoadedColumnKind::Integer),
+            ("opening", LoadedColumnKind::String),
+        ]),
+        rows: vec![LoadedSourceRow {
+            row_id: RowId(0),
+            values: vec!["white".into(), "1".into(), "Sicilian".into()],
+        }],
+    };
+    let catalog = build_visual_field_catalog(&source, VisualFieldCatalogConfig::default());
+
+    let hints = available_profile_filter_hints(profile, &catalog);
+
+    assert_eq!(
+        hints
+            .iter()
+            .map(|hint| hint.column_name)
+            .collect::<Vec<_>>(),
+        vec!["winner", "opening"]
+    );
 }
