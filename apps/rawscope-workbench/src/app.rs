@@ -31,6 +31,7 @@ use crate::{
         WorkbenchInteractionMode,
     },
     app_missingness::MissingnessWorkbenchState,
+    app_render_schedule::RenderSchedule,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
@@ -88,6 +89,7 @@ pub struct WorkbenchApp {
     pub(crate) selection_gesture_backup: Option<SelectionGestureBackup>,
     pub(crate) modifiers: ModifiersState,
     pub(crate) evidence_export_counter: u64,
+    pub(crate) render_schedule: RenderSchedule,
 }
 
 /// Scatter-specific workbench state.
@@ -418,13 +420,14 @@ impl WorkbenchApp {
             },
         )?;
         self.scatter.render_stats = Some(stats);
+        self.render_schedule.exact_field_settled();
         self.update_window_title();
         self.request_redraw();
 
         Ok(())
     }
 
-    fn refresh_scatter_marginal_summary(&mut self) {
+    pub(crate) fn refresh_scatter_marginal_summary(&mut self) {
         let Some(viewport) = self.scatter.viewport else {
             self.scatter.marginal_summary = None;
             return;

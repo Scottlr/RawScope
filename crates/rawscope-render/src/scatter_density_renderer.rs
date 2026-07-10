@@ -1,18 +1,22 @@
 //! Simple visible scatter-density rendering for the native workbench proof.
 
-use bytemuck::{Pod, Zeroable};
-
 use rawscope_core::F32Range;
 use rawscope_data::ScatterPointRecord;
 
 use crate::density_render_pipeline::create_density_render_pipeline;
 use crate::gpu_scatter_density::GpuScatterDensityError;
 use crate::{
-    DensityEncoding, DensityReadbackPolicy, PlotRectPx, ScatterDensityGpuState,
-    ScatterDensityPresentation, ScatterDensityUpdate,
+    DensityEncoding, DensityFieldViewport, DensityQualityTier, DensityReadbackPolicy, PlotRectPx,
+    ScatterDensityGpuState, ScatterDensityPresentation, ScatterDensityUpdate,
 };
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/scatter_density_render.wgsl");
+
+#[path = "scatter_density_render_resources.rs"]
+mod resources;
+use resources::{
+    scatter_render_bind_group, scatter_render_bind_group_layout, ScatterDensityRenderParams,
+};
 
 /// Render stats needed by the workbench title and density colour scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +76,10 @@ pub struct ScatterDensityRenderer {
     params_buffer: wgpu::Buffer,
     gpu_state: ScatterDensityGpuState,
     stats: ScatterDensityRenderStats,
+    completed_field: DensityFieldViewport,
+    display_x_range: F32Range,
+    display_y_range: F32Range,
+    config: ScatterDensityRendererConfig,
 }
 
 impl ScatterDensityRenderer {
@@ -97,15 +105,21 @@ impl ScatterDensityRenderer {
         )?;
         let max_bin_count = output.stats.max_bin_count;
 
-        let render_params = ScatterDensityRenderParams {
+        let completed_field = DensityFieldViewport {
+            x_range: config.x_range,
+            y_range: config.y_range,
             grid_width: config.grid_width,
             grid_height: config.grid_height,
-            max_bin_count,
-            transform_id: config.encoding.transform.shader_id(),
-            palette_id: config.encoding.palette.shader_id(),
-            presentation_id: config.presentation.shader_id(),
-            _padding: [0; 2],
+            viewport_revision: 0,
+            quality: DensityQualityTier::Exact,
         };
+        let render_params = ScatterDensityRenderParams::new(
+            config,
+            max_bin_count,
+            completed_field,
+            config.x_range,
+            config.y_range,
+        );
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("RawScope Scatter Density Render Params Buffer"),
             size: std::mem::size_of::<ScatterDensityRenderParams>() as u64,
@@ -144,6 +158,10 @@ impl ScatterDensityRenderer {
             params_buffer,
             gpu_state,
             stats: output.stats,
+            completed_field,
+            display_x_range: config.x_range,
+            display_y_range: config.y_range,
+            config,
         })
     }
 
@@ -153,6 +171,24 @@ impl ScatterDensityRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         update: ScatterDensityUpdate,
+    ) -> Result<ScatterDensityRenderStats, GpuScatterDensityError> {
+        let field = DensityFieldViewport {
+            x_range: update.config.x_range,
+            y_range: update.config.y_range,
+            grid_width: update.config.grid_width,
+            grid_height: update.config.grid_height,
+            viewport_revision: self.completed_field.viewport_revision + 1,
+            quality: DensityQualityTier::Exact,
+        };
+        self.update_density_for_field(device, queue, update, field)
+    }
+
+    pub fn update_density_for_field(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        update: ScatterDensityUpdate,
+        field: DensityFieldViewport,
     ) -> Result<ScatterDensityRenderStats, GpuScatterDensityError> {
         let generation_before = self.gpu_state.grid_generation();
         let output = self.gpu_state.update_with_output(device, queue, update)?;
@@ -169,19 +205,43 @@ impl ScatterDensityRenderer {
         }
         let config = update.config;
 
-        let render_params = ScatterDensityRenderParams {
-            grid_width: config.grid_width,
-            grid_height: config.grid_height,
-            max_bin_count: output.stats.max_bin_count,
-            transform_id: config.encoding.transform.shader_id(),
-            palette_id: config.encoding.palette.shader_id(),
-            presentation_id: config.presentation.shader_id(),
-            _padding: [0; 2],
-        };
+        let render_params = ScatterDensityRenderParams::new(
+            config,
+            output.stats.max_bin_count,
+            field,
+            field.x_range,
+            field.y_range,
+        );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&render_params));
         self.stats = output.stats;
+        self.completed_field = field;
+        self.display_x_range = field.x_range;
+        self.display_y_range = field.y_range;
+        self.config = config;
 
         Ok(self.stats)
+    }
+
+    pub fn set_display_viewport(
+        &mut self,
+        queue: &wgpu::Queue,
+        x_range: F32Range,
+        y_range: F32Range,
+    ) {
+        self.display_x_range = x_range;
+        self.display_y_range = y_range;
+        let params = ScatterDensityRenderParams::new(
+            self.config,
+            self.stats.max_bin_count,
+            self.completed_field,
+            x_range,
+            y_range,
+        );
+        queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+    }
+
+    pub fn completed_field(&self) -> DensityFieldViewport {
+        self.completed_field
     }
 
     pub fn replace_dataset(
@@ -248,105 +308,6 @@ impl ScatterDensityRenderer {
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct ScatterDensityRenderParams {
-    grid_width: u32,
-    grid_height: u32,
-    max_bin_count: u32,
-    transform_id: u32,
-    palette_id: u32,
-    presentation_id: u32,
-    _padding: [u32; 2],
-}
-
-fn scatter_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("RawScope Scatter Render Bind Group Layout"),
-        entries: &[
-            storage_layout_entry(0),
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            storage_layout_entry(2),
-        ],
-    })
-}
-
-fn storage_layout_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
-    wgpu::BindGroupLayoutEntry {
-        binding,
-        visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: wgpu::BindingType::Buffer {
-            ty: wgpu::BufferBindingType::Storage { read_only: true },
-            has_dynamic_offset: false,
-            min_binding_size: None,
-        },
-        count: None,
-    }
-}
-
-fn scatter_render_bind_group(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    counts: &wgpu::Buffer,
-    params: &wgpu::Buffer,
-    max_count: &wgpu::Buffer,
-) -> wgpu::BindGroup {
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("RawScope Scatter Render Bind Group"),
-        layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: counts.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: params.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: max_count.as_entire_binding(),
-            },
-        ],
-    })
-}
-
 #[cfg(test)]
-mod tests {
-    use crate::DensityTransform;
-
-    #[test]
-    fn density_intensity_maps_empty_bins_to_zero() {
-        assert_eq!(
-            crate::density_intensity(0, 12, DensityTransform::Log1p),
-            0.0
-        );
-        assert_eq!(crate::density_intensity(4, 0, DensityTransform::Log1p), 0.0);
-    }
-
-    #[test]
-    fn log1p_density_intensity_maps_max_count_to_one() {
-        assert_eq!(
-            crate::density_intensity(12, 12, DensityTransform::Log1p),
-            1.0
-        );
-    }
-
-    #[test]
-    fn log1p_density_intensity_keeps_mid_counts_visible() {
-        let linear_midpoint = 0.25;
-        let log_scaled = crate::density_intensity(1, 4, DensityTransform::Log1p);
-
-        assert!(log_scaled > linear_midpoint);
-        assert!(log_scaled < 1.0);
-    }
-}
+#[path = "scatter_density_renderer_tests.rs"]
+mod tests;

@@ -18,6 +18,7 @@ mod scatter_brush_overlay;
 mod scatter_density_gpu_state;
 mod scatter_density_presentation;
 mod scatter_density_renderer;
+mod scatter_density_reprojection;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
@@ -71,6 +72,9 @@ pub use scatter_density_gpu_state::{
 pub use scatter_density_presentation::ScatterDensityPresentation;
 pub use scatter_density_renderer::{
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
+};
+pub use scatter_density_reprojection::{
+    DensityFieldViewport, DensityQualityTier, DensityReprojection,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,

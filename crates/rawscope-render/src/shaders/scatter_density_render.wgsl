@@ -7,6 +7,14 @@ struct RenderParams {
     presentation_id: u32,
     padding1: u32,
     padding2: u32,
+    source_x_min: f32,
+    source_x_max: f32,
+    source_y_min: f32,
+    source_y_max: f32,
+    display_x_min: f32,
+    display_x_max: f32,
+    display_y_min: f32,
+    display_y_max: f32,
 };
 
 struct VertexOutput {
@@ -184,9 +192,23 @@ fn topographic_colour(uv: vec2<f32>) -> vec3<f32> {
     return mix(base_colour, contour_colour, contour_strength);
 }
 
+fn source_uv_for_display(display_uv: vec2<f32>) -> vec3<f32> {
+    let data_x = params.display_x_min + display_uv.x * (params.display_x_max - params.display_x_min);
+    let data_y = params.display_y_max - display_uv.y * (params.display_y_max - params.display_y_min);
+    let source_u = (data_x - params.source_x_min) / (params.source_x_max - params.source_x_min);
+    let source_v = (params.source_y_max - data_y) / (params.source_y_max - params.source_y_min);
+    let covered = source_u >= 0.0 && source_u <= 1.0 && source_v >= 0.0 && source_v <= 1.0;
+    return vec3<f32>(source_u, source_v, select(0.0, 1.0, covered));
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let clamped_uv = clamp(input.uv, vec2<f32>(0.0), vec2<f32>(0.999999));
+    let display_uv = clamp(input.uv, vec2<f32>(0.0), vec2<f32>(0.999999));
+    let projected = source_uv_for_display(display_uv);
+    if projected.z < 0.5 {
+        return vec4<f32>(density_colour(0.0, params.palette_id), 1.0);
+    }
+    let clamped_uv = clamp(projected.xy, vec2<f32>(0.0), vec2<f32>(0.999999));
     if params.presentation_id == 1u {
         return vec4<f32>(topographic_colour(clamped_uv), 1.0);
     }

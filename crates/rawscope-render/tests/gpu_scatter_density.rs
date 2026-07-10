@@ -169,6 +169,22 @@ fn gpu_max_reduction_matches_cpu_reference() {
     });
 }
 
+#[test]
+#[ignore = "requires a local WGPU adapter"]
+fn settled_gpu_density_matches_cpu_reference_after_pan() {
+    pollster::block_on(async {
+        let context = ComputeContext::new().await.unwrap();
+        let dataset = generate_synthetic_points(SyntheticPointConfig::new(17, 640));
+        let panned_x = F32Range::new(15.0, 75.0);
+        let panned_y = F32Range::new(10.0, 70.0);
+        let cpu = scatter_density(&dataset.points, panned_x, panned_y, 32, 32);
+        let gpu = gpu_scatter_density(&context, &dataset.points, panned_x, panned_y, 32, 32)
+            .await
+            .unwrap();
+        assert_eq!(gpu.counts(), cpu_counts(&cpu));
+    });
+}
+
 fn cpu_counts(grid: &rawscope_core::DensityGrid) -> Vec<u32> {
     grid.bins().iter().map(|bin| bin.row_count).collect()
 }

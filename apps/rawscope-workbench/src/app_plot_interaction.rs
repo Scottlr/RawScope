@@ -74,9 +74,9 @@ impl WorkbenchApp {
             viewport.data_point_at_fraction(cursor_fraction.0, cursor_fraction.1);
 
         viewport.zoom_around(anchor_x, anchor_y, zoom_scale);
-        if let Err(err) = self.recompute_density() {
-            error!(error = %err, "failed to recompute scatter density after zoom");
-        }
+        self.begin_interactive_density();
+        self.interactive_viewport_changed();
+        self.finish_interactive_density();
     }
 
     pub(crate) fn begin_pan(&mut self) {
@@ -85,9 +85,13 @@ impl WorkbenchApp {
         }
 
         self.last_drag_position = self.cursor_position;
+        self.begin_interactive_density();
     }
 
     pub(crate) fn end_pan(&mut self) {
+        if self.last_drag_position.is_some() && self.demo_mode.is_scatter() {
+            self.finish_interactive_density();
+        }
         self.last_drag_position = None;
     }
 
@@ -113,9 +117,7 @@ impl WorkbenchApp {
 
         viewport.pan_by(data_delta_x, data_delta_y);
         self.last_drag_position = Some(position);
-        if let Err(err) = self.recompute_density() {
-            error!(error = %err, "failed to recompute scatter density after pan");
-        }
+        self.interactive_viewport_changed();
     }
 
     pub(crate) fn reset_viewport(&mut self) {
@@ -200,5 +202,20 @@ mod tests {
         let viewport = app.scatter.viewport.unwrap();
         assert_eq!(viewport.x_range(), F32Range::new(20.0, 70.0));
         assert_eq!(viewport.y_range(), F32Range::new(20.0, 70.0));
+    }
+
+    #[test]
+    fn pan_directions_remain_consistent_during_reprojection() {
+        let mut app = app_with_plot();
+        app.cursor_position = Some(PhysicalPosition::new(300.0, 150.0));
+        app.begin_pan();
+
+        app.pan_to_cursor(PhysicalPosition::new(340.0, 170.0));
+
+        let viewport = app.scatter.viewport.unwrap();
+        assert_eq!(viewport.x_range(), F32Range::new(20.0, 70.0));
+        assert_eq!(viewport.y_range(), F32Range::new(20.0, 70.0));
+        assert!(app.render_schedule.is_refining());
+        assert!(app.scatter.marginal_summary.is_none());
     }
 }
