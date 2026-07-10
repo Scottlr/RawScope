@@ -1,12 +1,14 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{
-    generate_synthetic_points, ScatterPointKind, ScatterPointRecord, SyntheticPointCategory,
-    SyntheticPointConfig,
+    build_visual_field_catalog, evaluate_filters, generate_synthetic_points, DatasetFilter,
+    FilterSet, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
+    ScatterPointKind, ScatterPointRecord, SyntheticPointCategory, SyntheticPointConfig,
+    VisualFieldCatalogConfig,
 };
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{
-    gpu_scatter_density, scatter_density, DensityReadbackPolicy, ScatterDensityGpuState,
-    ScatterDensityRendererConfig, ScatterDensityUpdate,
+    gpu_scatter_density, gpu_scatter_density_masked, scatter_density, DensityReadbackPolicy,
+    ScatterDensityGpuState, ScatterDensityRendererConfig, ScatterDensityUpdate,
 };
 
 #[test]
@@ -185,6 +187,93 @@ fn settled_gpu_density_matches_cpu_reference_after_pan() {
     });
 }
 
+#[test]
+#[ignore = "requires a local WGPU adapter"]
+fn gpu_filter_mask_matches_cpu_filtered_density() {
+    pollster::block_on(async {
+        let context = ComputeContext::new().await.unwrap();
+        let points = vec![
+            point(0, 1.0, 1.0),
+            point(1, 2.0, 2.0),
+            point(2, 8.0, 8.0),
+            point(3, 9.0, 9.0),
+        ];
+        let source = filter_source(&["keep", "drop", "keep", "drop"]);
+        let catalog = build_visual_field_catalog(&source, VisualFieldCatalogConfig::default());
+        let mut filters = FilterSet::default();
+        filters.replace_for_column(DatasetFilter::Categories {
+            column_name: "cohort".into(),
+            included_values: vec!["keep".into()],
+            include_missing: false,
+        });
+        let evaluation = evaluate_filters(&source, &catalog, &filters).unwrap();
+        let included = points
+            .iter()
+            .filter(|point| evaluation.mask.includes(point.row_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let range = F32Range::new(0.0, 10.0);
+        let cpu = scatter_density(&included, range, range, 10, 10);
+        let gpu = gpu_scatter_density_masked(
+            &context,
+            &points,
+            &evaluation.mask,
+            evaluation.revision,
+            range,
+            range,
+            10,
+            10,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(gpu.counts(), cpu_counts(&cpu));
+        assert_eq!(gpu.total_count(), 2);
+    });
+}
+
+#[test]
+#[ignore = "requires a local WGPU adapter"]
+fn equal_filter_revision_skips_gpu_upload() {
+    pollster::block_on(async {
+        let context = ComputeContext::new().await.unwrap();
+        let points = vec![point(0, 1.0, 1.0), point(1, 2.0, 2.0)];
+        let source = filter_source(&["keep", "drop"]);
+        let catalog = build_visual_field_catalog(&source, VisualFieldCatalogConfig::default());
+        let mut filters = FilterSet::default();
+        filters.replace_for_column(DatasetFilter::Categories {
+            column_name: "cohort".into(),
+            included_values: vec!["keep".into()],
+            include_missing: false,
+        });
+        let evaluation = evaluate_filters(&source, &catalog, &filters).unwrap();
+        let config = ScatterDensityRendererConfig::new(
+            F32Range::new(0.0, 10.0),
+            F32Range::new(0.0, 10.0),
+            10,
+            10,
+        );
+        let mut state =
+            ScatterDensityGpuState::new(context.device(), context.queue(), &points, config, 1)
+                .unwrap();
+
+        assert!(state
+            .update_filter_mask(
+                context.queue(),
+                evaluation.mask.as_gpu_u32_slice(),
+                evaluation.revision,
+            )
+            .unwrap());
+        assert!(!state
+            .update_filter_mask(
+                context.queue(),
+                evaluation.mask.as_gpu_u32_slice(),
+                evaluation.revision,
+            )
+            .unwrap());
+    });
+}
+
 fn cpu_counts(grid: &rawscope_core::DensityGrid) -> Vec<u32> {
     grid.bins().iter().map(|bin| bin.row_count).collect()
 }
@@ -195,5 +284,22 @@ fn point(row_id: u64, x: f32, y: f32) -> ScatterPointRecord {
         x,
         y,
         kind: ScatterPointKind::Synthetic(SyntheticPointCategory::Background),
+    }
+}
+
+fn filter_source(values: &[&str]) -> LoadedSourceTable {
+    LoadedSourceTable {
+        columns: vec![LoadedColumnSchema {
+            name: "cohort".into(),
+            kind: LoadedColumnKind::String,
+        }],
+        rows: values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| LoadedSourceRow {
+                row_id: RowId(index as u64),
+                values: vec![(*value).into()],
+            })
+            .collect(),
     }
 }

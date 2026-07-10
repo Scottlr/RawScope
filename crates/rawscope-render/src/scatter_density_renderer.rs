@@ -1,7 +1,7 @@
 //! Simple visible scatter-density rendering for the native workbench proof.
 
 use rawscope_core::F32Range;
-use rawscope_data::ScatterPointRecord;
+use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
 
 use crate::density_render_pipeline::create_density_render_pipeline;
 use crate::gpu_scatter_density::GpuScatterDensityError;
@@ -253,6 +253,16 @@ impl ScatterDensityRenderer {
     ) -> Result<(), GpuScatterDensityError> {
         self.gpu_state
             .replace_dataset(device, queue, points, dataset_revision)
+    }
+
+    pub fn update_filter_mask(
+        &mut self,
+        queue: &wgpu::Queue,
+        mask: &FilterMask,
+        revision: FilterRevision,
+    ) -> Result<bool, GpuScatterDensityError> {
+        self.gpu_state
+            .update_filter_mask(queue, mask.as_gpu_u32_slice(), revision)
     }
 
     /// Returns the current render stats.

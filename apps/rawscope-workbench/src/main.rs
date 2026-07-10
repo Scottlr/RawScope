@@ -14,6 +14,7 @@ mod app_render_schedule;
 mod app_report_bundle;
 #[cfg(test)]
 mod app_report_bundle_tests;
+mod app_scatter_filter;
 mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;
@@ -27,6 +28,7 @@ mod ui_controls;
 mod ui_dataset_diff;
 mod ui_dataset_identity;
 mod ui_drilldown;
+mod ui_filters;
 mod ui_missingness;
 mod ui_plot_axes;
 mod ui_plot_surface;

@@ -12,12 +12,13 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, BrushScreenPoint, DatasetDiffSummary, DensityEncoding,
-    DensityReadbackPolicy, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
-    ScatterBrushSelection, ScatterDensityPresentation, ScatterDensityRenderStats,
-    ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDensityUpdate,
-    ScatterMarginalSummary, ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
-    SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    scatter_marginal_summary, scatter_marginal_summary_masked, BrushScreenPoint,
+    DatasetDiffSummary, DensityEncoding, DensityReadbackPolicy, ScatterAggregateOverview,
+    ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterDensityPresentation, ScatterDensityRenderStats, ScatterDensityRenderer,
+    ScatterDensityRendererConfig, ScatterDensityUpdate, ScatterMarginalSummary,
+    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
@@ -32,6 +33,7 @@ use crate::{
     },
     app_missingness::MissingnessWorkbenchState,
     app_render_schedule::RenderSchedule,
+    app_scatter_filter::ScatterFilterState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
@@ -90,6 +92,7 @@ pub struct WorkbenchApp {
     pub(crate) modifiers: ModifiersState,
     pub(crate) evidence_export_counter: u64,
     pub(crate) render_schedule: RenderSchedule,
+    pub(crate) scatter_filters: ScatterFilterState,
 }
 
 /// Scatter-specific workbench state.
@@ -259,6 +262,7 @@ impl WorkbenchApp {
             self.clear_active_selection();
             self.scatter.points = dataset.points;
             self.scatter.source_rows = Some(dataset.source_rows);
+            self.initialize_scatter_filters();
             self.set_comparison_source_rows(comparison_source_rows);
             self.scatter.point_count_label = "local".to_string();
             self.scatter.viewport = Some(viewport);
@@ -317,6 +321,7 @@ impl WorkbenchApp {
         self.clear_active_selection();
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
+        self.scatter_filters = ScatterFilterState::default();
         self.clear_dataset_diff_state();
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
@@ -354,6 +359,7 @@ impl WorkbenchApp {
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
+        self.scatter_filters = ScatterFilterState::default();
         self.clear_dataset_diff_state();
         self.scatter.active_preset = preset;
         self.scatter.point_count_label = preset.row_count_label().to_string();
@@ -433,12 +439,29 @@ impl WorkbenchApp {
             return;
         };
 
-        self.scatter.marginal_summary = Some(scatter_marginal_summary(
-            &self.scatter.points,
-            viewport.x_range(),
-            viewport.y_range(),
-            MARGINAL_BIN_COUNT,
-            MARGINAL_BIN_COUNT,
-        ));
+        self.scatter.marginal_summary = self
+            .scatter_filters
+            .evaluation
+            .as_ref()
+            .map(|evaluation| {
+                scatter_marginal_summary_masked(
+                    &self.scatter.points,
+                    &evaluation.mask,
+                    viewport.x_range(),
+                    viewport.y_range(),
+                    MARGINAL_BIN_COUNT,
+                    MARGINAL_BIN_COUNT,
+                )
+                .expect("filter evaluation remains aligned with scatter points")
+            })
+            .or_else(|| {
+                Some(scatter_marginal_summary(
+                    &self.scatter.points,
+                    viewport.x_range(),
+                    viewport.y_range(),
+                    MARGINAL_BIN_COUNT,
+                    MARGINAL_BIN_COUNT,
+                ))
+            });
     }
 }

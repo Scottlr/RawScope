@@ -11,6 +11,7 @@ mod gpu_scatter_density;
 mod gpu_scatter_density_pack;
 mod gpu_timeline_density;
 mod gpu_timeline_density_pack;
+mod mask_alignment;
 mod missingness_reference;
 mod plot_geometry;
 mod scatter_brush;
@@ -49,21 +50,22 @@ pub use density_encoding::{
 };
 pub use density_reference::{scatter_density, timeline_density};
 pub use gpu_scatter_density::{
-    gpu_scatter_density, gpu_scatter_density_on_device, GpuScatterDensityError,
-    GpuScatterDensityGrid,
+    gpu_scatter_density, gpu_scatter_density_masked, gpu_scatter_density_on_device,
+    GpuScatterDensityError, GpuScatterDensityGrid,
 };
 pub use gpu_timeline_density::{
     gpu_timeline_density, gpu_timeline_density_on_device, GpuTimelineDensityError,
     GpuTimelineDensityGrid,
 };
+pub use mask_alignment::MaskAlignmentError;
 pub use missingness_reference::{
     missingness_grid, missingness_selection_summary, MissingnessCell, MissingnessGrid,
     MissingnessSelection, MissingnessSelectionSummary,
 };
 pub use plot_geometry::{PlotGeometryError, PlotPointPx, PlotRectPx};
 pub use scatter_brush::{
-    BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
-    SelectedCategoryCounts, SelectedRegionSummary,
+    selected_region_summary_masked, BrushScreenPoint, BrushScreenRect, BrushScreenSize,
+    ScatterBrushDrag, ScatterBrushSelection, SelectedCategoryCounts, SelectedRegionSummary,
 };
 pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
 pub use scatter_density_gpu_state::{
@@ -97,13 +99,14 @@ pub use scatter_selection_export_v3::{
 };
 pub use scatter_viewport::ScatterViewport;
 pub use selection_comparison::{
-    missingness_selection_comparison, scatter_selection_comparison, timeline_selection_comparison,
-    ComparisonRatio, MissingnessSelectionComparison, ScatterKindComparison,
-    ScatterSelectionComparison, TimelineKindComparison, TimelineSelectionComparison,
+    missingness_selection_comparison, scatter_selection_comparison,
+    scatter_selection_comparison_masked, timeline_selection_comparison, ComparisonRatio,
+    MissingnessSelectionComparison, ScatterKindComparison, ScatterSelectionComparison,
+    TimelineKindComparison, TimelineSelectionComparison,
 };
 pub use selection_drilldown::{
-    scatter_selection_drilldown, timeline_selection_drilldown, DrilldownColumn, DrilldownConfig,
-    DrilldownRow, SelectionDrilldown,
+    scatter_selection_drilldown, scatter_selection_drilldown_masked, timeline_selection_drilldown,
+    DrilldownColumn, DrilldownConfig, DrilldownRow, SelectionDrilldown,
 };
 pub use timeline_brush::{
     SelectedEventTypeCounts, TimelineBrushDrag, TimelineBrushSelection, TimelineLaneRange,
@@ -139,7 +142,7 @@ pub use view_axes::{
     TimelineAxesContext, TimelineLaneLabel,
 };
 pub use view_summaries::{
-    scatter_marginal_summary, timeline_marginal_summary, timeline_overview_summary,
-    ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary, TimelineOverviewSummary,
-    TimelineOverviewWindow,
+    scatter_marginal_summary, scatter_marginal_summary_masked, timeline_marginal_summary,
+    timeline_overview_summary, ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary,
+    TimelineOverviewSummary, TimelineOverviewWindow,
 };

@@ -20,6 +20,12 @@ use crate::{
 
 impl WorkbenchApp {
     pub(crate) fn export_selection_evidence(&mut self) {
+        if self.scatter_filters.is_active() {
+            self.export_status = ExportStatus::Unavailable {
+                reason: crate::ui_filters::FILTERED_EXPORT_UNAVAILABLE_REASON.to_string(),
+            };
+            return;
+        }
         let Some(evidence_v2) = self.scatter_selection_evidence_v2() else {
             self.export_status = ExportStatus::NoSelection;
             warn!(

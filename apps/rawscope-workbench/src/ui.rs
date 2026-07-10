@@ -15,6 +15,7 @@ use crate::{
     demo::DemoMode,
     ui_controls::UiActions,
     ui_dataset_identity::DatasetDisplayIdentity,
+    ui_filters::{scatter_filters_ui_state, ScatterFiltersUiState},
     ui_shell::{show_workbench_ui, WorkbenchShellState, WorkbenchUiOutput},
     ui_view_context::{view_axes_ui_state, view_context_ui_state, WorkbenchViewContextUiState},
     ui_visual_encoding::{density_encoding_ui_state, DensityEncodingUiState},
@@ -72,6 +73,9 @@ pub(crate) enum ExportStatus {
     Failed {
         message: String,
     },
+    Unavailable {
+        reason: String,
+    },
 }
 
 impl ExportStatus {
@@ -81,6 +85,7 @@ impl ExportStatus {
             Self::NoSelection => "Export skipped: no finalized selection".to_string(),
             Self::Exported { bundle_dir } => format!("Exported bundle {bundle_dir}"),
             Self::Failed { message } => format!("Export failed: {message}"),
+            Self::Unavailable { reason } => reason.clone(),
         }
     }
 }
@@ -115,6 +120,7 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) can_export: bool,
     pub(crate) can_clear_selection: bool,
     pub(crate) density_is_refining: bool,
+    pub(crate) scatter_filters: Option<ScatterFiltersUiState>,
 }
 
 impl WorkbenchUiState {
@@ -202,7 +208,9 @@ impl WorkbenchApp {
         };
         let can_export = match self.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
-                DemoMode::Scatter => self.scatter.selection_evidence.is_some(),
+                DemoMode::Scatter => {
+                    self.scatter.selection_evidence.is_some() && !self.scatter_filters.is_active()
+                }
                 DemoMode::Timeline => self.timeline.selection_evidence.is_some(),
             },
             WorkbenchSurface::Missingness => false,
@@ -257,6 +265,7 @@ impl WorkbenchApp {
             can_export,
             can_clear_selection,
             density_is_refining: self.render_schedule.is_refining(),
+            scatter_filters: scatter_filters_ui_state(self),
         }
     }
 
@@ -364,6 +373,10 @@ impl WorkbenchApp {
                     column_name,
                 } => self.inspect_dataset_diff_missingness_column(&column_name),
             }
+        }
+
+        if let Some(action) = actions.filter_action {
+            self.apply_scatter_filter_action(action);
         }
     }
 

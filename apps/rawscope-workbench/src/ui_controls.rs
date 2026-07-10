@@ -6,10 +6,11 @@ use crate::{
     app_interaction_mode::WorkbenchInteractionMode,
     ui::{ActiveView, WorkbenchSurface},
     ui_dataset_diff::DatasetDiffAction,
+    ui_filters::FilterAction,
     ui_missingness::MissingnessAction,
 };
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct UiActions {
     pub(crate) activate_view: Option<ActiveView>,
     pub(crate) activate_surface: Option<WorkbenchSurface>,
@@ -23,4 +24,5 @@ pub(crate) struct UiActions {
     pub(crate) set_scatter_density_presentation: Option<ScatterDensityPresentation>,
     pub(crate) missingness_action: Option<MissingnessAction>,
     pub(crate) dataset_diff_action: Option<DatasetDiffAction>,
+    pub(crate) filter_action: Option<FilterAction>,
 }
