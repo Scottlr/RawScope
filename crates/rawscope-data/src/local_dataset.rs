@@ -281,6 +281,22 @@ pub fn load_scatter_dataset(
     }
 }
 
+/// Loads only the inferred local dataset schema from CSV or Parquet.
+pub fn load_dataset_schema(
+    path: impl AsRef<Path>,
+    limit: Option<usize>,
+) -> Result<Vec<LoadedColumnSchema>, DatasetLoadError> {
+    let path = path.as_ref();
+    match normalized_extension(path).as_deref() {
+        Some(CSV_EXTENSION) => csv::load_dataset_schema(path, limit),
+        Some(PARQUET_EXTENSION) => parquet::load_dataset_schema(path, limit),
+        _ => Err(DatasetLoadError::UnsupportedFileFormat {
+            path: path.to_path_buf(),
+            extension: normalized_extension(path),
+        }),
+    }
+}
+
 /// Loads a local timeline dataset from CSV or Parquet and binds explicit time/lane columns.
 pub fn load_timeline_dataset(
     path: impl AsRef<Path>,

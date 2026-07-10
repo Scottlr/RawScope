@@ -89,6 +89,7 @@ impl WorkbenchApp {
 
     pub(crate) fn clear_active_selection(&mut self) {
         self.active_selection = None;
+        self.clear_active_comparison();
     }
 
     pub(crate) fn active_linked_selection_count(&self) -> usize {

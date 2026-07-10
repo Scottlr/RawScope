@@ -1,6 +1,6 @@
 //! Native workbench application handler for RawScope density views.
 
-use std::{error::Error, sync::Arc};
+use std::{error::Error, path::PathBuf, sync::Arc};
 
 use egui::Context as EguiContext;
 use egui_wgpu::Renderer as EguiRenderer;
@@ -12,11 +12,14 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
+    scatter_marginal_summary, DatasetDiffSummary, DensityEncoding, ScatterAggregateOverview,
     ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
-    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    ScatterDensityPresentation, ScatterDensityRenderStats, ScatterDensityRenderer,
+    ScatterDensityRendererConfig, ScatterMarginalSummary, ScatterSelectionEvidence,
+    ScatterViewport, SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview,
     TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
-    TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
+    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionEvidence,
+    TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::{error, info};
 use winit::{
@@ -24,6 +27,7 @@ use winit::{
 };
 
 use crate::{
+    app_dataset_profile::resolve_scatter_input_binding,
     app_missingness::MissingnessWorkbenchState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
@@ -37,6 +41,8 @@ pub(crate) const INITIAL_HEIGHT: f64 = 720.0;
 pub(crate) const DEMO_SEED: u64 = 42;
 pub(crate) const DEMO_GRID_WIDTH: u32 = 256;
 pub(crate) const DEMO_GRID_HEIGHT: u32 = 256;
+pub(crate) const MARGINAL_BIN_COUNT: u32 = 64;
+pub(crate) const TIMELINE_OVERVIEW_BIN_COUNT: u32 = 128;
 pub(crate) const WHEEL_ZOOM_IN_SCALE: f32 = 0.82;
 pub(crate) const WHEEL_ZOOM_OUT_SCALE: f32 = 1.22;
 
@@ -45,6 +51,7 @@ pub(crate) const WHEEL_ZOOM_OUT_SCALE: f32 = 1.22;
 pub struct WorkbenchApp {
     pub(crate) demo_mode: DemoMode,
     pub(crate) input: Option<WorkbenchInput>,
+    pub(crate) compare_input: Option<PathBuf>,
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
     pub(crate) egui_context: EguiContext,
@@ -52,13 +59,17 @@ pub struct WorkbenchApp {
     pub(crate) egui_renderer: Option<EguiRenderer>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
+    pub(crate) active_dataset_profile: Option<rawscope_data::DatasetProfileId>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
+    pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
     pub(crate) next_selection_id: SelectionId,
     pub(crate) visible_surface: WorkbenchSurface,
     pub(crate) export_status: ExportStatus,
     pub(crate) missingness: MissingnessWorkbenchState,
+    pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
+    pub(crate) dataset_diff_summary: Option<DatasetDiffSummary>,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,
@@ -68,15 +79,18 @@ pub struct WorkbenchApp {
 }
 
 /// Scatter-specific workbench state.
-#[derive(Default)]
 pub(crate) struct ScatterWorkbenchState {
     pub(crate) density_renderer: Option<ScatterDensityRenderer>,
+    pub(crate) density_encoding: DensityEncoding,
+    pub(crate) density_presentation: ScatterDensityPresentation,
     pub(crate) points: Vec<ScatterPointRecord>,
     pub(crate) source_rows: Option<LoadedSourceTable>,
     pub(crate) active_preset: PointCountPreset,
     pub(crate) point_count_label: String,
     pub(crate) viewport: Option<ScatterViewport>,
     pub(crate) render_stats: Option<ScatterDensityRenderStats>,
+    pub(crate) marginal_summary: Option<ScatterMarginalSummary>,
+    pub(crate) scatter_aggregate_overview: Option<ScatterAggregateOverview>,
     pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
     pub(crate) active_brush_drag: Option<ScatterBrushDrag>,
     pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
@@ -86,13 +100,16 @@ pub(crate) struct ScatterWorkbenchState {
 }
 
 /// Timeline-specific workbench state.
-#[derive(Default)]
 pub(crate) struct TimelineWorkbenchState {
     pub(crate) density_renderer: Option<TimelineDensityRenderer>,
+    pub(crate) density_encoding: DensityEncoding,
     pub(crate) events: Vec<TimelineEventRecord>,
     pub(crate) source_rows: Option<LoadedSourceTable>,
     pub(crate) viewport: Option<TimelineViewport>,
     pub(crate) render_stats: Option<TimelineDensityRenderStats>,
+    pub(crate) marginal_summary: Option<TimelineMarginalSummary>,
+    pub(crate) overview_summary: Option<TimelineOverviewSummary>,
+    pub(crate) timeline_aggregate_overview: Option<TimelineAggregateOverview>,
     pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
     pub(crate) active_brush_drag: Option<TimelineBrushDrag>,
     pub(crate) active_brush_selection: Option<TimelineBrushSelection>,
@@ -101,11 +118,58 @@ pub(crate) struct TimelineWorkbenchState {
     pub(crate) selection_drilldown: Option<SelectionDrilldown>,
 }
 
+impl Default for ScatterWorkbenchState {
+    fn default() -> Self {
+        Self {
+            density_renderer: None,
+            density_encoding: DensityEncoding::scatter_default(),
+            density_presentation: ScatterDensityPresentation::TopographicField,
+            points: Vec::new(),
+            source_rows: None,
+            active_preset: PointCountPreset::default(),
+            point_count_label: String::new(),
+            viewport: None,
+            render_stats: None,
+            marginal_summary: None,
+            scatter_aggregate_overview: None,
+            brush_drag_start: None,
+            active_brush_drag: None,
+            active_brush_selection: None,
+            selection_summary: None,
+            selection_evidence: None,
+            selection_drilldown: None,
+        }
+    }
+}
+
+impl Default for TimelineWorkbenchState {
+    fn default() -> Self {
+        Self {
+            density_renderer: None,
+            density_encoding: DensityEncoding::timeline_default(),
+            events: Vec::new(),
+            source_rows: None,
+            viewport: None,
+            render_stats: None,
+            marginal_summary: None,
+            overview_summary: None,
+            timeline_aggregate_overview: None,
+            brush_drag_start: None,
+            active_brush_drag: None,
+            active_brush_selection: None,
+            selection_summary: None,
+            selection_evidence: None,
+            selection_drilldown: None,
+        }
+    }
+}
+
 impl WorkbenchApp {
     pub(crate) fn new(args: WorkbenchArgs) -> Self {
         Self {
             demo_mode: args.demo_mode,
             input: args.input,
+            compare_input: args.compare_input,
             scatter: ScatterWorkbenchState {
                 point_count_label: PointCountPreset::default().row_count_label().to_string(),
                 ..ScatterWorkbenchState::default()
@@ -115,21 +179,43 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
+        self.clear_aggregate_overviews();
+
         if let Some(WorkbenchInput::Scatter {
             path,
             x_column,
             y_column,
             limit,
+            profile,
         }) = self.input.as_ref()
         {
-            let dataset = load_scatter_dataset(path, x_column, y_column, *limit)?;
+            let resolved_binding = resolve_scatter_input_binding(
+                path,
+                x_column.as_deref(),
+                y_column.as_deref(),
+                *limit,
+                *profile,
+            )?;
+            let dataset = load_scatter_dataset(
+                path,
+                &resolved_binding.x_column,
+                &resolved_binding.y_column,
+                *limit,
+            )?;
+            let comparison_source_rows = self.load_scatter_comparison_source_rows(
+                &resolved_binding.x_column,
+                &resolved_binding.y_column,
+                *limit,
+            )?;
             let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
             let renderer_config = ScatterDensityRendererConfig::new(
                 viewport.x_range(),
                 viewport.y_range(),
                 DEMO_GRID_WIDTH,
                 DEMO_GRID_HEIGHT,
-            );
+            )
+            .with_encoding(self.scatter.density_encoding)
+            .with_presentation(self.scatter.density_presentation);
             let scatter_density_renderer = ScatterDensityRenderer::new(
                 gpu.device(),
                 gpu.queue(),
@@ -142,22 +228,33 @@ impl WorkbenchApp {
             let render_stats = scatter_density_renderer.stats();
             info!(
                 path = %path.display(),
-                x_column,
-                y_column,
+                x_column = %resolved_binding.x_column,
+                y_column = %resolved_binding.y_column,
+                dataset_profile = ?resolved_binding.active_profile.map(|profile_id| profile_id.as_str()),
                 limit = ?limit,
                 row_count = render_stats.point_count,
                 "RawScope local CSV scatter-density dataset prepared"
             );
 
             self.dataset_identity = Some(dataset.identity);
+            self.active_dataset_profile = resolved_binding.active_profile;
             self.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
             self.clear_active_selection();
             self.scatter.points = dataset.points;
             self.scatter.source_rows = Some(dataset.source_rows);
+            self.set_comparison_source_rows(comparison_source_rows);
             self.scatter.point_count_label = "local".to_string();
             self.scatter.viewport = Some(viewport);
             self.scatter.render_stats = Some(render_stats);
+            self.scatter.marginal_summary = Some(scatter_marginal_summary(
+                &self.scatter.points,
+                viewport.x_range(),
+                viewport.y_range(),
+                MARGINAL_BIN_COUNT,
+                MARGINAL_BIN_COUNT,
+            ));
+            self.rebuild_scatter_aggregate_overview();
             self.scatter.density_renderer = Some(scatter_density_renderer);
             self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
@@ -177,7 +274,9 @@ impl WorkbenchApp {
             viewport.y_range(),
             DEMO_GRID_WIDTH,
             DEMO_GRID_HEIGHT,
-        );
+        )
+        .with_encoding(self.scatter.density_encoding)
+        .with_presentation(self.scatter.density_presentation);
         let scatter_density_renderer = ScatterDensityRenderer::new(
             gpu.device(),
             gpu.queue(),
@@ -197,12 +296,22 @@ impl WorkbenchApp {
         self.scatter.active_preset = active_preset;
         self.scatter.point_count_label = active_preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
+        self.active_dataset_profile = None;
         self.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
+        self.clear_dataset_diff_state();
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
+        self.scatter.marginal_summary = Some(scatter_marginal_summary(
+            &self.scatter.points,
+            viewport.x_range(),
+            viewport.y_range(),
+            MARGINAL_BIN_COUNT,
+            MARGINAL_BIN_COUNT,
+        ));
+        self.rebuild_scatter_aggregate_overview();
         self.scatter.density_renderer = Some(scatter_density_renderer);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
@@ -229,15 +338,18 @@ impl WorkbenchApp {
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
+        self.clear_dataset_diff_state();
         self.scatter.active_preset = preset;
         self.scatter.point_count_label = preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
+        self.active_dataset_profile = None;
         self.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.scatter.viewport = Some(viewport);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.clear_brush();
         self.rebuild_missingness_state();
+        self.rebuild_scatter_aggregate_overview();
 
         if let Err(err) = self.recompute_density() {
             error!(
@@ -322,7 +434,7 @@ impl WorkbenchApp {
         let delta_y_fraction =
             (position.y - last_drag_position.y) as f32 / window_size.height as f32;
         let data_delta_x = -delta_x_fraction * viewport.x_range().span();
-        let data_delta_y = delta_y_fraction * viewport.y_range().span();
+        let data_delta_y = -delta_y_fraction * viewport.y_range().span();
 
         viewport.pan_by(data_delta_x, data_delta_y);
         self.last_drag_position = Some(position);
@@ -346,7 +458,8 @@ impl WorkbenchApp {
         }
     }
 
-    fn recompute_density(&mut self) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn recompute_density(&mut self) -> Result<(), Box<dyn Error>> {
+        self.refresh_scatter_marginal_summary();
         let Some(gpu) = self.gpu.as_ref() else {
             return Ok(());
         };
@@ -362,7 +475,9 @@ impl WorkbenchApp {
             viewport.y_range(),
             DEMO_GRID_WIDTH,
             DEMO_GRID_HEIGHT,
-        );
+        )
+        .with_encoding(self.scatter.density_encoding)
+        .with_presentation(self.scatter.density_presentation);
         let stats = scatter_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
@@ -374,5 +489,20 @@ impl WorkbenchApp {
         self.request_redraw();
 
         Ok(())
+    }
+
+    fn refresh_scatter_marginal_summary(&mut self) {
+        let Some(viewport) = self.scatter.viewport else {
+            self.scatter.marginal_summary = None;
+            return;
+        };
+
+        self.scatter.marginal_summary = Some(scatter_marginal_summary(
+            &self.scatter.points,
+            viewport.x_range(),
+            viewport.y_range(),
+            MARGINAL_BIN_COUNT,
+            MARGINAL_BIN_COUNT,
+        ));
     }
 }

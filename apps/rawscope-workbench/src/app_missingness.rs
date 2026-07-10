@@ -47,6 +47,7 @@ impl WorkbenchApp {
     pub(crate) fn show_missingness_surface(&mut self) {
         if self.missingness.grid.is_some() {
             self.visible_surface = WorkbenchSurface::Missingness;
+            self.clear_active_comparison();
             self.request_redraw();
             self.update_window_title();
         }
@@ -55,6 +56,7 @@ impl WorkbenchApp {
     pub(crate) fn show_primary_surface(&mut self) {
         if self.visible_surface != WorkbenchSurface::Primary {
             self.visible_surface = WorkbenchSurface::Primary;
+            self.rebuild_active_comparison();
             self.request_redraw();
             self.update_window_title();
         }
@@ -67,8 +69,58 @@ impl WorkbenchApp {
             column_index,
             column_index.saturating_add(1),
         );
+        self.apply_missingness_selection(selection, true);
+    }
+
+    pub(crate) fn select_missingness_column(&mut self, column_index: u32) {
+        let row_bucket_count = self
+            .missingness
+            .grid
+            .as_ref()
+            .map(|grid| grid.row_bucket_count)
+            .unwrap_or(self.missingness.row_bucket_count);
+        let selection = MissingnessSelection::new(
+            0,
+            row_bucket_count,
+            column_index,
+            column_index.saturating_add(1),
+        );
+
+        self.apply_missingness_selection(selection, false);
+    }
+
+    pub(crate) fn clear_missingness_selection(&mut self) {
+        self.missingness.selection = None;
+        self.missingness.selection_summary = None;
+        self.clear_active_comparison();
+    }
+
+    pub(crate) fn missingness_is_available(&self) -> bool {
+        self.missingness.grid.is_some()
+    }
+
+    pub(crate) fn current_source_rows(&self) -> Option<&LoadedSourceTable> {
+        match self.demo_mode {
+            crate::demo::DemoMode::Scatter => self.scatter.source_rows.as_ref(),
+            crate::demo::DemoMode::Timeline => self.timeline.source_rows.as_ref(),
+        }
+    }
+
+    pub(crate) fn current_source_column_index(&self, column_name: &str) -> Option<u32> {
+        self.current_source_rows()?
+            .columns
+            .iter()
+            .position(|column| column.name == column_name)
+            .and_then(|column_index| u32::try_from(column_index).ok())
+    }
+
+    fn apply_missingness_selection(
+        &mut self,
+        selection: MissingnessSelection,
+        toggle_if_same_selection: bool,
+    ) {
         let selection_is_already_active = self.missingness.selection == Some(selection);
-        if selection_is_already_active {
+        if toggle_if_same_selection && selection_is_already_active {
             self.clear_missingness_selection();
             self.request_redraw();
             self.update_window_title();
@@ -84,29 +136,16 @@ impl WorkbenchApp {
         let Some(next_summary) = self.current_source_rows().map(|source_rows| {
             missingness_selection_summary(source_rows, row_bucket_count, selection)
         }) else {
+            self.clear_missingness_selection();
             return;
         };
 
+        self.visible_surface = WorkbenchSurface::Missingness;
         self.missingness.selection = Some(selection);
         self.missingness.selection_summary = Some(next_summary);
+        self.rebuild_active_comparison();
         self.request_redraw();
         self.update_window_title();
-    }
-
-    pub(crate) fn clear_missingness_selection(&mut self) {
-        self.missingness.selection = None;
-        self.missingness.selection_summary = None;
-    }
-
-    pub(crate) fn missingness_is_available(&self) -> bool {
-        self.missingness.grid.is_some()
-    }
-
-    fn current_source_rows(&self) -> Option<&LoadedSourceTable> {
-        match self.demo_mode {
-            crate::demo::DemoMode::Scatter => self.scatter.source_rows.as_ref(),
-            crate::demo::DemoMode::Timeline => self.timeline.source_rows.as_ref(),
-        }
     }
 }
 

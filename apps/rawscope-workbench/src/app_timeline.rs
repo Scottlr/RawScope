@@ -5,6 +5,7 @@ use std::error::Error;
 use rawscope_data::{generate_synthetic_events, load_timeline_dataset, SyntheticEventConfig};
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
+    timeline_marginal_summary, timeline_overview_summary, DensityEncoding,
     ScatterBrushOverlayRenderer, TimelineDensityRenderer, TimelineDensityRendererConfig,
     TimelineViewport,
 };
@@ -12,7 +13,11 @@ use tracing::{error, info};
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 
 use crate::{
-    app::{WorkbenchApp, DEMO_SEED, WHEEL_ZOOM_IN_SCALE, WHEEL_ZOOM_OUT_SCALE},
+    app::{
+        WorkbenchApp, DEMO_SEED, TIMELINE_OVERVIEW_BIN_COUNT, WHEEL_ZOOM_IN_SCALE,
+        WHEEL_ZOOM_OUT_SCALE,
+    },
+    app_dataset_profile::resolve_timeline_input_binding,
     cli::WorkbenchInput,
 };
 
@@ -21,16 +26,37 @@ const TIMELINE_DEMO_GRID_WIDTH: u32 = 256;
 
 impl WorkbenchApp {
     pub(crate) fn prepare_timeline_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
+        self.clear_aggregate_overviews();
+
         if let Some(WorkbenchInput::Timeline {
             path,
             time_column,
             lane_column,
             limit,
+            profile,
         }) = self.input.as_ref()
         {
-            let dataset = load_timeline_dataset(path, time_column, lane_column, *limit)?;
+            let resolved_binding = resolve_timeline_input_binding(
+                path,
+                time_column.as_deref(),
+                lane_column.as_deref(),
+                *limit,
+                *profile,
+            )?;
+            let dataset = load_timeline_dataset(
+                path,
+                &resolved_binding.time_column,
+                &resolved_binding.lane_column,
+                *limit,
+            )?;
+            let comparison_source_rows = self.load_timeline_comparison_source_rows(
+                &resolved_binding.time_column,
+                &resolved_binding.lane_column,
+                *limit,
+            )?;
             let viewport = TimelineViewport::new(dataset.time_range, dataset.lane_count);
-            let renderer_config = timeline_renderer_config(viewport);
+            let renderer_config =
+                timeline_renderer_config(viewport, self.timeline.density_encoding);
             let timeline_density_renderer = TimelineDensityRenderer::new(
                 gpu.device(),
                 gpu.queue(),
@@ -41,8 +67,9 @@ impl WorkbenchApp {
             let render_stats = timeline_density_renderer.stats();
             info!(
                 path = %path.display(),
-                time_column,
-                lane_column,
+                time_column = %resolved_binding.time_column,
+                lane_column = %resolved_binding.lane_column,
+                dataset_profile = ?resolved_binding.active_profile.map(|profile_id| profile_id.as_str()),
                 limit = ?limit,
                 event_count = render_stats.event_count,
                 lane_count = render_stats.lane_count,
@@ -50,6 +77,7 @@ impl WorkbenchApp {
             );
 
             self.dataset_identity = Some(dataset.identity);
+            self.active_dataset_profile = resolved_binding.active_profile;
             self.dataset_metadata = Some(rawscope_data::SyntheticDatasetMetadata::new(
                 0,
                 render_stats.event_count,
@@ -57,8 +85,22 @@ impl WorkbenchApp {
             self.clear_active_selection();
             self.timeline.events = dataset.events;
             self.timeline.source_rows = Some(dataset.source_rows);
+            self.set_comparison_source_rows(comparison_source_rows);
             self.timeline.viewport = Some(viewport);
             self.timeline.render_stats = Some(render_stats);
+            self.timeline.marginal_summary = Some(timeline_marginal_summary(
+                &self.timeline.events,
+                viewport.time_range(),
+                viewport.lane_count(),
+                crate::app::MARGINAL_BIN_COUNT,
+            ));
+            self.timeline.overview_summary = Some(timeline_overview_summary(
+                &self.timeline.events,
+                viewport.full_time_range(),
+                viewport.time_range(),
+                TIMELINE_OVERVIEW_BIN_COUNT,
+            ));
+            self.rebuild_timeline_aggregate_overview();
             self.timeline.density_renderer = Some(timeline_density_renderer);
             self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
@@ -75,7 +117,7 @@ impl WorkbenchApp {
             TIMELINE_DEMO_EVENT_COUNT,
         ));
         let viewport = TimelineViewport::new(dataset.time_range, dataset.lane_count);
-        let renderer_config = timeline_renderer_config(viewport);
+        let renderer_config = timeline_renderer_config(viewport, self.timeline.density_encoding);
         let timeline_density_renderer = TimelineDensityRenderer::new(
             gpu.device(),
             gpu.queue(),
@@ -86,12 +128,27 @@ impl WorkbenchApp {
         let render_stats = timeline_density_renderer.stats();
 
         self.dataset_identity = Some(dataset.identity);
+        self.active_dataset_profile = None;
         self.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.timeline.events = dataset.events;
         self.timeline.source_rows = None;
+        self.clear_dataset_diff_state();
         self.timeline.viewport = Some(viewport);
         self.timeline.render_stats = Some(render_stats);
+        self.timeline.marginal_summary = Some(timeline_marginal_summary(
+            &self.timeline.events,
+            viewport.time_range(),
+            viewport.lane_count(),
+            crate::app::MARGINAL_BIN_COUNT,
+        ));
+        self.timeline.overview_summary = Some(timeline_overview_summary(
+            &self.timeline.events,
+            viewport.full_time_range(),
+            viewport.time_range(),
+            TIMELINE_OVERVIEW_BIN_COUNT,
+        ));
+        self.rebuild_timeline_aggregate_overview();
         self.timeline.density_renderer = Some(timeline_density_renderer);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
@@ -189,7 +246,8 @@ impl WorkbenchApp {
         }
     }
 
-    fn recompute_timeline_density(&mut self) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn recompute_timeline_density(&mut self) -> Result<(), Box<dyn Error>> {
+        self.refresh_timeline_marginal_summary();
         let Some(gpu) = self.gpu.as_ref() else {
             return Ok(());
         };
@@ -200,7 +258,7 @@ impl WorkbenchApp {
             return Ok(());
         };
 
-        let renderer_config = timeline_renderer_config(viewport);
+        let renderer_config = timeline_renderer_config(viewport, self.timeline.density_encoding);
         let stats = timeline_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
@@ -213,13 +271,38 @@ impl WorkbenchApp {
 
         Ok(())
     }
+
+    fn refresh_timeline_marginal_summary(&mut self) {
+        let Some(viewport) = self.timeline.viewport else {
+            self.timeline.marginal_summary = None;
+            self.timeline.overview_summary = None;
+            return;
+        };
+
+        self.timeline.marginal_summary = Some(timeline_marginal_summary(
+            &self.timeline.events,
+            viewport.time_range(),
+            viewport.lane_count(),
+            crate::app::MARGINAL_BIN_COUNT,
+        ));
+        self.timeline.overview_summary = Some(timeline_overview_summary(
+            &self.timeline.events,
+            viewport.full_time_range(),
+            viewport.time_range(),
+            TIMELINE_OVERVIEW_BIN_COUNT,
+        ));
+    }
 }
 
-fn timeline_renderer_config(viewport: TimelineViewport) -> TimelineDensityRendererConfig {
+fn timeline_renderer_config(
+    viewport: TimelineViewport,
+    encoding: DensityEncoding,
+) -> TimelineDensityRendererConfig {
     TimelineDensityRendererConfig::new(
         viewport.time_range(),
         viewport.lane_count(),
         TIMELINE_DEMO_GRID_WIDTH,
         viewport.lane_count(),
     )
+    .with_encoding(encoding)
 }

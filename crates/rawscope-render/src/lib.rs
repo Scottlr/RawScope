@@ -1,5 +1,8 @@
 //! CPU and early GPU correctness density renderers for RawScope.
 
+mod aggregate_cache;
+mod dataset_diff;
+mod density_encoding;
 mod density_reference;
 mod density_render_pipeline;
 mod evidence_sample;
@@ -11,17 +14,36 @@ mod gpu_timeline_density_pack;
 mod missingness_reference;
 mod scatter_brush;
 mod scatter_brush_overlay;
+mod scatter_density_presentation;
 mod scatter_density_renderer;
 mod scatter_selection_evidence;
+mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
+mod scatter_selection_export_v3;
 mod scatter_viewport;
+mod selection_comparison;
 mod selection_drilldown;
 mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_selection_evidence;
+mod timeline_selection_evidence_v3;
 mod timeline_selection_export;
+mod timeline_selection_export_v3;
 mod timeline_viewport;
+mod view_axes;
+mod view_summaries;
 
+pub use aggregate_cache::{
+    scatter_aggregate_overview, timeline_aggregate_overview, AggregateBinSample,
+    AggregateCacheConfig, AggregateCacheError, ScatterAggregateOverview, TimelineAggregateOverview,
+};
+pub use dataset_diff::{
+    dataset_diff_summary, DatasetDiffColumn, DatasetDiffColumnStatus, DatasetDiffMissingnessDelta,
+    DatasetDiffSummary,
+};
+pub use density_encoding::{
+    density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,
+};
 pub use density_reference::{scatter_density, timeline_density};
 pub use gpu_scatter_density::{
     gpu_scatter_density, gpu_scatter_density_on_device, GpuScatterDensityError,
@@ -40,13 +62,17 @@ pub use scatter_brush::{
     SelectedCategoryCounts, SelectedRegionSummary,
 };
 pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
+pub use scatter_density_presentation::ScatterDensityPresentation;
 pub use scatter_density_renderer::{
-    log_density_intensity, ScatterDensityRenderStats, ScatterDensityRenderer,
-    ScatterDensityRendererConfig,
+    ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,
     SelectedPointSampleV2, SelectedSourceRowSample, SelectionEvidenceConfig,
+};
+pub use scatter_selection_evidence_v3::{
+    AggregateEvidenceBin, ScatterAggregateEvidenceContext, ScatterEvidenceViewV3,
+    ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use scatter_selection_export::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown,
@@ -54,7 +80,17 @@ pub use scatter_selection_export::{
     SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
     SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
+pub use scatter_selection_export_v3::{
+    scatter_aggregate_evidence_context, scatter_selection_evidence_v3_json,
+    scatter_selection_evidence_v3_markdown, ScatterSelectionExportError,
+    SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+};
 pub use scatter_viewport::ScatterViewport;
+pub use selection_comparison::{
+    missingness_selection_comparison, scatter_selection_comparison, timeline_selection_comparison,
+    ComparisonRatio, MissingnessSelectionComparison, ScatterKindComparison,
+    ScatterSelectionComparison, TimelineKindComparison, TimelineSelectionComparison,
+};
 pub use selection_drilldown::{
     scatter_selection_drilldown, timeline_selection_drilldown, DrilldownColumn, DrilldownConfig,
     DrilldownRow, SelectionDrilldown,
@@ -70,10 +106,28 @@ pub use timeline_selection_evidence::{
     SelectedTimelineEventSample, SelectedTimelineEventSampleV2, TimelineEvidenceConfig,
     TimelineEvidenceView, TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
 };
+pub use timeline_selection_evidence_v3::{
+    TimelineAggregateEvidenceContext, TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
+    TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
+};
 pub use timeline_selection_export::{
     timeline_selection_evidence_json, timeline_selection_evidence_markdown,
     timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
     TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
     TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
+pub use timeline_selection_export_v3::{
+    timeline_aggregate_evidence_context, timeline_selection_evidence_v3_json,
+    timeline_selection_evidence_v3_markdown, TimelineSelectionExportError,
+    TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+};
 pub use timeline_viewport::TimelineViewport;
+pub use view_axes::{
+    scatter_axes_context, timeline_axes_context, AxisTick, NumericAxisContext, ScatterAxesContext,
+    TimelineAxesContext, TimelineLaneLabel,
+};
+pub use view_summaries::{
+    scatter_marginal_summary, timeline_marginal_summary, timeline_overview_summary,
+    ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary, TimelineOverviewSummary,
+    TimelineOverviewWindow,
+};

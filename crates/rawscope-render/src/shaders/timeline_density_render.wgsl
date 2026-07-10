@@ -2,7 +2,11 @@ struct RenderParams {
     grid_width: u32,
     grid_height: u32,
     max_bin_count: u32,
-    padding: u32,
+    transform_id: u32,
+    palette_id: u32,
+    padding0: u32,
+    padding1: u32,
+    padding2: u32,
 };
 
 struct VertexOutput {
@@ -32,9 +36,13 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return output;
 }
 
-fn density_intensity(count: u32, max_count: u32) -> f32 {
+fn density_intensity(count: u32, max_count: u32, transform_id: u32) -> f32 {
     if count == 0u || max_count == 0u {
         return 0.0;
+    }
+
+    if transform_id == 0u {
+        return clamp(f32(count) / f32(max_count), 0.0, 1.0);
     }
 
     let count_scale = log(f32(count) + 1.0);
@@ -42,12 +50,13 @@ fn density_intensity(count: u32, max_count: u32) -> f32 {
     return clamp(count_scale / max_count_scale, 0.0, 1.0);
 }
 
-fn density_colour(intensity: f32) -> vec3<f32> {
-    let background = vec3<f32>(0.012, 0.015, 0.030);
-    let low_density = vec3<f32>(0.05, 0.16, 0.30);
-    let mid_density = vec3<f32>(0.16, 0.46, 0.78);
-    let high_density = vec3<f32>(1.0, 0.58, 0.20);
-
+fn palette_colour(
+    intensity: f32,
+    background: vec3<f32>,
+    low_density: vec3<f32>,
+    mid_density: vec3<f32>,
+    high_density: vec3<f32>,
+) -> vec3<f32> {
     if intensity <= 0.0 {
         return background;
     }
@@ -58,6 +67,26 @@ fn density_colour(intensity: f32) -> vec3<f32> {
     return mix(cool_colour, high_density, mid_to_high);
 }
 
+fn density_colour(intensity: f32, palette_id: u32) -> vec3<f32> {
+    if palette_id == 0u {
+        return palette_colour(
+            intensity,
+            vec3<f32>(0.015, 0.025, 0.035),
+            vec3<f32>(0.02, 0.19, 0.28),
+            vec3<f32>(0.08, 0.55, 0.58),
+            vec3<f32>(1.0, 0.74, 0.30),
+        );
+    }
+
+    return palette_colour(
+        intensity,
+        vec3<f32>(0.012, 0.015, 0.030),
+        vec3<f32>(0.05, 0.16, 0.30),
+        vec3<f32>(0.16, 0.46, 0.78),
+        vec3<f32>(1.0, 0.58, 0.20),
+    );
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let clamped_uv = clamp(input.uv, vec2<f32>(0.0), vec2<f32>(0.999999));
@@ -65,6 +94,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let y_bin = min(u32(clamped_uv.y * f32(params.grid_height)), params.grid_height - 1u);
     let bin_index = y_bin * params.grid_width + x_bin;
     let count = counts[bin_index];
-    let intensity = density_intensity(count, params.max_bin_count);
-    return vec4<f32>(density_colour(intensity), 1.0);
+    let intensity = density_intensity(count, params.max_bin_count, params.transform_id);
+    return vec4<f32>(density_colour(intensity, params.palette_id), 1.0);
 }

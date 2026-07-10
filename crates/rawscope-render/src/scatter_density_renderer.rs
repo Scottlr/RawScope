@@ -12,6 +12,7 @@ use crate::density_render_pipeline::{
 use crate::gpu_scatter_density::{
     dispatch_scatter_density, GpuScatterDensityError, ScatterDensityComputeConfig,
 };
+use crate::{DensityEncoding, ScatterDensityPresentation};
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/scatter_density_render.wgsl");
 
@@ -31,6 +32,8 @@ pub struct ScatterDensityRendererConfig {
     pub y_range: F32Range,
     pub grid_width: u32,
     pub grid_height: u32,
+    pub encoding: DensityEncoding,
+    pub presentation: ScatterDensityPresentation,
 }
 
 impl ScatterDensityRendererConfig {
@@ -44,7 +47,21 @@ impl ScatterDensityRendererConfig {
             y_range,
             grid_width,
             grid_height,
+            encoding: DensityEncoding::scatter_default(),
+            presentation: ScatterDensityPresentation::ExactCells,
         }
+    }
+
+    /// Returns this config with an explicit density color encoding.
+    pub fn with_encoding(mut self, encoding: DensityEncoding) -> Self {
+        self.encoding = encoding;
+        self
+    }
+
+    /// Returns this config with an explicit fragment-stage presentation mode.
+    pub fn with_presentation(mut self, presentation: ScatterDensityPresentation) -> Self {
+        self.presentation = presentation;
+        self
     }
 }
 
@@ -85,7 +102,10 @@ impl ScatterDensityRenderer {
             grid_width: config.grid_width,
             grid_height: config.grid_height,
             max_bin_count,
-            _padding: 0,
+            transform_id: config.encoding.transform.shader_id(),
+            palette_id: config.encoding.palette.shader_id(),
+            presentation_id: config.presentation.shader_id(),
+            _padding: [0; 2],
         };
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("RawScope Scatter Density Render Params Buffer"),
@@ -157,7 +177,10 @@ impl ScatterDensityRenderer {
             grid_width: config.grid_width,
             grid_height: config.grid_height,
             max_bin_count,
-            _padding: 0,
+            transform_id: config.encoding.transform.shader_id(),
+            palette_id: config.encoding.palette.shader_id(),
+            presentation_id: config.presentation.shader_id(),
+            _padding: [0; 2],
         };
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&render_params));
         self.bind_group = create_density_render_bind_group(
@@ -212,45 +235,43 @@ impl ScatterDensityRenderer {
     }
 }
 
-/// Mirrors the shader's log density normalization for tests and documentation.
-pub fn log_density_intensity(count: u32, max_count: u32) -> f32 {
-    if count == 0 || max_count == 0 {
-        return 0.0;
-    }
-
-    let count_scale = (count as f32 + 1.0).ln();
-    let max_count_scale = (max_count as f32 + 1.0).ln();
-    (count_scale / max_count_scale).clamp(0.0, 1.0)
-}
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct ScatterDensityRenderParams {
     grid_width: u32,
     grid_height: u32,
     max_bin_count: u32,
-    _padding: u32,
+    transform_id: u32,
+    palette_id: u32,
+    presentation_id: u32,
+    _padding: [u32; 2],
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::DensityTransform;
 
     #[test]
-    fn log_density_intensity_maps_empty_bins_to_zero() {
-        assert_eq!(log_density_intensity(0, 12), 0.0);
-        assert_eq!(log_density_intensity(4, 0), 0.0);
+    fn density_intensity_maps_empty_bins_to_zero() {
+        assert_eq!(
+            crate::density_intensity(0, 12, DensityTransform::Log1p),
+            0.0
+        );
+        assert_eq!(crate::density_intensity(4, 0, DensityTransform::Log1p), 0.0);
     }
 
     #[test]
-    fn log_density_intensity_maps_max_count_to_one() {
-        assert_eq!(log_density_intensity(12, 12), 1.0);
+    fn log1p_density_intensity_maps_max_count_to_one() {
+        assert_eq!(
+            crate::density_intensity(12, 12, DensityTransform::Log1p),
+            1.0
+        );
     }
 
     #[test]
-    fn log_density_intensity_keeps_mid_counts_visible() {
+    fn log1p_density_intensity_keeps_mid_counts_visible() {
         let linear_midpoint = 0.25;
-        let log_scaled = log_density_intensity(1, 4);
+        let log_scaled = crate::density_intensity(1, 4, DensityTransform::Log1p);
 
         assert!(log_scaled > linear_midpoint);
         assert!(log_scaled < 1.0);
