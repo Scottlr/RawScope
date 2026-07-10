@@ -1,12 +1,10 @@
 //! View-axis and summary context projection for density views.
 
-use egui::{
-    vec2, Align2, Color32, FontId, Id, LayerId, Order, Painter, Pos2, Rect, RichText, Sense, Shape,
-    Stroke, Ui,
-};
+use egui::{vec2, Color32, Pos2, Rect, RichText, Sense, Ui};
 use rawscope_data::{DatasetFieldRole, DatasetIdentity};
 use rawscope_render::{
-    scatter_axes_context, timeline_axes_context, ScatterMarginalSummary, SummaryBin,
+    scatter_axes_context_with_options, timeline_axes_context, AxisValueFormat, ScatterAxesOptions,
+    ScatterMarginalSummary, ScatterReferenceGuide, ScatterReferenceGuideKind, SummaryBin,
     TimelineMarginalSummary, TimelineOverviewSummary,
 };
 
@@ -16,11 +14,6 @@ use crate::{
     ui::{ActiveView, WorkbenchSurface, WorkbenchViewAxes},
 };
 
-const AXIS_FONT_SIZE_PX: f32 = 11.0;
-const AXIS_TICK_TEXT_PADDING_PX: f32 = 4.0;
-const AXIS_TICK_HEIGHT_PX: f32 = 3.0;
-const AXIS_X_LABEL_OFFSET_PX: f32 = 18.0;
-const AXIS_Y_LABEL_OFFSET_PX: f32 = 14.0;
 const SUMMARY_STRIP_HEIGHT_PX: f32 = 14.0;
 const SUMMARY_STRIP_MIN_WIDTH_PX: f32 = 160.0;
 const SUMMARY_STRIP_GAP_PX: f32 = 1.0;
@@ -52,13 +45,37 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
                 (DatasetFieldRole::Y, "y"),
             );
 
-            Some(WorkbenchViewAxes::Scatter(scatter_axes_context(
-                viewport.x_range(),
-                viewport.y_range(),
-                x_label,
-                y_label,
-                MAX_AXIS_TICK_COUNT,
-            )))
+            let use_rating_axes =
+                app.active_dataset_profile == Some(rawscope_data::DatasetProfileId::LichessGames);
+            let value_format = if use_rating_axes {
+                AxisValueFormat::Integer
+            } else {
+                AxisValueFormat::Decimal {
+                    max_fraction_digits: 1,
+                }
+            };
+            let guides = use_rating_axes
+                .then(|| ScatterReferenceGuide {
+                    kind: ScatterReferenceGuideKind::Equality,
+                    label: "equal rating".to_string(),
+                })
+                .into_iter()
+                .collect();
+
+            Some(WorkbenchViewAxes::Scatter(
+                scatter_axes_context_with_options(
+                    viewport.x_range(),
+                    viewport.y_range(),
+                    x_label,
+                    y_label,
+                    ScatterAxesOptions {
+                        target_tick_count: MAX_AXIS_TICK_COUNT,
+                        x_format: value_format,
+                        y_format: value_format,
+                        guides,
+                    },
+                ),
+            ))
         }
         DemoMode::Timeline => {
             let viewport = app.timeline.viewport?;
@@ -114,58 +131,6 @@ pub(crate) fn view_context_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewC
             })
         }
     }
-}
-
-/// Draw the overlay inside the central render region without consuming events.
-pub(crate) fn show_view_axes_overlay(
-    ui: &mut Ui,
-    axes: Option<&WorkbenchViewAxes>,
-    plot_rect: Rect,
-) {
-    let Some(axes) = axes else {
-        return;
-    };
-    if plot_rect.width() <= 0.0 || plot_rect.height() <= 0.0 {
-        return;
-    }
-
-    let painter = ui.ctx().layer_painter(LayerId::new(
-        Order::Foreground,
-        Id::new("rawscope_view_axes_overlay"),
-    ));
-
-    let font = FontId::monospace(AXIS_FONT_SIZE_PX);
-    let tick_color = Color32::from_gray(160);
-    let text_color = Color32::from_gray(224);
-
-    match axes {
-        WorkbenchViewAxes::Scatter(context) => {
-            draw_numeric_x_axis(
-                &painter, plot_rect, &context.x, text_color, tick_color, &font,
-            );
-            draw_scatter_y_axis(
-                &painter, plot_rect, &context.y, text_color, tick_color, &font,
-            );
-        }
-        WorkbenchViewAxes::Timeline(context) => {
-            draw_numeric_x_axis(
-                &painter,
-                plot_rect,
-                &context.time,
-                text_color,
-                tick_color,
-                &font,
-            );
-            draw_timeline_lanes(
-                &painter,
-                plot_rect,
-                &context.lanes,
-                text_color,
-                tick_color,
-                &font,
-            );
-        }
-    };
 }
 
 /// Draw the compact summary context inside the right panel.
@@ -310,105 +275,6 @@ fn draw_summary_strip(
     });
 }
 
-fn draw_numeric_x_axis(
-    painter: &Painter,
-    area: Rect,
-    axis: &rawscope_render::NumericAxisContext,
-    text_color: Color32,
-    tick_color: Color32,
-    font: &FontId,
-) {
-    let baseline_y = area.bottom();
-    for tick in &axis.ticks {
-        let tick_x = area.min.x + (tick.fraction * area.width());
-        let tick_line_top = Pos2::new(tick_x, baseline_y - AXIS_TICK_HEIGHT_PX);
-        let tick_line_bottom = Pos2::new(tick_x, baseline_y);
-
-        painter.add(Shape::line_segment(
-            [tick_line_top, tick_line_bottom],
-            Stroke::new(1.0, tick_color),
-        ));
-        painter.text(
-            Pos2::new(tick_x, baseline_y + AXIS_TICK_TEXT_PADDING_PX),
-            Align2::CENTER_TOP,
-            &tick.label,
-            font.clone(),
-            text_color,
-        );
-    }
-    painter.text(
-        Pos2::new(area.center().x, baseline_y + AXIS_X_LABEL_OFFSET_PX),
-        Align2::CENTER_TOP,
-        &axis.label,
-        font.clone(),
-        text_color,
-    );
-}
-
-fn draw_scatter_y_axis(
-    painter: &Painter,
-    area: Rect,
-    axis: &rawscope_render::NumericAxisContext,
-    text_color: Color32,
-    tick_color: Color32,
-    font: &FontId,
-) {
-    let axis_x = area.min.x;
-    for tick in &axis.ticks {
-        let tick_y = area.max.y - (tick.fraction * area.height());
-        let tick_line_left = Pos2::new(axis_x, tick_y);
-        let tick_line_right = Pos2::new(axis_x + AXIS_TICK_HEIGHT_PX, tick_y);
-
-        painter.add(Shape::line_segment(
-            [tick_line_left, tick_line_right],
-            Stroke::new(1.0, tick_color),
-        ));
-        painter.text(
-            Pos2::new(axis_x - AXIS_TICK_TEXT_PADDING_PX, tick_y),
-            Align2::RIGHT_CENTER,
-            &tick.label,
-            font.clone(),
-            text_color,
-        );
-    }
-    painter.text(
-        Pos2::new(area.min.x, area.center().y - AXIS_Y_LABEL_OFFSET_PX),
-        Align2::RIGHT_CENTER,
-        &axis.label,
-        font.clone(),
-        text_color,
-    );
-}
-
-fn draw_timeline_lanes(
-    painter: &Painter,
-    area: Rect,
-    lanes: &[rawscope_render::TimelineLaneLabel],
-    text_color: Color32,
-    tick_color: Color32,
-    font: &FontId,
-) {
-    for lane in lanes {
-        let lane_y = area.min.y + (lane.fraction * area.height());
-        let axis_x = area.min.x;
-
-        painter.add(Shape::line_segment(
-            [
-                Pos2::new(axis_x, lane_y),
-                Pos2::new(axis_x + AXIS_TICK_HEIGHT_PX, lane_y),
-            ],
-            Stroke::new(1.0, tick_color),
-        ));
-        painter.text(
-            Pos2::new(axis_x - AXIS_TICK_TEXT_PADDING_PX, lane_y),
-            Align2::RIGHT_CENTER,
-            &lane.label,
-            font.clone(),
-            text_color,
-        );
-    }
-}
-
 fn axis_field_labels(
     dataset_identity: Option<&DatasetIdentity>,
     x_axis: (DatasetFieldRole, &str),
@@ -443,7 +309,9 @@ mod tests {
         ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary, TimelineOverviewSummary,
     };
 
-    use super::{view_context_ui_state, ActiveView, WorkbenchSurface};
+    use super::{
+        view_axes_ui_state, view_context_ui_state, ActiveView, WorkbenchSurface, WorkbenchViewAxes,
+    };
     use crate::{app::WorkbenchApp, demo::DemoMode};
 
     fn scatter_context() -> ScatterMarginalSummary {
@@ -530,5 +398,35 @@ mod tests {
         };
 
         assert!(view_context_ui_state(&app).is_none());
+    }
+
+    #[test]
+    fn lichess_axes_use_integer_ticks_and_equality_guide() {
+        let app = WorkbenchApp {
+            visible_surface: WorkbenchSurface::Primary,
+            demo_mode: DemoMode::Scatter,
+            active_dataset_profile: Some(rawscope_data::DatasetProfileId::LichessGames),
+            scatter: crate::app::ScatterWorkbenchState {
+                viewport: Some(rawscope_render::ScatterViewport::new(
+                    F32Range::new(1_000.0, 2_000.0),
+                    F32Range::new(1_000.0, 2_000.0),
+                )),
+                ..crate::app::ScatterWorkbenchState::default()
+            },
+            ..WorkbenchApp::default()
+        };
+
+        let WorkbenchViewAxes::Scatter(axes) =
+            view_axes_ui_state(&app).expect("Lichess axes should project")
+        else {
+            panic!("expected scatter axes");
+        };
+
+        assert!(axes.x.ticks.iter().all(|tick| !tick.label.contains('.')));
+        assert_eq!(axes.guides.len(), 1);
+        assert_eq!(
+            axes.guides[0].kind,
+            rawscope_render::ScatterReferenceGuideKind::Equality
+        );
     }
 }

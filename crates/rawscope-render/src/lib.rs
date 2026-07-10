@@ -125,7 +125,9 @@ pub use timeline_selection_export_v3::{
 };
 pub use timeline_viewport::TimelineViewport;
 pub use view_axes::{
-    scatter_axes_context, timeline_axes_context, AxisTick, NumericAxisContext, ScatterAxesContext,
+    scatter_axes_context, scatter_axes_context_with_options, timeline_axes_context, AxisTick,
+    AxisValueFormat, NumericAxisContext, ScatterAxesContext, ScatterAxesOptions,
+    ScatterReferenceGuide, ScatterReferenceGuideKind, ScatterReferenceGuideSegment,
     TimelineAxesContext, TimelineLaneLabel,
 };
 pub use view_summaries::{

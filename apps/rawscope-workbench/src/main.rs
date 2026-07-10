@@ -25,6 +25,7 @@ mod ui_controls;
 mod ui_dataset_diff;
 mod ui_drilldown;
 mod ui_missingness;
+mod ui_plot_axes;
 mod ui_plot_surface;
 mod ui_theme;
 mod ui_view_context;

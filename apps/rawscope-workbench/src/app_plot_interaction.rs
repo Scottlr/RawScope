@@ -145,7 +145,10 @@ mod tests {
     use rawscope_render::{PlotRectPx, ScatterViewport};
 
     use super::*;
-    use crate::{demo::DemoMode, ui_plot_surface::PlotSurfaceLayout};
+    use crate::{
+        demo::DemoMode,
+        ui_plot_surface::{PlotAxisLayout, PlotSurfaceLayout},
+    };
 
     fn app_with_plot() -> WorkbenchApp {
         let plot_rect = PlotRectPx::try_new(100, 50, 400, 200, 800, 600).unwrap();
@@ -158,6 +161,10 @@ mod tests {
             plot_surface: Some(PlotSurfaceLayout {
                 logical_rect: Rect::from_min_max(pos2(50.0, 25.0), pos2(250.0, 125.0)),
                 physical_rect: plot_rect,
+                axis_layout: PlotAxisLayout {
+                    outer_rect: Rect::from_min_max(pos2(0.0, 0.0), pos2(262.0, 163.0)),
+                    plot_rect: Rect::from_min_max(pos2(50.0, 25.0), pos2(250.0, 125.0)),
+                },
             }),
             scatter: crate::app::ScatterWorkbenchState {
                 viewport: Some(viewport),
