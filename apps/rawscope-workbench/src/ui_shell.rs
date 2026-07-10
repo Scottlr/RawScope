@@ -9,6 +9,7 @@ use crate::{
     ui_controls::UiActions,
     ui_dataset_diff::{show_dataset_diff_summary, show_dataset_diff_view},
     ui_drilldown::show_selection_drilldown,
+    ui_filters::show_filters,
     ui_missingness::{show_missingness_summary, show_missingness_view},
     ui_plot_axes::show_plot_axes,
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
@@ -261,6 +262,10 @@ fn show_right_rail(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiAction
         }
         WorkbenchSurface::DatasetDiff => show_dataset_diff_summary(ui, state.dataset_diff.as_ref()),
         WorkbenchSurface::Primary => {
+            actions.filter_action = show_filters(ui, state.scatter_filters.as_ref());
+            if state.scatter_filters.is_some() {
+                ui.separator();
+            }
             let density_response = show_density_encoding(ui, state.density_encoding.as_ref());
             actions.set_density_transform = density_response.set_transform;
             actions.set_scatter_density_presentation = density_response.set_scatter_presentation;
@@ -320,7 +325,10 @@ fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
                 ui.label(RichText::new("Refining").small().color(ACCENT));
                 return;
             }
-            let status_is_error = matches!(&state.export_status, ExportStatus::Failed { .. });
+            let status_is_error = matches!(
+                &state.export_status,
+                ExportStatus::Failed { .. } | ExportStatus::Unavailable { .. }
+            );
             let status_is_complete = matches!(&state.export_status, ExportStatus::Exported { .. });
             ui.label(
                 RichText::new(state.export_status.label())

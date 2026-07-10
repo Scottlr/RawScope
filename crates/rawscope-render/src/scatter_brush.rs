@@ -317,6 +317,47 @@ impl SelectedRegionSummary {
     }
 }
 
+pub fn selected_region_summary_masked(
+    points: &[ScatterPointRecord],
+    mask: &rawscope_data::FilterMask,
+    brush: ScatterBrushSelection,
+) -> Result<SelectedRegionSummary, crate::MaskAlignmentError> {
+    crate::MaskAlignmentError::require(points.len(), mask.len())?;
+    let mut selected_row_count = 0;
+    let mut selected_min_x = f32::INFINITY;
+    let mut selected_max_x = f32::NEG_INFINITY;
+    let mut selected_min_y = f32::INFINITY;
+    let mut selected_max_y = f32::NEG_INFINITY;
+    let mut category_counts = SelectedCategoryCounts::default();
+    for (point, included) in points.iter().zip(mask.as_gpu_u32_slice()) {
+        if *included == 1 && brush.contains_point(point) {
+            selected_row_count += 1;
+            selected_min_x = selected_min_x.min(point.x);
+            selected_max_x = selected_max_x.max(point.x);
+            selected_min_y = selected_min_y.min(point.y);
+            selected_max_y = selected_max_y.max(point.y);
+            category_counts.add(point.kind);
+        }
+    }
+    let total_row_count = mask.included_count();
+    let selected_percentage = if total_row_count == 0 {
+        0.0
+    } else {
+        selected_row_count as f32 / total_row_count as f32 * 100.0
+    };
+    Ok(SelectedRegionSummary {
+        selected_row_count,
+        total_row_count,
+        selected_percentage,
+        brush_x_range: brush.x_range,
+        brush_y_range: brush.y_range,
+        selected_x_range: selected_range(selected_row_count, selected_min_x, selected_max_x),
+        selected_y_range: selected_range(selected_row_count, selected_min_y, selected_max_y),
+        top_category: category_counts.top_category(),
+        category_counts,
+    })
+}
+
 fn selected_range(selected_row_count: usize, min: f32, max: f32) -> Option<F32Range> {
     if selected_row_count == 0 {
         return None;

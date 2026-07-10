@@ -3,7 +3,7 @@
 use std::{error::Error, fmt, sync::mpsc::RecvError};
 
 use rawscope_core::{DensityCountGrid, F32Range, GridSize};
-use rawscope_data::ScatterPointRecord;
+use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
 use rawscope_gpu::ComputeContext;
 
 use crate::{
@@ -42,6 +42,7 @@ impl GpuScatterDensityGrid {
 #[derive(Debug)]
 pub enum GpuScatterDensityError {
     PointCountTooLarge { point_count: usize },
+    FilterMaskLengthMismatch { point_count: usize, mask_len: usize },
     MissingReadbackCounts,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
@@ -54,6 +55,13 @@ impl fmt::Display for GpuScatterDensityError {
             Self::PointCountTooLarge { point_count } => {
                 write!(f, "point count {point_count} exceeds u32::MAX")
             }
+            Self::FilterMaskLengthMismatch {
+                point_count,
+                mask_len,
+            } => write!(
+                f,
+                "scatter filter mask length {mask_len} does not match point count {point_count}"
+            ),
             Self::MissingReadbackCounts => write!(
                 f,
                 "GPU scatter-density full readback was requested but not returned"
@@ -76,7 +84,9 @@ impl Error for GpuScatterDensityError {
             Self::BufferMap(error) => Some(error),
             Self::BufferMapCallbackDropped(error) => Some(error),
             Self::DevicePoll(error) => Some(error),
-            Self::PointCountTooLarge { .. } | Self::MissingReadbackCounts => None,
+            Self::PointCountTooLarge { .. }
+            | Self::FilterMaskLengthMismatch { .. }
+            | Self::MissingReadbackCounts => None,
         }
     }
 }
@@ -124,6 +134,35 @@ pub async fn gpu_scatter_density_on_device(
 ) -> Result<GpuScatterDensityGrid, GpuScatterDensityError> {
     let config = ScatterDensityRendererConfig::new(x_range, y_range, width, height);
     let mut state = ScatterDensityGpuState::new(device, queue, points, config, 0)?;
+    let output = state.update_with_output(
+        device,
+        queue,
+        ScatterDensityUpdate {
+            config,
+            readback: DensityReadbackPolicy::FullCounts,
+        },
+    )?;
+    let counts = output
+        .counts
+        .ok_or(GpuScatterDensityError::MissingReadbackCounts)?;
+    Ok(GpuScatterDensityGrid::new(width, height, counts))
+}
+
+pub async fn gpu_scatter_density_masked(
+    context: &ComputeContext,
+    points: &[ScatterPointRecord],
+    mask: &FilterMask,
+    revision: FilterRevision,
+    x_range: F32Range,
+    y_range: F32Range,
+    width: u32,
+    height: u32,
+) -> Result<GpuScatterDensityGrid, GpuScatterDensityError> {
+    let device = context.device();
+    let queue = context.queue();
+    let config = ScatterDensityRendererConfig::new(x_range, y_range, width, height);
+    let mut state = ScatterDensityGpuState::new(device, queue, points, config, 0)?;
+    state.update_filter_mask(queue, mask.as_gpu_u32_slice(), revision)?;
     let output = state.update_with_output(
         device,
         queue,

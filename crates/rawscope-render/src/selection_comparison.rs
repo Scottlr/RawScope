@@ -1,6 +1,8 @@
 //! Selected-vs-baseline comparison summaries for visual selections.
 
-use rawscope_data::{ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord};
+use rawscope_data::{
+    FilterMask, ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
+};
 
 use crate::{
     MissingnessSelectionSummary, SelectedCategoryCounts, SelectedEventTypeCounts,
@@ -15,6 +17,15 @@ pub struct ComparisonRatio {
     pub selected_percentage: f32,
     pub baseline_percentage: f32,
     pub delta_percentage_points: f32,
+}
+
+pub fn scatter_selection_comparison_masked(
+    points: &[ScatterPointRecord],
+    mask: &FilterMask,
+    selection: crate::ScatterBrushSelection,
+) -> Result<ScatterSelectionComparison, crate::MaskAlignmentError> {
+    let summary = crate::selected_region_summary_masked(points, mask, selection)?;
+    Ok(scatter_selection_comparison(points, summary))
 }
 
 /// Comparison summary for one finalized scatter selection.

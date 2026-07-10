@@ -2,8 +2,8 @@
 
 use rawscope_core::RowId;
 use rawscope_data::{
-    LoadedSourceRow, LoadedSourceTable, ScatterPointKind, ScatterPointRecord, TimelineEventKind,
-    TimelineEventRecord,
+    FilterMask, LoadedSourceRow, LoadedSourceTable, ScatterPointKind, ScatterPointRecord,
+    TimelineEventKind, TimelineEventRecord,
 };
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
@@ -17,6 +17,41 @@ const TIMELINE_FALLBACK_COLUMN_NAMES: [&str; 5] = ["row_id", "timestamp", "lane"
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DrilldownColumn {
     pub name: String,
+}
+
+pub fn scatter_selection_drilldown_masked(
+    points: &[ScatterPointRecord],
+    mask: &FilterMask,
+    selection: ScatterBrushSelection,
+    source_rows: Option<&LoadedSourceTable>,
+    config: DrilldownConfig,
+) -> Result<SelectionDrilldown, crate::MaskAlignmentError> {
+    crate::MaskAlignmentError::require(points.len(), mask.len())?;
+    let columns = source_rows
+        .map(source_columns)
+        .unwrap_or_else(scatter_fallback_columns);
+    let mut selected_row_count = 0;
+    let mut rows = Vec::new();
+    for (point, included) in points.iter().zip(mask.as_gpu_u32_slice()) {
+        if *included == 0 || !selection.contains_point(point) {
+            continue;
+        }
+        selected_row_count += 1;
+        let row = match source_rows {
+            Some(table) => source_row(table, point.row_id),
+            None => Some(scatter_fallback_row(point)),
+        };
+        if let Some(row) = row {
+            insert_lowest_row_id_sample(&mut rows, row, config.max_rows);
+        }
+    }
+    Ok(SelectionDrilldown {
+        selected_row_count,
+        displayed_row_count: rows.len(),
+        rows_are_sampled: selected_row_count > rows.len(),
+        columns,
+        rows,
+    })
 }
 
 /// One selected drilldown row.

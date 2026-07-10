@@ -1,9 +1,10 @@
 //! Dataset and grid resource replacement for resident scatter density state.
 
-use rawscope_data::ScatterPointRecord;
+use rawscope_data::{FilterRevision, ScatterPointRecord};
 
 use super::{
-    bind_groups, checked_point_count, dispatch_chunks, grid_buffers, params_buffers, point_buffer,
+    checked_point_count, dispatch_chunks,
+    resources::{bind_groups, filter_mask_buffer, grid_buffers, params_buffers, point_buffer},
     ScatterDensityGpuState,
 };
 use crate::GpuScatterDensityError;
@@ -22,17 +23,44 @@ impl ScatterDensityGpuState {
         self.point_count = checked_point_count(points)?;
         self.point_capacity = points.len();
         self.point_buffer = point_buffer(device, queue, points);
+        self.filter_mask_buffer = filter_mask_buffer(device, queue, points.len());
+        self.filter_revision = FilterRevision::default();
         self.params_buffers = params_buffers(device, dispatch_chunks(self.point_count).len());
         self.compute_bind_groups = bind_groups(
             device,
             &self.compute_bind_group_layout,
             &self.point_buffer,
+            &self.filter_mask_buffer,
             &self.params_buffers,
             &self.count_buffers,
             &self.max_count_buffer,
         );
         self.dataset_revision = dataset_revision;
         Ok(())
+    }
+
+    pub fn update_filter_mask(
+        &mut self,
+        queue: &wgpu::Queue,
+        mask: &[u32],
+        revision: FilterRevision,
+    ) -> Result<bool, GpuScatterDensityError> {
+        if mask.len() != self.point_count as usize {
+            return Err(GpuScatterDensityError::FilterMaskLengthMismatch {
+                point_count: self.point_count as usize,
+                mask_len: mask.len(),
+            });
+        }
+        if self.filter_revision == revision {
+            return Ok(false);
+        }
+        queue.write_buffer(&self.filter_mask_buffer, 0, bytemuck::cast_slice(mask));
+        self.filter_revision = revision;
+        Ok(true)
+    }
+
+    pub fn filter_revision(&self) -> FilterRevision {
+        self.filter_revision
     }
 
     pub(crate) fn count_buffer(&self, index: usize) -> &wgpu::Buffer {
@@ -76,6 +104,7 @@ impl ScatterDensityGpuState {
             device,
             &self.compute_bind_group_layout,
             &self.point_buffer,
+            &self.filter_mask_buffer,
             &self.params_buffers,
             &self.count_buffers,
             &self.max_count_buffer,

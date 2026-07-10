@@ -1,7 +1,9 @@
 //! CPU summary tracks for density view context.
 
 use rawscope_core::{F32Range, U64Range};
-use rawscope_data::{ScatterPointRecord, TimelineEventRecord};
+use rawscope_data::{FilterMask, ScatterPointRecord, TimelineEventRecord};
+
+use crate::MaskAlignmentError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SummaryBin {
@@ -94,6 +96,40 @@ pub fn scatter_marginal_summary(
         max_x_count,
         max_y_count,
     }
+}
+
+pub fn scatter_marginal_summary_masked(
+    points: &[ScatterPointRecord],
+    mask: &FilterMask,
+    x_range: F32Range,
+    y_range: F32Range,
+    x_bin_count: u32,
+    y_bin_count: u32,
+) -> Result<ScatterMarginalSummary, MaskAlignmentError> {
+    MaskAlignmentError::require(points.len(), mask.len())?;
+    assert!(x_bin_count > 0, "x_bin_count must be positive");
+    assert!(y_bin_count > 0, "y_bin_count must be positive");
+    let mut x_counts = vec![0u32; x_bin_count as usize];
+    let mut y_counts = vec![0u32; y_bin_count as usize];
+    for (point, included) in points.iter().zip(mask.as_gpu_u32_slice()) {
+        if *included == 0 {
+            continue;
+        }
+        let (Some(x_bin), Some(y_bin)) = (
+            bin_f32(point.x, x_range, x_bin_count),
+            bin_f32(point.y, y_range, y_bin_count),
+        ) else {
+            continue;
+        };
+        bump_count(&mut x_counts, x_bin as usize);
+        bump_count(&mut y_counts, y_bin as usize);
+    }
+    Ok(ScatterMarginalSummary {
+        max_x_count: max_count(&x_counts),
+        max_y_count: max_count(&y_counts),
+        x_bins: bins_from_counts(&x_counts),
+        y_bins: bins_from_counts(&y_counts),
+    })
 }
 
 pub fn timeline_marginal_summary(

@@ -160,6 +160,12 @@ impl RenderSchedule {
         self.dispatched_viewport_revision = None;
     }
 
+    pub(crate) fn request_exact_refine(&mut self) {
+        self.latest_viewport_revision += 1;
+        self.phase = InteractiveDensityPhase::FinalRefinePending;
+        self.dispatched_viewport_revision = None;
+    }
+
     fn preview_is_due(&self, now_ms: u64) -> bool {
         self.last_preview_dispatch_at_ms
             .is_none_or(|last| now_ms.saturating_sub(last) >= self.config.preview_rebin_interval_ms)
@@ -351,5 +357,18 @@ mod tests {
         assert_eq!(schedule.phase, InteractiveDensityPhase::SettledExact);
         assert_eq!(schedule.dispatched_viewport_revision, None);
         assert_eq!(schedule.source_viewport_revision, 1);
+    }
+
+    #[test]
+    fn filter_revision_requests_one_exact_refine() {
+        let mut schedule = RenderSchedule::default();
+
+        schedule.request_exact_refine();
+
+        assert_eq!(
+            schedule.next_work(0),
+            Some(ScheduledDensityWork::Exact { revision: 1 })
+        );
+        assert_eq!(schedule.next_work(1), None);
     }
 }

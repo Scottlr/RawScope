@@ -1,8 +1,9 @@
 //! Brush interaction helpers for the workbench scatter-density demo.
 
 use rawscope_render::{
-    scatter_selection_drilldown, ScatterBrushDrag, ScatterSelectionEvidence, SelectedRegionSummary,
-    SelectionEvidenceConfig,
+    scatter_selection_drilldown, scatter_selection_drilldown_masked,
+    selected_region_summary_masked, ScatterBrushDrag, ScatterBrushSelection,
+    ScatterSelectionEvidence, SelectedRegionSummary, SelectionEvidenceConfig,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -65,7 +66,13 @@ impl WorkbenchApp {
         self.scatter.selection_drilldown = None;
         self.scatter.brush_drag_start = None;
         self.clear_active_selection();
-        self.export_status = crate::ui::ExportStatus::Idle;
+        self.export_status = if self.scatter_filters.is_active() {
+            crate::ui::ExportStatus::Unavailable {
+                reason: crate::ui_filters::FILTERED_EXPORT_UNAVAILABLE_REASON.to_string(),
+            }
+        } else {
+            crate::ui::ExportStatus::Idle
+        };
         self.update_window_title();
         self.request_redraw();
 
@@ -110,7 +117,7 @@ impl WorkbenchApp {
         self.scatter.selection_summary = self
             .scatter
             .active_brush_selection
-            .map(|selection| SelectedRegionSummary::from_points(&self.scatter.points, selection));
+            .and_then(|selection| self.scatter_selection_summary(selection));
         self.scatter.selection_evidence = None;
         self.scatter.selection_drilldown = None;
         self.update_window_title();
@@ -132,10 +139,14 @@ impl WorkbenchApp {
         self.scatter.selection_summary = self
             .scatter
             .active_brush_selection
-            .map(|selection| SelectedRegionSummary::from_points(&self.scatter.points, selection));
+            .and_then(|selection| self.scatter_selection_summary(selection));
     }
 
     fn build_selection_evidence(&mut self) {
+        if self.scatter_filters.is_active() {
+            self.scatter.selection_evidence = None;
+            return;
+        }
         let Some(selection) = self.scatter.active_brush_selection else {
             self.scatter.selection_evidence = None;
             return;
@@ -160,12 +171,47 @@ impl WorkbenchApp {
             return;
         };
 
-        self.scatter.selection_drilldown = Some(scatter_selection_drilldown(
-            &self.scatter.points,
-            selection,
-            self.scatter.source_rows.as_ref(),
-            rawscope_render::DrilldownConfig::default(),
-        ));
+        self.scatter.selection_drilldown = self
+            .scatter_filters
+            .evaluation
+            .as_ref()
+            .map(|evaluation| {
+                scatter_selection_drilldown_masked(
+                    &self.scatter.points,
+                    &evaluation.mask,
+                    selection,
+                    self.scatter.source_rows.as_ref(),
+                    rawscope_render::DrilldownConfig::default(),
+                )
+                .expect("filter evaluation remains aligned with scatter points")
+            })
+            .or_else(|| {
+                Some(scatter_selection_drilldown(
+                    &self.scatter.points,
+                    selection,
+                    self.scatter.source_rows.as_ref(),
+                    rawscope_render::DrilldownConfig::default(),
+                ))
+            });
+    }
+
+    fn scatter_selection_summary(
+        &self,
+        selection: ScatterBrushSelection,
+    ) -> Option<SelectedRegionSummary> {
+        self.scatter_filters
+            .evaluation
+            .as_ref()
+            .map(|evaluation| {
+                selected_region_summary_masked(&self.scatter.points, &evaluation.mask, selection)
+                    .expect("filter evaluation remains aligned with scatter points")
+            })
+            .or_else(|| {
+                Some(SelectedRegionSummary::from_points(
+                    &self.scatter.points,
+                    selection,
+                ))
+            })
     }
 
     fn scatter_evidence_row_count(&self) -> usize {
