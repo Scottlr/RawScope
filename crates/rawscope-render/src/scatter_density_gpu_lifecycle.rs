@@ -1,0 +1,82 @@
+//! Dataset and grid resource replacement for resident scatter density state.
+
+use rawscope_data::ScatterPointRecord;
+
+use super::{
+    bind_groups, checked_point_count, dispatch_chunks, grid_buffers, params_buffers, point_buffer,
+    ScatterDensityGpuState,
+};
+use crate::GpuScatterDensityError;
+
+impl ScatterDensityGpuState {
+    pub fn replace_dataset(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        points: &[ScatterPointRecord],
+        dataset_revision: u64,
+    ) -> Result<(), GpuScatterDensityError> {
+        if self.dataset_revision == dataset_revision {
+            return Ok(());
+        }
+        self.point_count = checked_point_count(points)?;
+        self.point_capacity = points.len();
+        self.point_buffer = point_buffer(device, queue, points);
+        self.params_buffers = params_buffers(device, dispatch_chunks(self.point_count).len());
+        self.compute_bind_groups = bind_groups(
+            device,
+            &self.compute_bind_group_layout,
+            &self.point_buffer,
+            &self.params_buffers,
+            &self.count_buffers,
+            &self.max_count_buffer,
+        );
+        self.dataset_revision = dataset_revision;
+        Ok(())
+    }
+
+    pub(crate) fn count_buffer(&self, index: usize) -> &wgpu::Buffer {
+        &self.count_buffers[index]
+    }
+
+    pub(crate) fn max_count_buffer(&self) -> &wgpu::Buffer {
+        &self.max_count_buffer
+    }
+
+    pub fn dataset_revision(&self) -> u64 {
+        self.dataset_revision
+    }
+
+    pub fn point_capacity(&self) -> usize {
+        self.point_capacity
+    }
+
+    pub fn active_count_buffer_index(&self) -> usize {
+        self.active_count_buffer
+    }
+
+    pub(crate) fn grid_generation(&self) -> u64 {
+        self.grid_generation
+    }
+
+    pub(super) fn resize_grid(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        let (counts, max, full, max_readback) = grid_buffers(device, width, height);
+        self.count_buffers = counts;
+        self.max_count_buffer = max;
+        self.full_readback_buffer = full;
+        self.max_readback_buffer = max_readback;
+        self.compute_bind_groups = bind_groups(
+            device,
+            &self.compute_bind_group_layout,
+            &self.point_buffer,
+            &self.params_buffers,
+            &self.count_buffers,
+            &self.max_count_buffer,
+        );
+        self.grid_width = width;
+        self.grid_height = height;
+        self.active_count_buffer = 0;
+        self.last_max_bin_count = 0;
+        self.grid_generation += 1;
+    }
+}

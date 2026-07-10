@@ -37,6 +37,7 @@ impl DensityEncodingUiState {
         grid_width: u32,
         grid_height: u32,
         max_bin_count: u32,
+        max_bin_count_is_current: bool,
     ) -> Self {
         Self::new(
             encoding,
@@ -47,6 +48,7 @@ impl DensityEncodingUiState {
             grid_height,
             "rows/bin",
             max_bin_count,
+            max_bin_count_is_current,
         )
     }
 
@@ -65,6 +67,7 @@ impl DensityEncodingUiState {
             grid_height,
             "events/bin",
             max_bin_count,
+            true,
         )
     }
 
@@ -77,6 +80,7 @@ impl DensityEncodingUiState {
         grid_height: u32,
         count_unit: &str,
         max_bin_count: u32,
+        max_bin_count_is_current: bool,
     ) -> Self {
         Self {
             encoding,
@@ -90,7 +94,14 @@ impl DensityEncodingUiState {
                 encoding.normalization.label()
             ),
             palette_label: format!("Palette {}", encoding.palette.label()),
-            range_label: format!("Range 0..{max_bin_count} {count_unit}"),
+            range_label: format!(
+                "Range 0..{max_bin_count} {count_unit}{}",
+                if max_bin_count_is_current {
+                    ""
+                } else {
+                    " (last readback)"
+                }
+            ),
             zero_label: "0".to_string(),
             max_label: format!("max {max_bin_count}"),
         }
@@ -111,6 +122,7 @@ pub(crate) fn density_encoding_ui_state(app: &WorkbenchApp) -> Option<DensityEnc
                 stats.grid_width,
                 stats.grid_height,
                 stats.max_bin_count,
+                stats.max_bin_count_is_current,
             ))
         }
         DemoMode::Timeline => {
@@ -259,6 +271,7 @@ mod tests {
             256,
             256,
             42,
+            true,
         );
 
         assert_eq!(encoding.surface_label, "Scatter density");
@@ -302,6 +315,7 @@ mod tests {
             128,
             128,
             8,
+            true,
         );
 
         assert_eq!(encoding.encoding.transform, DensityTransform::Linear);

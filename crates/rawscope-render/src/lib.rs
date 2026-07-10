@@ -15,6 +15,7 @@ mod missingness_reference;
 mod plot_geometry;
 mod scatter_brush;
 mod scatter_brush_overlay;
+mod scatter_density_gpu_state;
 mod scatter_density_presentation;
 mod scatter_density_renderer;
 mod scatter_selection_evidence;
@@ -64,6 +65,9 @@ pub use scatter_brush::{
     SelectedCategoryCounts, SelectedRegionSummary,
 };
 pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
+pub use scatter_density_gpu_state::{
+    DensityReadbackPolicy, ScatterDensityGpuState, ScatterDensityUpdate,
+};
 pub use scatter_density_presentation::ScatterDensityPresentation;
 pub use scatter_density_renderer::{
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
