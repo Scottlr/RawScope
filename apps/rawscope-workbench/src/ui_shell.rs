@@ -281,6 +281,7 @@ fn show_right_rail(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiAction
             actions.set_density_transform = density_response.set_transform;
             actions.set_scatter_density_presentation = density_response.set_scatter_presentation;
             actions.set_point_reveal_mode = density_response.set_point_reveal_mode;
+            actions.set_scatter_projection = density_response.set_scatter_projection;
             if density_response.shown {
                 ui.separator();
             }

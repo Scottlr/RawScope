@@ -36,6 +36,7 @@ use crate::{
     app_scatter_filter::ScatterFilterState,
     app_scatter_inspection::ScatterInspectionState,
     app_scatter_point_reveal::ScatterPointRevealState,
+    app_scatter_projection::ScatterProjectionState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
@@ -97,6 +98,7 @@ pub struct WorkbenchApp {
     pub(crate) scatter_filters: ScatterFilterState,
     pub(crate) scatter_inspection: ScatterInspectionState,
     pub(crate) point_reveal: ScatterPointRevealState,
+    pub(crate) scatter_projection: ScatterProjectionState,
 }
 
 /// Scatter-specific workbench state.
@@ -267,6 +269,10 @@ impl WorkbenchApp {
             self.scatter.points = dataset.points;
             self.scatter.source_rows = Some(dataset.source_rows);
             self.initialize_scatter_filters();
+            self.initialize_scatter_projection(
+                &resolved_binding.x_column,
+                &resolved_binding.y_column,
+            );
             self.set_comparison_source_rows(comparison_source_rows);
             self.scatter.point_count_label = "local".to_string();
             self.scatter.viewport = Some(viewport);
@@ -329,6 +335,7 @@ impl WorkbenchApp {
         self.scatter.source_rows = None;
         self.scatter_filters = ScatterFilterState::default();
         self.scatter_inspection = ScatterInspectionState::default();
+        self.scatter_projection = ScatterProjectionState::default();
         self.clear_dataset_diff_state();
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
@@ -369,6 +376,7 @@ impl WorkbenchApp {
         self.scatter.source_rows = None;
         self.scatter_filters = ScatterFilterState::default();
         self.scatter_inspection = ScatterInspectionState::default();
+        self.scatter_projection = ScatterProjectionState::default();
         self.reset_scatter_point_reveal_mask();
         self.clear_dataset_diff_state();
         self.scatter.active_preset = preset;
