@@ -11,7 +11,7 @@ use crate::density_render_pipeline::{
 use crate::gpu_timeline_density::{
     dispatch_timeline_density, GpuTimelineDensityError, TimelineDensityComputeConfig,
 };
-use crate::DensityEncoding;
+use crate::{DensityEncoding, PlotRectPx};
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/timeline_density_render.wgsl");
 
@@ -200,8 +200,13 @@ impl TimelineDensityRenderer {
         self.stats
     }
 
-    /// Encodes one fullscreen timeline-density render pass.
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target_view: &wgpu::TextureView) {
+    /// Encodes one timeline-density render pass clipped to the physical plot.
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+    ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("RawScope Timeline Density Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -226,6 +231,15 @@ impl TimelineDensityRenderer {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_viewport(
+            plot_rect.x as f32,
+            plot_rect.y as f32,
+            plot_rect.width as f32,
+            plot_rect.height as f32,
+            0.0,
+            1.0,
+        );
+        render_pass.set_scissor_rect(plot_rect.x, plot_rect.y, plot_rect.width, plot_rect.height);
         render_pass.draw(0..3, 0..1);
     }
 }

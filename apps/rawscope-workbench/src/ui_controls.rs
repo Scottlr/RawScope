@@ -9,6 +9,7 @@ use crate::{
     ui_dataset_diff::{show_dataset_diff_summary, show_dataset_diff_view, DatasetDiffAction},
     ui_drilldown::show_selection_drilldown,
     ui_missingness::{show_missingness_summary, show_missingness_view, MissingnessAction},
+    ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
     ui_theme::{
         command_button, export_status_color, navigation_button, right_rail_frame, status_badge,
         status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
@@ -30,7 +31,19 @@ pub(crate) struct UiActions {
     pub(crate) dataset_diff_action: Option<DatasetDiffAction>,
 }
 
-pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActions {
+#[derive(Default)]
+pub(crate) struct WorkbenchUiOutput {
+    pub(crate) actions: UiActions,
+    pub(crate) plot_surface: Option<PlotSurfaceLayout>,
+}
+
+pub(crate) fn show_workbench_ui(
+    ui: &mut Ui,
+    state: &WorkbenchUiState,
+    pixels_per_point: f32,
+    surface_width_px: u32,
+    surface_height_px: u32,
+) -> WorkbenchUiOutput {
     let mut actions = UiActions::default();
 
     Panel::top("workbench_toolbar")
@@ -55,25 +68,35 @@ pub(crate) fn show_workbench_ui(ui: &mut Ui, state: &WorkbenchUiState) -> UiActi
         .frame(status_bar_frame())
         .show(ui, |ui| show_status_bar(ui, state));
 
-    match state.visible_surface {
+    let plot_surface = match state.visible_surface {
         WorkbenchSurface::Missingness => {
             actions.missingness_action = state
                 .missingness
                 .as_ref()
                 .and_then(|missingness| show_missingness_view(ui, missingness));
+            None
         }
         WorkbenchSurface::DatasetDiff => {
             actions.dataset_diff_action = state
                 .dataset_diff
                 .as_ref()
                 .and_then(|dataset_diff| show_dataset_diff_view(ui, dataset_diff));
+            None
         }
-        WorkbenchSurface::Primary => {}
+        WorkbenchSurface::Primary => {
+            let plot_surface =
+                allocate_plot_surface(ui, pixels_per_point, surface_width_px, surface_height_px);
+            if let Some(plot_surface) = plot_surface {
+                show_view_axes_overlay(ui, state.view_axes.as_ref(), plot_surface.logical_rect);
+            }
+            plot_surface
+        }
+    };
+
+    WorkbenchUiOutput {
+        actions,
+        plot_surface,
     }
-
-    show_view_axes_overlay(ui, state.view_axes.as_ref());
-
-    actions
 }
 
 fn show_primary_toolbar(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiActions) {

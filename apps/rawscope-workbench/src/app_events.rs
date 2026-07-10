@@ -127,6 +127,7 @@ impl ApplicationHandler for WorkbenchApp {
                 self.handle_keyboard_input(event.state, event.physical_key);
             }
             WindowEvent::Resized(size) => {
+                self.plot_surface = None;
                 if let Some(gpu) = self.gpu.as_mut() {
                     match gpu.resize(size) {
                         ClearFrameStatus::Reconfigured => self.request_redraw(),

@@ -1,8 +1,8 @@
 use rawscope_core::{RowId, U64Range};
 use rawscope_data::{SyntheticEventType, TimelineEventKind, TimelineEventRecord};
 use rawscope_render::{
-    BrushScreenPoint, BrushScreenRect, BrushScreenSize, TimelineBrushDrag, TimelineBrushSelection,
-    TimelineLaneRange, TimelineSelectionSummary, TimelineViewport,
+    BrushScreenPoint, BrushScreenRect, BrushScreenSize, PlotPointPx, PlotRectPx, TimelineBrushDrag,
+    TimelineBrushSelection, TimelineLaneRange, TimelineSelectionSummary, TimelineViewport,
 };
 
 fn viewport() -> TimelineViewport {
@@ -71,6 +71,30 @@ fn drag_finalizes_screen_brush_to_data_space_selection() {
 
     assert_eq!(selection.time_range, U64Range::new(100, 300));
     assert_eq!(selection.lane_range, TimelineLaneRange::new(0, 1));
+}
+
+#[test]
+fn timeline_brush_round_trips_through_offset_plot_rect() {
+    let plot_rect = PlotRectPx::try_new(120, 80, 1_000, 800, 1_300, 1_000).unwrap();
+    let start = plot_rect
+        .local_point(PlotPointPx::new(370.0, 205.0))
+        .unwrap();
+    let end = plot_rect
+        .local_point(PlotPointPx::new(870.0, 455.0))
+        .unwrap();
+    let screen_rect = BrushScreenRect::from_points(start, end, plot_rect.screen_size()).unwrap();
+    let selection =
+        TimelineBrushSelection::from_screen_rect(screen_rect, plot_rect.screen_size(), viewport())
+            .unwrap();
+
+    let projected = selection
+        .project_to_screen(viewport(), plot_rect.screen_size())
+        .unwrap();
+
+    assert_eq!(projected.min_x + plot_rect.x as f32, 370.0);
+    assert_eq!(projected.min_y + plot_rect.y as f32, 180.0);
+    assert_eq!(projected.max_x + plot_rect.x as f32, 870.0);
+    assert_eq!(projected.max_y + plot_rect.y as f32, 480.0);
 }
 
 #[test]

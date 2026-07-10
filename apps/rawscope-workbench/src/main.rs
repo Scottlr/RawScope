@@ -7,6 +7,7 @@ mod app_dataset_profile;
 mod app_events;
 mod app_export;
 mod app_missingness;
+mod app_plot_interaction;
 mod app_render;
 mod app_report_bundle;
 #[cfg(test)]
@@ -24,6 +25,7 @@ mod ui_controls;
 mod ui_dataset_diff;
 mod ui_drilldown;
 mod ui_missingness;
+mod ui_plot_surface;
 mod ui_theme;
 mod ui_view_context;
 mod ui_visual_encoding;

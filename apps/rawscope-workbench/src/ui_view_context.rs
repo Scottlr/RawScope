@@ -16,10 +16,6 @@ use crate::{
     ui::{ActiveView, WorkbenchSurface, WorkbenchViewAxes},
 };
 
-const AXIS_OVERLAY_TOP_GUARD_PX: f32 = 56.0;
-const AXIS_OVERLAY_BOTTOM_GUARD_PX: f32 = 52.0;
-const AXIS_OVERLAY_LEFT_GUARD_PX: f32 = 8.0;
-const AXIS_OVERLAY_RIGHT_GUARD_PX: f32 = 388.0;
 const AXIS_FONT_SIZE_PX: f32 = 11.0;
 const AXIS_TICK_TEXT_PADDING_PX: f32 = 4.0;
 const AXIS_TICK_HEIGHT_PX: f32 = 3.0;
@@ -121,14 +117,17 @@ pub(crate) fn view_context_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewC
 }
 
 /// Draw the overlay inside the central render region without consuming events.
-pub(crate) fn show_view_axes_overlay(ui: &mut Ui, axes: Option<&WorkbenchViewAxes>) {
+pub(crate) fn show_view_axes_overlay(
+    ui: &mut Ui,
+    axes: Option<&WorkbenchViewAxes>,
+    plot_rect: Rect,
+) {
     let Some(axes) = axes else {
         return;
     };
-
-    let Some(area) = overlay_area(ui.max_rect()) else {
+    if plot_rect.width() <= 0.0 || plot_rect.height() <= 0.0 {
         return;
-    };
+    }
 
     let painter = ui.ctx().layer_painter(LayerId::new(
         Order::Foreground,
@@ -141,14 +140,25 @@ pub(crate) fn show_view_axes_overlay(ui: &mut Ui, axes: Option<&WorkbenchViewAxe
 
     match axes {
         WorkbenchViewAxes::Scatter(context) => {
-            draw_numeric_x_axis(&painter, area, &context.x, text_color, tick_color, &font);
-            draw_scatter_y_axis(&painter, area, &context.y, text_color, tick_color, &font);
+            draw_numeric_x_axis(
+                &painter, plot_rect, &context.x, text_color, tick_color, &font,
+            );
+            draw_scatter_y_axis(
+                &painter, plot_rect, &context.y, text_color, tick_color, &font,
+            );
         }
         WorkbenchViewAxes::Timeline(context) => {
-            draw_numeric_x_axis(&painter, area, &context.time, text_color, tick_color, &font);
+            draw_numeric_x_axis(
+                &painter,
+                plot_rect,
+                &context.time,
+                text_color,
+                tick_color,
+                &font,
+            );
             draw_timeline_lanes(
                 &painter,
-                area,
+                plot_rect,
                 &context.lanes,
                 text_color,
                 tick_color,
@@ -252,21 +262,6 @@ pub(crate) fn show_timeline_overview(ui: &mut Ui, overview: Option<&TimelineOver
         window.start_fraction * 100.0,
         window.end_fraction * 100.0,
     ));
-}
-
-fn overlay_area(screen: Rect) -> Option<Rect> {
-    let left = screen.min.x + AXIS_OVERLAY_LEFT_GUARD_PX;
-    let right = screen.max.x - AXIS_OVERLAY_RIGHT_GUARD_PX;
-    let top = screen.min.y + AXIS_OVERLAY_TOP_GUARD_PX;
-    let bottom = screen.max.y - AXIS_OVERLAY_BOTTOM_GUARD_PX;
-    if right <= left || bottom <= top {
-        return None;
-    }
-
-    Some(Rect::from_min_max(
-        Pos2::new(left, top),
-        Pos2::new(right, bottom),
-    ))
 }
 
 fn draw_summary_strip(

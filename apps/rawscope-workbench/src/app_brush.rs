@@ -1,8 +1,8 @@
 //! Brush interaction helpers for the workbench scatter-density demo.
 
 use rawscope_render::{
-    scatter_selection_drilldown, BrushScreenPoint, ScatterBrushDrag, ScatterSelectionEvidence,
-    SelectedRegionSummary, SelectionEvidenceConfig,
+    scatter_selection_drilldown, ScatterBrushDrag, ScatterSelectionEvidence, SelectedRegionSummary,
+    SelectionEvidenceConfig,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -14,9 +14,12 @@ impl WorkbenchApp {
         if !self.demo_mode.is_scatter() {
             return;
         }
+        let Some(brush_start) = self.plot_local_cursor_point() else {
+            return;
+        };
 
         self.last_drag_position = None;
-        self.scatter.brush_drag_start = self.cursor_position;
+        self.scatter.brush_drag_start = Some(brush_start);
         self.update_brush_from_cursor();
     }
 
@@ -85,10 +88,13 @@ impl WorkbenchApp {
             return;
         };
 
-        let screen_size = self.screen_size();
-        let brush_start =
-            BrushScreenPoint::new(brush_drag_start.x as f32, brush_drag_start.y as f32);
-        let brush_end = BrushScreenPoint::new(cursor_position.x as f32, cursor_position.y as f32);
+        let Some(screen_size) = self.plot_screen_size() else {
+            return;
+        };
+        let Some(brush_end) = self.clamped_plot_local_point(cursor_position) else {
+            return;
+        };
+        let brush_start = brush_drag_start;
         let next_drag = ScatterBrushDrag::from_screen_points(brush_start, brush_end, screen_size);
 
         self.scatter.active_brush_drag = next_drag;
@@ -112,7 +118,9 @@ impl WorkbenchApp {
             return;
         };
 
-        let screen_size = self.screen_size();
+        let Some(screen_size) = self.plot_screen_size() else {
+            return;
+        };
         self.scatter.active_brush_selection = active_drag.finalize(screen_size, viewport);
         self.scatter.selection_summary = self
             .scatter
@@ -226,14 +234,55 @@ impl WorkbenchApp {
 
 #[cfg(test)]
 mod tests {
+    use egui::{pos2, Rect};
     use rawscope_core::{F32Range, RowId};
     use rawscope_data::{
         generate_synthetic_points, ScatterPointKind, ScatterPointRecord, SyntheticPointConfig,
     };
-    use rawscope_render::{ScatterBrushSelection, SelectionDrilldown};
+    use rawscope_render::{PlotRectPx, ScatterBrushSelection, SelectionDrilldown};
+    use winit::dpi::PhysicalPosition;
 
     use super::*;
-    use crate::demo::DemoMode;
+    use crate::{demo::DemoMode, ui_plot_surface::PlotSurfaceLayout};
+
+    fn app_with_plot() -> WorkbenchApp {
+        WorkbenchApp {
+            demo_mode: DemoMode::Scatter,
+            plot_surface: Some(PlotSurfaceLayout {
+                logical_rect: Rect::from_min_max(pos2(50.0, 25.0), pos2(250.0, 125.0)),
+                physical_rect: PlotRectPx::try_new(100, 50, 400, 200, 800, 600).unwrap(),
+            }),
+            scatter: crate::app::ScatterWorkbenchState {
+                viewport: Some(rawscope_render::ScatterViewport::new(
+                    F32Range::new(0.0, 100.0),
+                    F32Range::new(0.0, 100.0),
+                )),
+                ..crate::app::ScatterWorkbenchState::default()
+            },
+            ..WorkbenchApp::default()
+        }
+    }
+
+    #[test]
+    fn brush_starts_require_plot_but_active_release_finalizes_outside() {
+        let mut app = app_with_plot();
+        app.cursor_position = Some(PhysicalPosition::new(99.0, 150.0));
+
+        app.begin_brush();
+
+        assert!(!app.brush_is_active());
+
+        app.cursor_position = Some(PhysicalPosition::new(200.0, 100.0));
+        app.begin_brush();
+        app.update_brush_to_cursor(PhysicalPosition::new(700.0, 500.0));
+        assert!(app.scatter.active_brush_selection.is_some());
+
+        app.end_brush();
+
+        assert!(!app.brush_is_active());
+        assert!(app.scatter.active_brush_drag.is_none());
+        assert!(app.scatter.active_brush_selection.is_some());
+    }
 
     #[test]
     fn build_selection_drilldown_populates_scatter_fallback_rows() {

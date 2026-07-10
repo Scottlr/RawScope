@@ -165,10 +165,9 @@ impl WorkbenchApp {
             return;
         }
 
-        let cursor_x_fraction = self
-            .cursor_fraction()
-            .map(|(x_fraction, _y_fraction)| x_fraction)
-            .unwrap_or(0.5);
+        let Some((cursor_x_fraction, _y_fraction)) = self.cursor_fraction() else {
+            return;
+        };
         let Some(viewport) = self.timeline.viewport.as_mut() else {
             return;
         };
@@ -194,7 +193,7 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn begin_timeline_pan(&mut self) {
-        if !self.demo_mode.is_timeline() {
+        if !self.demo_mode.is_timeline() || self.cursor_fraction().is_none() {
             return;
         }
 
@@ -209,20 +208,14 @@ impl WorkbenchApp {
         let Some(last_drag_position) = self.last_drag_position else {
             return;
         };
-        let Some(window) = &self.window else {
+        let Some(plot_size) = self.plot_screen_size() else {
             return;
         };
         let Some(viewport) = self.timeline.viewport.as_mut() else {
             return;
         };
 
-        let window_size = window.inner_size();
-        let window_has_width = window_size.width > 0;
-        if !window_has_width {
-            return;
-        }
-
-        let delta_x_fraction = (position.x - last_drag_position.x) / window_size.width as f64;
+        let delta_x_fraction = (position.x - last_drag_position.x) / plot_size.width as f64;
 
         viewport.pan_by_screen_fraction(delta_x_fraction);
         self.last_drag_position = Some(position);
