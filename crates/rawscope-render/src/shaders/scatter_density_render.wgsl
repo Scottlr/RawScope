@@ -15,6 +15,14 @@ struct RenderParams {
     display_x_max: f32,
     display_y_min: f32,
     display_y_max: f32,
+    relief_height_strength: f32,
+    relief_normal_radius_bins: u32,
+    relief_light_azimuth_radians: f32,
+    relief_light_elevation_radians: f32,
+    relief_ambient_strength: f32,
+    relief_shadow_strength: f32,
+    relief_contour_strength: f32,
+    relief_padding: f32,
 };
 
 struct VertexOutput {
@@ -192,6 +200,63 @@ fn topographic_colour(uv: vec2<f32>) -> vec3<f32> {
     return mix(base_colour, contour_colour, contour_strength);
 }
 
+fn relief_colour(uv: vec2<f32>) -> vec3<f32> {
+    let grid_size = vec2<f32>(f32(params.grid_width), f32(params.grid_height));
+    let density_uv = vec2<f32>(uv.x, 1.0 - uv.y);
+    let position = density_uv * grid_size - vec2<f32>(0.5);
+    let intensity = topographic_intensity(position);
+    if intensity <= 0.00001 || params.grid_width <= 1u || params.grid_height <= 1u {
+        return density_colour(intensity, params.palette_id);
+    }
+
+    let fine_radius = f32(max(params.relief_normal_radius_bins, 1u));
+    let coarse_radius = min(fine_radius * 2.0, 8.0);
+    let fine_x = topographic_intensity(position - vec2<f32>(fine_radius, 0.0))
+        - topographic_intensity(position + vec2<f32>(fine_radius, 0.0));
+    let fine_y = topographic_intensity(position - vec2<f32>(0.0, fine_radius))
+        - topographic_intensity(position + vec2<f32>(0.0, fine_radius));
+    let coarse_x = topographic_intensity(position - vec2<f32>(coarse_radius, 0.0))
+        - topographic_intensity(position + vec2<f32>(coarse_radius, 0.0));
+    let coarse_y = topographic_intensity(position - vec2<f32>(0.0, coarse_radius))
+        - topographic_intensity(position + vec2<f32>(0.0, coarse_radius));
+    let gradient = (vec2<f32>(fine_x, fine_y) * 0.68
+        + vec2<f32>(coarse_x, coarse_y) * 0.32) * params.relief_height_strength;
+    let normal = normalize(vec3<f32>(gradient, 1.0));
+
+    let horizontal_light = vec2<f32>(
+        cos(params.relief_light_azimuth_radians),
+        sin(params.relief_light_azimuth_radians),
+    );
+    let light = normalize(vec3<f32>(
+        horizontal_light * cos(params.relief_light_elevation_radians),
+        sin(params.relief_light_elevation_radians),
+    ));
+    let diffuse = max(dot(normal, light), 0.0);
+
+    var horizon_occlusion = 0.0;
+    for (var step = 1u; step <= 8u; step = step + 1u) {
+        let distance = f32(step) * fine_radius;
+        let sample = topographic_intensity(position + horizontal_light * distance);
+        let horizon = intensity + distance * tan(params.relief_light_elevation_radians) * 0.012;
+        horizon_occlusion = max(horizon_occlusion, smoothstep(horizon, horizon + 0.035, sample));
+    }
+
+    let visibility = smoothstep(0.018, 0.12, intensity);
+    let lighting = params.relief_ambient_strength
+        + (1.0 - params.relief_ambient_strength) * diffuse;
+    let shadow = 1.0 - horizon_occlusion * params.relief_shadow_strength;
+    let base = density_colour(intensity, params.palette_id);
+    var shaded = base * mix(1.0, lighting * shadow, visibility);
+
+    let contour_coordinate = intensity * 12.0;
+    let contour_phase = fract(contour_coordinate);
+    let contour_distance = min(contour_phase, 1.0 - contour_phase);
+    let contour_width = max(fwidth(contour_coordinate) * 0.65, 0.012);
+    let contour = 1.0 - smoothstep(contour_width, contour_width * 1.8, contour_distance);
+    shaded *= 1.0 - contour * params.relief_contour_strength * visibility;
+    return clamp(shaded, vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
 fn source_uv_for_display(display_uv: vec2<f32>) -> vec3<f32> {
     let data_x = params.display_x_min + display_uv.x * (params.display_x_max - params.display_x_min);
     let data_y = params.display_y_max - display_uv.y * (params.display_y_max - params.display_y_min);
@@ -211,6 +276,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let clamped_uv = clamp(projected.xy, vec2<f32>(0.0), vec2<f32>(0.999999));
     if params.presentation_id == 1u {
         return vec4<f32>(topographic_colour(clamped_uv), 1.0);
+    }
+    if params.presentation_id == 2u {
+        return vec4<f32>(relief_colour(clamped_uv), 1.0);
     }
 
     let x_bin = min(u32(clamped_uv.x * f32(params.grid_width)), params.grid_width - 1u);

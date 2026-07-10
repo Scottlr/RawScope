@@ -7,7 +7,7 @@ use crate::density_render_pipeline::create_density_render_pipeline;
 use crate::gpu_scatter_density::GpuScatterDensityError;
 use crate::{
     DensityEncoding, DensityFieldViewport, DensityQualityTier, DensityReadbackPolicy, PlotRectPx,
-    ScatterDensityGpuState, ScatterDensityPresentation, ScatterDensityUpdate,
+    ReliefFieldConfig, ScatterDensityGpuState, ScatterDensityPresentation, ScatterDensityUpdate,
 };
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/scatter_density_render.wgsl");
@@ -37,6 +37,7 @@ pub struct ScatterDensityRendererConfig {
     pub grid_height: u32,
     pub encoding: DensityEncoding,
     pub presentation: ScatterDensityPresentation,
+    pub relief: ReliefFieldConfig,
 }
 
 impl ScatterDensityRendererConfig {
@@ -52,6 +53,7 @@ impl ScatterDensityRendererConfig {
             grid_height,
             encoding: DensityEncoding::scatter_default(),
             presentation: ScatterDensityPresentation::ExactCells,
+            relief: ReliefFieldConfig::default(),
         }
     }
 
@@ -64,6 +66,11 @@ impl ScatterDensityRendererConfig {
     /// Returns this config with an explicit fragment-stage presentation mode.
     pub fn with_presentation(mut self, presentation: ScatterDensityPresentation) -> Self {
         self.presentation = presentation;
+        self
+    }
+
+    pub fn with_relief(mut self, relief: ReliefFieldConfig) -> Self {
+        self.relief = relief;
         self
     }
 }

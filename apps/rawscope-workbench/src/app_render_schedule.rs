@@ -241,7 +241,8 @@ impl WorkbenchApp {
             grid_height,
         )
         .with_encoding(self.scatter.density_encoding)
-        .with_presentation(self.scatter.density_presentation);
+        .with_presentation(self.scatter.density_presentation)
+        .with_relief(self.scatter.relief_config);
         let field = DensityFieldViewport {
             x_range: viewport.x_range(),
             y_range: viewport.y_range(),

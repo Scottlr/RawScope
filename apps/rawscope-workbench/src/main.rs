@@ -38,6 +38,7 @@ mod ui_filters;
 mod ui_missingness;
 mod ui_plot_axes;
 mod ui_plot_surface;
+mod ui_relief;
 mod ui_scatter_inspection;
 mod ui_shell;
 mod ui_theme;

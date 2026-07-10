@@ -25,6 +25,7 @@ mod scatter_difference_renderer;
 mod scatter_inspection;
 mod scatter_point_renderer;
 mod scatter_point_reveal;
+mod scatter_relief;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
@@ -97,6 +98,12 @@ pub use scatter_point_renderer::ScatterPointRenderer;
 pub use scatter_point_reveal::{
     project_point_to_plot_fraction, select_points_for_reveal, PointRevealConfig, PointRevealError,
     PointRevealMode, PointRevealSelection, PointRevealStats,
+};
+pub use scatter_relief::{
+    relief_normal_from_samples, validate_relief_field_config, ReliefFieldConfig,
+    ReliefFieldConfigError, MAX_RELIEF_ELEVATION_DEGREES, MAX_RELIEF_HEIGHT_STRENGTH,
+    MAX_RELIEF_NORMAL_RADIUS_BINS, MIN_RELIEF_ELEVATION_DEGREES, MIN_RELIEF_HEIGHT_STRENGTH,
+    MIN_RELIEF_NORMAL_RADIUS_BINS,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,

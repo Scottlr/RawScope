@@ -24,6 +24,14 @@ pub(super) struct ScatterDensityRenderParams {
     display_x_max: f32,
     display_y_min: f32,
     display_y_max: f32,
+    relief_height_strength: f32,
+    relief_normal_radius_bins: u32,
+    relief_light_azimuth_radians: f32,
+    relief_light_elevation_radians: f32,
+    relief_ambient_strength: f32,
+    relief_shadow_strength: f32,
+    relief_contour_strength: f32,
+    relief_padding: f32,
 }
 
 impl ScatterDensityRenderParams {
@@ -50,7 +58,26 @@ impl ScatterDensityRenderParams {
             display_x_max: display_x.max,
             display_y_min: display_y.min,
             display_y_max: display_y.max,
+            relief_height_strength: config.relief.height_strength,
+            relief_normal_radius_bins: config.relief.normal_radius_bins,
+            relief_light_azimuth_radians: config.relief.light_azimuth_degrees.to_radians(),
+            relief_light_elevation_radians: config.relief.light_elevation_degrees.to_radians(),
+            relief_ambient_strength: config.relief.ambient_strength,
+            relief_shadow_strength: config.relief.shadow_strength,
+            relief_contour_strength: config.relief.contour_strength,
+            relief_padding: 0.0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScatterDensityRenderParams;
+
+    #[test]
+    fn relief_render_params_are_wgsl_aligned() {
+        assert_eq!(std::mem::size_of::<ScatterDensityRenderParams>(), 96);
+        assert_eq!(std::mem::size_of::<ScatterDensityRenderParams>() % 16, 0);
     }
 }
 

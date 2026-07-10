@@ -98,7 +98,8 @@ impl WorkbenchApp {
             DEMO_GRID_HEIGHT,
         )
         .with_encoding(self.scatter.density_encoding)
-        .with_presentation(self.scatter.density_presentation);
+        .with_presentation(self.scatter.density_presentation)
+        .with_relief(self.scatter.relief_config);
         let stats = scatter_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),

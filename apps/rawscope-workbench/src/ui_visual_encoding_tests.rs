@@ -1,7 +1,8 @@
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
     DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
-    ScatterDensityMode, ScatterDensityPresentation, ScatterDifferenceRenderStats,
+    ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
+    ScatterDifferenceRenderStats,
 };
 
 use super::DensityEncodingUiState;
@@ -21,6 +22,7 @@ fn scatter_encoding_makes_density_transform_and_range_visible() {
         ScatterDensityMode::AbsoluteDensity,
         false,
         None,
+        ReliefFieldConfig::default(),
     );
 
     assert_eq!(encoding.surface_label, "Scatter density");
@@ -71,6 +73,7 @@ fn encoding_state_reflects_active_transform() {
         ScatterDensityMode::AbsoluteDensity,
         false,
         None,
+        ReliefFieldConfig::default(),
     );
 
     assert_eq!(encoding.encoding.transform, DensityTransform::Linear);
@@ -102,6 +105,7 @@ fn point_reveal_stats_are_projected_without_threshold_controls() {
         ScatterDensityMode::AbsoluteDensity,
         true,
         None,
+        ReliefFieldConfig::default(),
     );
 
     assert_eq!(encoding.point_reveal_mode, Some(PointRevealMode::Auto));
@@ -123,6 +127,7 @@ fn eligible_scatter_exposes_explicit_projection_state() {
         ScatterDensityMode::AbsoluteDensity,
         true,
         None,
+        ReliefFieldConfig::default(),
     );
 
     assert_eq!(
@@ -151,6 +156,7 @@ fn difference_mode_projects_cohort_totals_and_availability() {
         ScatterDensityMode::FilteredDifference,
         true,
         Some(stats),
+        ReliefFieldConfig::default(),
     );
 
     assert_eq!(
