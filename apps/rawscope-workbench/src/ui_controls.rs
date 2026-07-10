@@ -3,6 +3,7 @@
 use rawscope_render::{DensityTransform, ScatterDensityPresentation};
 
 use crate::{
+    app_interaction_mode::WorkbenchInteractionMode,
     ui::{ActiveView, WorkbenchSurface},
     ui_dataset_diff::DatasetDiffAction,
     ui_missingness::MissingnessAction,
@@ -17,6 +18,7 @@ pub(crate) struct UiActions {
     pub(crate) clear_selection_requested: bool,
     pub(crate) copy_dataset_path: bool,
     pub(crate) toggle_inspector: bool,
+    pub(crate) set_interaction_mode: Option<WorkbenchInteractionMode>,
     pub(crate) set_density_transform: Option<DensityTransform>,
     pub(crate) set_scatter_density_presentation: Option<ScatterDensityPresentation>,
     pub(crate) missingness_action: Option<MissingnessAction>,

@@ -11,6 +11,7 @@ use rawscope_render::{
 use crate::{
     app::WorkbenchApp,
     app_comparison::WorkbenchComparison,
+    app_interaction_mode::{InspectCursorPosition, WorkbenchInteractionMode},
     demo::DemoMode,
     ui_controls::UiActions,
     ui_dataset_identity::DatasetDisplayIdentity,
@@ -91,6 +92,8 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) visible_surface: WorkbenchSurface,
     pub(crate) dataset_identity: DatasetDisplayIdentity,
     pub(crate) shell: WorkbenchShellState,
+    pub(crate) interaction_mode: WorkbenchInteractionMode,
+    pub(crate) inspect_cursor_position: Option<InspectCursorPosition>,
     pub(crate) view_label: String,
     pub(crate) selection_label: String,
     pub(crate) linked_selection_label: String,
@@ -230,6 +233,8 @@ impl WorkbenchApp {
             visible_surface,
             dataset_identity,
             shell: self.shell,
+            interaction_mode: self.interaction_mode,
+            inspect_cursor_position: self.inspect_cursor_position,
             view_label,
             selection_label,
             linked_selection_label,
@@ -271,6 +276,9 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn apply_ui_actions(&mut self, actions: UiActions) {
+        if let Some(mode) = actions.set_interaction_mode {
+            self.set_interaction_mode(mode);
+        }
         if actions.toggle_inspector {
             self.shell.toggle_inspector();
             self.request_redraw();

@@ -26,6 +26,10 @@ use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
 
 use crate::{
     app_dataset_profile::resolve_scatter_input_binding,
+    app_interaction_mode::{
+        ActivePointerGesture, InspectCursorPosition, InteractionOverride, SelectionGestureBackup,
+        WorkbenchInteractionMode,
+    },
     app_missingness::MissingnessWorkbenchState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
@@ -76,6 +80,12 @@ pub struct WorkbenchApp {
     pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,
     pub(crate) last_drag_position: Option<PhysicalPosition<f64>>,
+    pub(crate) interaction_mode: WorkbenchInteractionMode,
+    pub(crate) active_pointer_gesture: Option<ActivePointerGesture>,
+    pub(crate) interaction_override: Option<InteractionOverride>,
+    pub(crate) active_pointer_button: Option<winit::event::MouseButton>,
+    pub(crate) inspect_cursor_position: Option<InspectCursorPosition>,
+    pub(crate) selection_gesture_backup: Option<SelectionGestureBackup>,
     pub(crate) modifiers: ModifiersState,
     pub(crate) evidence_export_counter: u64,
 }

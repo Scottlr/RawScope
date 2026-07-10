@@ -43,6 +43,7 @@ impl WorkbenchApp {
         }
         self.plot_surface = ui_output.plot_surface;
         self.apply_ui_actions(ui_output.actions);
+        self.reassert_plot_cursor();
 
         let paint_jobs = egui_context.tessellate(full_output.shapes, pixels_per_point);
         let textures_delta = full_output.textures_delta;

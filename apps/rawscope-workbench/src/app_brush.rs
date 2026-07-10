@@ -52,7 +52,8 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn clear_brush(&mut self) {
-        let had_selection = self.scatter.active_brush_selection.is_some()
+        let had_selection = self.brush_is_active()
+            || self.scatter.active_brush_selection.is_some()
             || self.scatter.active_brush_drag.is_some()
             || self.scatter.selection_summary.is_some()
             || self.scatter.selection_evidence.is_some()
@@ -71,6 +72,12 @@ impl WorkbenchApp {
         if had_selection {
             info!("RawScope scatter brush cleared");
         }
+    }
+
+    pub(crate) fn cancel_brush_gesture(&mut self) {
+        self.scatter.brush_drag_start = None;
+        self.scatter.active_brush_drag = None;
+        self.request_redraw();
     }
 
     pub(crate) fn brush_is_active(&self) -> bool {
