@@ -9,12 +9,13 @@ use crate::{
     ui_dataset_diff::{show_dataset_diff_summary, show_dataset_diff_view, DatasetDiffAction},
     ui_drilldown::show_selection_drilldown,
     ui_missingness::{show_missingness_summary, show_missingness_view, MissingnessAction},
+    ui_plot_axes::show_plot_axes,
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
     ui_theme::{
         command_button, export_status_color, navigation_button, right_rail_frame, status_badge,
         status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
     },
-    ui_view_context::{show_view_axes_overlay, show_view_context},
+    ui_view_context::show_view_context,
     ui_visual_encoding::show_density_encoding,
 };
 
@@ -87,7 +88,7 @@ pub(crate) fn show_workbench_ui(
             let plot_surface =
                 allocate_plot_surface(ui, pixels_per_point, surface_width_px, surface_height_px);
             if let Some(plot_surface) = plot_surface {
-                show_view_axes_overlay(ui, state.view_axes.as_ref(), plot_surface.logical_rect);
+                show_plot_axes(ui, plot_surface.axis_layout, state.view_axes.as_ref());
             }
             plot_surface
         }

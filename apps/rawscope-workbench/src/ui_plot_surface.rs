@@ -3,11 +3,43 @@
 use egui::{Rect, Sense, Ui};
 use rawscope_render::PlotRectPx;
 
+pub(crate) const PLOT_LEFT_GUTTER_POINTS: f32 = 58.0;
+pub(crate) const PLOT_BOTTOM_GUTTER_POINTS: f32 = 38.0;
+pub(crate) const PLOT_TOP_GUTTER_POINTS: f32 = 10.0;
+pub(crate) const PLOT_RIGHT_GUTTER_POINTS: f32 = 12.0;
+
+/// Stable axis gutters and the inset data rectangle.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PlotAxisLayout {
+    pub(crate) outer_rect: Rect,
+    pub(crate) plot_rect: Rect,
+}
+
+impl PlotAxisLayout {
+    fn from_outer_rect(outer_rect: Rect) -> Option<Self> {
+        let plot_rect = Rect::from_min_max(
+            egui::pos2(
+                outer_rect.min.x + PLOT_LEFT_GUTTER_POINTS,
+                outer_rect.min.y + PLOT_TOP_GUTTER_POINTS,
+            ),
+            egui::pos2(
+                outer_rect.max.x - PLOT_RIGHT_GUTTER_POINTS,
+                outer_rect.max.y - PLOT_BOTTOM_GUTTER_POINTS,
+            ),
+        );
+        (plot_rect.width() > 0.0 && plot_rect.height() > 0.0).then_some(Self {
+            outer_rect,
+            plot_rect,
+        })
+    }
+}
+
 /// Logical and physical views of one central plot allocation.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct PlotSurfaceLayout {
     pub(crate) logical_rect: Rect,
     pub(crate) physical_rect: PlotRectPx,
+    pub(crate) axis_layout: PlotAxisLayout,
 }
 
 /// Allocates the remaining central UI region as the plot surface.
@@ -17,8 +49,10 @@ pub(crate) fn allocate_plot_surface(
     surface_width_px: u32,
     surface_height_px: u32,
 ) -> Option<PlotSurfaceLayout> {
-    let logical_rect = ui.available_rect_before_wrap();
-    ui.allocate_rect(logical_rect, Sense::hover());
+    let outer_rect = ui.available_rect_before_wrap();
+    ui.allocate_rect(outer_rect, Sense::hover());
+    let axis_layout = PlotAxisLayout::from_outer_rect(outer_rect)?;
+    let logical_rect = axis_layout.plot_rect;
     let physical_rect = logical_to_physical_plot_rect(
         logical_rect,
         pixels_per_point,
@@ -29,6 +63,7 @@ pub(crate) fn allocate_plot_surface(
     Some(PlotSurfaceLayout {
         logical_rect,
         physical_rect,
+        axis_layout,
     })
 }
 
@@ -103,6 +138,11 @@ mod tests {
         assert!(layout.physical_rect.y + layout.physical_rect.height <= 760);
         assert!(layout.physical_rect.width > 0);
         assert!(layout.physical_rect.height > 0);
+        assert_eq!(layout.logical_rect, layout.axis_layout.plot_rect);
+        assert!(layout
+            .axis_layout
+            .outer_rect
+            .contains_rect(layout.logical_rect));
     }
 
     #[test]

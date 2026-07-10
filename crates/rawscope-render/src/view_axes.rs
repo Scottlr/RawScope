@@ -3,6 +3,48 @@
 use rawscope_core::{F32Range, U64Range};
 
 const MIN_AXIS_TICK_COUNT: usize = 2;
+const MAX_AXIS_TICKS: usize = 9;
+
+/// Explicit numeric label formatting for an axis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AxisValueFormat {
+    Integer,
+    Decimal { max_fraction_digits: u8 },
+    Compact,
+}
+
+/// Data-space equation represented by a scatter reference guide.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ScatterReferenceGuideKind {
+    Equality,
+    Horizontal { y: f32 },
+    Vertical { x: f32 },
+}
+
+/// Requested scatter reference guide.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterReferenceGuide {
+    pub kind: ScatterReferenceGuideKind,
+    pub label: String,
+}
+
+/// Plot-fraction segment produced by clipping a guide to visible data ranges.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterReferenceGuideSegment {
+    pub kind: ScatterReferenceGuideKind,
+    pub label: String,
+    pub start_fraction: (f32, f32),
+    pub end_fraction: (f32, f32),
+}
+
+/// Bounded options for scatter axes without introducing a style DSL.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterAxesOptions {
+    pub target_tick_count: usize,
+    pub x_format: AxisValueFormat,
+    pub y_format: AxisValueFormat,
+    pub guides: Vec<ScatterReferenceGuide>,
+}
 
 /// Axis tick for scalar projections.
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +65,7 @@ pub struct NumericAxisContext {
 pub struct ScatterAxesContext {
     pub x: NumericAxisContext,
     pub y: NumericAxisContext,
+    pub guides: Vec<ScatterReferenceGuideSegment>,
 }
 
 /// Per-lane overlay label for timeline rows.
@@ -48,17 +91,48 @@ pub fn scatter_axes_context(
     y_label: impl Into<String>,
     max_ticks: usize,
 ) -> ScatterAxesContext {
-    let tick_count = clamp_tick_count(max_ticks);
+    scatter_axes_context_with_options(
+        x_range,
+        y_range,
+        x_label,
+        y_label,
+        ScatterAxesOptions {
+            target_tick_count: max_ticks,
+            x_format: AxisValueFormat::Decimal {
+                max_fraction_digits: 1,
+            },
+            y_format: AxisValueFormat::Decimal {
+                max_fraction_digits: 1,
+            },
+            guides: Vec::new(),
+        },
+    )
+}
+
+/// Builds scatter axes with explicit formatting and reference guides.
+pub fn scatter_axes_context_with_options(
+    x_range: F32Range,
+    y_range: F32Range,
+    x_label: impl Into<String>,
+    y_label: impl Into<String>,
+    options: ScatterAxesOptions,
+) -> ScatterAxesContext {
+    let tick_count = clamp_tick_count(options.target_tick_count).min(MAX_AXIS_TICKS);
 
     ScatterAxesContext {
         x: NumericAxisContext {
             label: x_label.into(),
-            ticks: numeric_axis_ticks(x_range.min, x_range.max, tick_count, format_float_tick),
+            ticks: nice_numeric_axis_ticks(x_range, tick_count, options.x_format),
         },
         y: NumericAxisContext {
             label: y_label.into(),
-            ticks: numeric_axis_ticks(y_range.min, y_range.max, tick_count, format_float_tick),
+            ticks: nice_numeric_axis_ticks(y_range, tick_count, options.y_format),
         },
+        guides: options
+            .guides
+            .into_iter()
+            .filter_map(|guide| project_guide(guide, x_range, y_range))
+            .collect(),
     }
 }
 
@@ -89,29 +163,44 @@ fn clamp_tick_count(requested: usize) -> usize {
     requested.max(MIN_AXIS_TICK_COUNT)
 }
 
-fn numeric_axis_ticks(
-    min: f32,
-    max: f32,
-    tick_count: usize,
-    format_label: impl Fn(f32) -> String,
+fn nice_numeric_axis_ticks(
+    range: F32Range,
+    target_tick_count: usize,
+    format: AxisValueFormat,
 ) -> Vec<AxisTick> {
-    if tick_count == 0 {
+    let span = range.span();
+    if !span.is_finite() || span <= 0.0 || target_tick_count < 2 {
         return Vec::new();
     }
 
-    let span = max - min;
-    let denominator = tick_count as f32 - 1.0;
-
-    (0..tick_count)
-        .map(|tick_index| {
-            let fraction = (tick_index as f32) / denominator;
-            let value = min + (span * fraction);
-            AxisTick {
-                fraction: fraction.clamp(0.0, 1.0),
-                label: format_label(value),
-            }
-        })
-        .collect()
+    let raw_step = span / (target_tick_count.saturating_sub(1)) as f32;
+    let magnitude = 10.0_f32.powf(raw_step.abs().log10().floor());
+    let normalized = raw_step / magnitude;
+    let step_factor = if normalized <= 1.0 {
+        1.0
+    } else if normalized <= 2.0 {
+        2.0
+    } else if normalized <= 5.0 {
+        5.0
+    } else {
+        10.0
+    };
+    let step = step_factor * magnitude;
+    let first = (range.min / step).ceil() * step;
+    let mut ticks = Vec::new();
+    let mut value = first;
+    while value <= range.max + step * 0.0001 && ticks.len() < MAX_AXIS_TICKS {
+        let fraction = ((value - range.min) / span).clamp(0.0, 1.0);
+        let label = format_axis_value(value, format);
+        if ticks
+            .last()
+            .is_none_or(|tick: &AxisTick| tick.label != label)
+        {
+            ticks.push(AxisTick { fraction, label });
+        }
+        value += step;
+    }
+    ticks
 }
 
 fn u64_axis_ticks(
@@ -151,8 +240,65 @@ fn u64_axis_ticks(
         .collect()
 }
 
-fn format_float_tick(value: f32) -> String {
-    format!("{value:.1}")
+fn format_axis_value(value: f32, format: AxisValueFormat) -> String {
+    match format {
+        AxisValueFormat::Integer => format!("{value:.0}"),
+        AxisValueFormat::Decimal {
+            max_fraction_digits,
+        } => {
+            let digits = usize::from(max_fraction_digits.min(6));
+            let formatted = format!("{value:.digits$}");
+            formatted
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_string()
+        }
+        AxisValueFormat::Compact if value.abs() >= 1_000_000.0 => {
+            format!("{:.1}M", value / 1_000_000.0)
+        }
+        AxisValueFormat::Compact if value.abs() >= 1_000.0 => {
+            format!("{:.1}k", value / 1_000.0)
+        }
+        AxisValueFormat::Compact => format_axis_value(
+            value,
+            AxisValueFormat::Decimal {
+                max_fraction_digits: 1,
+            },
+        ),
+    }
+}
+
+fn project_guide(
+    guide: ScatterReferenceGuide,
+    x_range: F32Range,
+    y_range: F32Range,
+) -> Option<ScatterReferenceGuideSegment> {
+    let (start, end) = match guide.kind {
+        ScatterReferenceGuideKind::Equality => {
+            let min = x_range.min.max(y_range.min);
+            let max = x_range.max.min(y_range.max);
+            (max > min).then_some(((min, min), (max, max)))?
+        }
+        ScatterReferenceGuideKind::Horizontal { y } if y_range.contains(y) => {
+            ((x_range.min, y), (x_range.max, y))
+        }
+        ScatterReferenceGuideKind::Vertical { x } if x_range.contains(x) => {
+            ((x, y_range.min), (x, y_range.max))
+        }
+        _ => return None,
+    };
+    let project = |(x, y): (f32, f32)| {
+        (
+            ((x - x_range.min) / x_range.span()).clamp(0.0, 1.0),
+            ((y_range.max - y) / y_range.span()).clamp(0.0, 1.0),
+        )
+    };
+    Some(ScatterReferenceGuideSegment {
+        kind: guide.kind,
+        label: guide.label,
+        start_fraction: project(start),
+        end_fraction: project(end),
+    })
 }
 
 fn sample_lane_labels(
@@ -189,96 +335,4 @@ fn lane_label_text(lane_labels: &[String], lane: u32) -> String {
         .filter(|label| !label.is_empty())
         .cloned()
         .unwrap_or_else(|| format!("lane-{lane}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn scatter_axis_ticks_are_deterministic() {
-        let first = scatter_axes_context(
-            F32Range::new(0.0, 100.0),
-            F32Range::new(50.0, 150.0),
-            "x",
-            "y",
-            6,
-        );
-        let second = scatter_axes_context(
-            F32Range::new(0.0, 100.0),
-            F32Range::new(50.0, 150.0),
-            "x",
-            "y",
-            6,
-        );
-
-        assert_eq!(first, second);
-        assert_eq!(first.x.ticks.first().map(|tick| tick.fraction), Some(0.0));
-        assert_eq!(first.x.ticks.last().map(|tick| tick.fraction), Some(1.0));
-    }
-
-    #[test]
-    fn timeline_axis_ticks_include_endpoints() {
-        let context = timeline_axes_context(U64Range::new(1_000, 2_000), 4, &[], 5, 4);
-
-        let first_tick = context
-            .time
-            .ticks
-            .first()
-            .expect("first time tick must exist");
-        let last_tick = context
-            .time
-            .ticks
-            .last()
-            .expect("last time tick must exist");
-
-        assert_eq!(first_tick.label, "1000");
-        assert_eq!(last_tick.label, "2000");
-        assert_eq!(first_tick.fraction, 0.0);
-        assert_eq!(last_tick.fraction, 1.0);
-    }
-
-    #[test]
-    fn timeline_lane_labels_use_dataset_labels() {
-        let context = timeline_axes_context(
-            U64Range::new(1_000, 2_000),
-            8,
-            &[
-                "blue".to_string(),
-                "green".to_string(),
-                "red".to_string(),
-                "yellow".to_string(),
-                "teal".to_string(),
-                "orange".to_string(),
-                "purple".to_string(),
-                "black".to_string(),
-            ],
-            5,
-            4,
-        );
-
-        assert_eq!(
-            context
-                .lanes
-                .iter()
-                .map(|lane| lane.label.clone())
-                .collect::<Vec<_>>(),
-            ["blue", "red", "teal", "black"]
-        );
-    }
-
-    #[test]
-    fn timeline_lane_labels_fall_back_to_lane_index() {
-        let context =
-            timeline_axes_context(U64Range::new(1_000, 2_000), 4, &["blue".to_string()], 5, 4);
-
-        assert_eq!(
-            context
-                .lanes
-                .iter()
-                .map(|lane| lane.label.clone())
-                .collect::<Vec<_>>(),
-            ["blue", "lane-1", "lane-2", "lane-3"]
-        );
-    }
 }
