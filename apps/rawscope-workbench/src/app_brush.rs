@@ -66,13 +66,7 @@ impl WorkbenchApp {
         self.scatter.selection_drilldown = None;
         self.scatter.brush_drag_start = None;
         self.clear_active_selection();
-        self.export_status = if self.scatter_filters.is_active() {
-            crate::ui::ExportStatus::Unavailable {
-                reason: crate::ui_filters::FILTERED_EXPORT_UNAVAILABLE_REASON.to_string(),
-            }
-        } else {
-            crate::ui::ExportStatus::Idle
-        };
+        self.export_status = crate::ui::ExportStatus::Idle;
         self.update_window_title();
         self.request_redraw();
 

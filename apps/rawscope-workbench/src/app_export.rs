@@ -3,9 +3,13 @@
 use tracing::{error, info, warn};
 
 use rawscope_render::{
-    scatter_aggregate_evidence_context, timeline_aggregate_evidence_context, ScatterEvidenceView,
-    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, TimelineEvidenceView,
-    TimelineSelectionEvidenceV2, TimelineSelectionEvidenceV3,
+    normalized_difference_density, scatter_aggregate_evidence_context,
+    timeline_aggregate_evidence_context, DifferenceDensityEvidenceConfig,
+    PinnedScatterInspectionEvidence, PointRevealEvidence, PointRevealStats, ScatterCohortEvidence,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterEvidenceView, ScatterInspectionConfig,
+    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4,
+    ScatterVisualQueryV4, TimelineEvidenceView, TimelineSelectionEvidenceV2,
+    TimelineSelectionEvidenceV3, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
 };
 
 use crate::{
@@ -20,12 +24,6 @@ use crate::{
 
 impl WorkbenchApp {
     pub(crate) fn export_selection_evidence(&mut self) {
-        if self.scatter_filters.is_active() {
-            self.export_status = ExportStatus::Unavailable {
-                reason: crate::ui_filters::FILTERED_EXPORT_UNAVAILABLE_REASON.to_string(),
-            };
-            return;
-        }
         let Some(evidence_v2) = self.scatter_selection_evidence_v2() else {
             self.export_status = ExportStatus::NoSelection;
             warn!(
@@ -35,6 +33,9 @@ impl WorkbenchApp {
             return;
         };
         let evidence_v3 = self.scatter_selection_evidence_v3(&evidence_v2);
+        let evidence_v4 = evidence_v3
+            .as_ref()
+            .and_then(|evidence| self.scatter_selection_evidence_v4(evidence));
 
         let export_counter = self.next_evidence_export_counter();
         let export_timestamp_unix_ms = current_unix_timestamp_ms();
@@ -44,9 +45,10 @@ impl WorkbenchApp {
             export_timestamp_unix_ms,
             export_counter,
         );
-        let write_result = match evidence_v3.as_ref() {
-            Some(evidence) => export_paths.write_scatter_v3(evidence),
-            None => export_paths.write_scatter(&evidence_v2),
+        let write_result = match (evidence_v4.as_ref(), evidence_v3.as_ref()) {
+            (Some(evidence), _) => export_paths.write_scatter_v4(evidence),
+            (None, Some(evidence)) => export_paths.write_scatter_v3(evidence),
+            (None, None) => export_paths.write_scatter(&evidence_v2),
         };
         if let Err(err) = write_result {
             self.export_status = ExportStatus::Failed {
@@ -63,9 +65,14 @@ impl WorkbenchApp {
             );
             return;
         }
-        let (selected_row_count, evidence_schema_version) = evidence_v3
+        let (selected_row_count, evidence_schema_version) = evidence_v4
             .as_ref()
             .map(|evidence| (evidence.selected_row_count, evidence.schema_version))
+            .or_else(|| {
+                evidence_v3
+                    .as_ref()
+                    .map(|evidence| (evidence.selected_row_count, evidence.schema_version))
+            })
             .unwrap_or((evidence_v2.selected_row_count, 2));
         self.evidence_export_counter = export_paths.export_counter;
         self.export_status = ExportStatus::Exported {
@@ -190,6 +197,117 @@ impl WorkbenchApp {
             ),
             self.active_dataset_profile,
         ))
+    }
+
+    fn scatter_selection_evidence_v4(
+        &self,
+        evidence_v3: &ScatterSelectionEvidenceV3,
+    ) -> Option<ScatterSelectionEvidenceV4> {
+        let full_row_count = self.scatter.points.len();
+        let (included_row_count, excluded_row_count) = self
+            .scatter_filters
+            .evaluation
+            .as_ref()
+            .map(|evaluation| (evaluation.included_count, evaluation.excluded_count))
+            .unwrap_or((full_row_count, 0));
+        let point_stats = self.point_reveal.stats.unwrap_or(PointRevealStats {
+            eligible_count: 0,
+            rendered_count: 0,
+            sampled: false,
+            blend: 0.0,
+        });
+        let density_mode = self.scatter.density_mode;
+        let difference = (density_mode == ScatterDensityMode::FilteredDifference)
+            .then(|| self.difference_evidence_config())
+            .flatten();
+        if density_mode == ScatterDensityMode::FilteredDifference && difference.is_none() {
+            return None;
+        }
+        let density_presentation = if density_mode == ScatterDensityMode::FilteredDifference {
+            ScatterDensityPresentation::ExactCells
+        } else {
+            self.scatter.density_presentation
+        };
+        let rendered_count = if density_mode == ScatterDensityMode::FilteredDifference {
+            0
+        } else {
+            point_stats.rendered_count
+        };
+        let visual_query = ScatterVisualQueryV4 {
+            x_range: evidence_v3.view.x_range,
+            y_range: evidence_v3.view.y_range,
+            grid_width: evidence_v3.view.grid_width,
+            grid_height: evidence_v3.view.grid_height,
+            projection: self.scatter_projection.active,
+            filters: self.scatter_filters.filters.filters.clone(),
+            density_mode,
+            density_encoding: self.scatter.density_encoding,
+            density_presentation,
+            difference,
+            point_reveal: PointRevealEvidence {
+                mode: self.point_reveal.config.mode,
+                eligible_count: point_stats.eligible_count,
+                rendered_count,
+                sampled: point_stats.sampled,
+            },
+            relief: (density_mode == ScatterDensityMode::AbsoluteDensity
+                && density_presentation == ScatterDensityPresentation::ReliefField)
+                .then_some(self.scatter.relief_config),
+        };
+        let pinned_inspection =
+            self.scatter_inspection
+                .pinned
+                .as_ref()
+                .map(|pinned| PinnedScatterInspectionEvidence {
+                    bin_x: pinned.hit.bin_x,
+                    bin_y: pinned.hit.bin_y,
+                    x_range: pinned.hit.x_range,
+                    y_range: pinned.hit.y_range,
+                    row_count: pinned.hit.count,
+                    row_id_sample: pinned.hit.row_ids.iter().copied().collect(),
+                    sample_limit: ScatterInspectionConfig::default().max_row_ids_per_bin,
+                });
+        ScatterSelectionEvidenceV4::from_v3(
+            evidence_v3,
+            visual_query,
+            ScatterCohortEvidence {
+                full_row_count,
+                included_row_count,
+                excluded_row_count,
+            },
+            pinned_inspection,
+        )
+        .ok()
+    }
+
+    fn difference_evidence_config(&self) -> Option<DifferenceDensityEvidenceConfig> {
+        let baseline_grid = self.scatter_inspection.baseline_grid.as_ref()?;
+        let active_grid = self.scatter_inspection.grid.as_ref()?;
+        let difference_stats = self.scatter.difference_stats?;
+        let baseline_counts = baseline_grid
+            .bins
+            .iter()
+            .map(|bin| bin.count)
+            .collect::<Vec<_>>();
+        let active_counts = active_grid
+            .bins
+            .iter()
+            .map(|bin| bin.count)
+            .collect::<Vec<_>>();
+        let grid = normalized_difference_density(
+            &baseline_counts,
+            &active_counts,
+            difference_stats.baseline_total,
+            difference_stats.active_total,
+        )
+        .ok()?;
+        Some(DifferenceDensityEvidenceConfig {
+            formula: DIFFERENCE_FORMULA_ID,
+            baseline: DIFFERENCE_BASELINE_ID,
+            baseline_total: difference_stats.baseline_total,
+            active_total: difference_stats.active_total,
+            max_abs_delta: grid.stats.max_abs_delta as f32,
+        })
     }
 
     fn timeline_selection_evidence_v2(&self) -> Option<TimelineSelectionEvidenceV2> {

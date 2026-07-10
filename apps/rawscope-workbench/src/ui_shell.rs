@@ -346,10 +346,7 @@ fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
                 ui.label(RichText::new("Refining").small().color(ACCENT));
                 return;
             }
-            let status_is_error = matches!(
-                &state.export_status,
-                ExportStatus::Failed { .. } | ExportStatus::Unavailable { .. }
-            );
+            let status_is_error = matches!(&state.export_status, ExportStatus::Failed { .. });
             let status_is_complete = matches!(&state.export_status, ExportStatus::Exported { .. });
             ui.label(
                 RichText::new(state.export_status.label())
