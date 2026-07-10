@@ -20,6 +20,7 @@ mod scatter_density_gpu_state;
 mod scatter_density_presentation;
 mod scatter_density_renderer;
 mod scatter_density_reprojection;
+mod scatter_inspection;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
@@ -77,6 +78,10 @@ pub use scatter_density_renderer::{
 };
 pub use scatter_density_reprojection::{
     DensityFieldViewport, DensityQualityTier, DensityReprojection,
+};
+pub use scatter_inspection::{
+    build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
+    ScatterInspectionError, ScatterInspectionGrid, ScatterInspectionHit,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,

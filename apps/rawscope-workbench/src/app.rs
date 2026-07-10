@@ -34,6 +34,7 @@ use crate::{
     app_missingness::MissingnessWorkbenchState,
     app_render_schedule::RenderSchedule,
     app_scatter_filter::ScatterFilterState,
+    app_scatter_inspection::ScatterInspectionState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
@@ -93,6 +94,7 @@ pub struct WorkbenchApp {
     pub(crate) evidence_export_counter: u64,
     pub(crate) render_schedule: RenderSchedule,
     pub(crate) scatter_filters: ScatterFilterState,
+    pub(crate) scatter_inspection: ScatterInspectionState,
 }
 
 /// Scatter-specific workbench state.
@@ -276,6 +278,7 @@ impl WorkbenchApp {
             ));
             self.rebuild_scatter_aggregate_overview();
             self.scatter.density_renderer = Some(scatter_density_renderer);
+            self.rebuild_scatter_inspection_cache();
             self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
             self.rebuild_missingness_state();
@@ -322,6 +325,7 @@ impl WorkbenchApp {
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
         self.scatter_filters = ScatterFilterState::default();
+        self.scatter_inspection = ScatterInspectionState::default();
         self.clear_dataset_diff_state();
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
@@ -360,6 +364,7 @@ impl WorkbenchApp {
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
         self.scatter_filters = ScatterFilterState::default();
+        self.scatter_inspection = ScatterInspectionState::default();
         self.clear_dataset_diff_state();
         self.scatter.active_preset = preset;
         self.scatter.point_count_label = preset.row_count_label().to_string();
@@ -427,6 +432,7 @@ impl WorkbenchApp {
         )?;
         self.scatter.render_stats = Some(stats);
         self.render_schedule.exact_field_settled();
+        self.rebuild_scatter_inspection_cache();
         self.update_window_title();
         self.request_redraw();
 

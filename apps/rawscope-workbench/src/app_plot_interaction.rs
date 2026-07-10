@@ -130,6 +130,7 @@ impl WorkbenchApp {
         };
 
         viewport.reset();
+        self.invalidate_scatter_inspection();
         if let Err(err) = self.recompute_density() {
             error!(error = %err, "failed to recompute scatter density after reset");
         }

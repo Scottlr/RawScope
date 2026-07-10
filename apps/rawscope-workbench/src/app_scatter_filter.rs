@@ -147,6 +147,7 @@ impl WorkbenchApp {
         self.scatter_filters.filters = next_filters;
         self.scatter_filters.evaluation = Some(evaluation);
         self.scatter_filters.error = None;
+        self.invalidate_scatter_inspection();
         self.clear_brush();
         self.export_status = if self.scatter_filters.is_active() {
             ExportStatus::Unavailable {

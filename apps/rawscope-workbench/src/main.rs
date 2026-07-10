@@ -15,6 +15,7 @@ mod app_report_bundle;
 #[cfg(test)]
 mod app_report_bundle_tests;
 mod app_scatter_filter;
+mod app_scatter_inspection;
 mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;
@@ -32,6 +33,7 @@ mod ui_filters;
 mod ui_missingness;
 mod ui_plot_axes;
 mod ui_plot_surface;
+mod ui_scatter_inspection;
 mod ui_shell;
 mod ui_theme;
 mod ui_view_context;

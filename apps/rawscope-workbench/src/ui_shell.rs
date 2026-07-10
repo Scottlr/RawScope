@@ -13,6 +13,7 @@ use crate::{
     ui_missingness::{show_missingness_summary, show_missingness_view},
     ui_plot_axes::show_plot_axes,
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
+    ui_scatter_inspection::{show_pinned_scatter_inspection, show_scatter_inspection_tooltip},
     ui_theme::{
         export_status_color, icon_command_button, icon_segment_button, navigation_button,
         right_rail_frame, status_badge, status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
@@ -99,6 +100,7 @@ pub(crate) fn show_workbench_ui(
             plot_surface
         }
     };
+    show_scatter_inspection_tooltip(ui.ctx(), state.scatter_inspection.as_ref());
 
     WorkbenchUiOutput {
         actions,
@@ -262,6 +264,15 @@ fn show_right_rail(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiAction
         }
         WorkbenchSurface::DatasetDiff => show_dataset_diff_summary(ui, state.dataset_diff.as_ref()),
         WorkbenchSurface::Primary => {
+            actions.scatter_inspection_action =
+                show_pinned_scatter_inspection(ui, state.scatter_inspection.as_ref());
+            if state
+                .scatter_inspection
+                .as_ref()
+                .is_some_and(|inspection| inspection.pinned.is_some())
+            {
+                ui.separator();
+            }
             actions.filter_action = show_filters(ui, state.scatter_filters.as_ref());
             if state.scatter_filters.is_some() {
                 ui.separator();

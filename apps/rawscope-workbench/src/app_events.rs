@@ -55,6 +55,7 @@ impl ApplicationHandler for WorkbenchApp {
             WindowEvent::CursorLeft { .. } if self.active_pointer_gesture.is_none() => {
                 self.cursor_position = None;
                 self.inspect_cursor_position = None;
+                self.clear_scatter_inspection_hover();
                 self.update_pointer_cursor();
             }
             WindowEvent::MouseWheel { delta, .. }

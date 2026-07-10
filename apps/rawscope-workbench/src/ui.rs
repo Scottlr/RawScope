@@ -16,6 +16,7 @@ use crate::{
     ui_controls::UiActions,
     ui_dataset_identity::DatasetDisplayIdentity,
     ui_filters::{scatter_filters_ui_state, ScatterFiltersUiState},
+    ui_scatter_inspection::{scatter_inspection_ui_state, ScatterInspectionUiState},
     ui_shell::{show_workbench_ui, WorkbenchShellState, WorkbenchUiOutput},
     ui_view_context::{view_axes_ui_state, view_context_ui_state, WorkbenchViewContextUiState},
     ui_visual_encoding::{density_encoding_ui_state, DensityEncodingUiState},
@@ -121,6 +122,7 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) can_clear_selection: bool,
     pub(crate) density_is_refining: bool,
     pub(crate) scatter_filters: Option<ScatterFiltersUiState>,
+    pub(crate) scatter_inspection: Option<ScatterInspectionUiState>,
 }
 
 impl WorkbenchUiState {
@@ -179,6 +181,7 @@ impl WorkbenchApp {
         let linked_selection_label = linked_selection_label(self);
         let comparison = self.active_comparison.clone();
         let (axis_primary_label, axis_secondary_label) = axis_labels(self);
+        let scatter_inspection = scatter_inspection_ui_state(self);
         let view_axes = view_axes_ui_state(self);
         let density_encoding = density_encoding_ui_state(self);
         let view_context = view_context_ui_state(self);
@@ -266,6 +269,7 @@ impl WorkbenchApp {
             can_clear_selection,
             density_is_refining: self.render_schedule.is_refining(),
             scatter_filters: scatter_filters_ui_state(self),
+            scatter_inspection,
         }
     }
 
@@ -377,6 +381,14 @@ impl WorkbenchApp {
 
         if let Some(action) = actions.filter_action {
             self.apply_scatter_filter_action(action);
+        }
+
+        if let Some(action) = actions.scatter_inspection_action {
+            match action {
+                crate::ui_scatter_inspection::ScatterInspectionAction::ClearPinned => {
+                    self.clear_pinned_scatter_inspection()
+                }
+            }
         }
     }
 
