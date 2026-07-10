@@ -56,7 +56,11 @@ impl DatasetDisplayIdentity {
     }
 
     pub(crate) fn visible_label(&self) -> String {
-        format!("{} - {} rows", self.short_name, self.row_count_label())
+        let base = format!("{} - {} rows", self.short_name, self.row_count_label());
+        self.profile_label
+            .as_ref()
+            .map(|profile| format!("{base} - {profile}"))
+            .unwrap_or(base)
     }
 
     pub(crate) fn row_count_label(&self) -> String {
@@ -87,7 +91,7 @@ fn local_short_name(path: &std::path::Path) -> String {
         .to_string()
 }
 
-fn format_row_count(row_count: usize) -> String {
+pub(crate) fn format_row_count(row_count: usize) -> String {
     let digits = row_count.to_string();
     let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
     for (index, character) in digits.chars().enumerate() {
@@ -154,5 +158,33 @@ mod tests {
 
         assert_eq!(title, "RawScope - games.parquet");
         assert!(!title.contains("private"));
+    }
+
+    #[test]
+    fn lichess_identity_hides_full_path_in_chrome() {
+        let path = PathBuf::from(r"C:\private\lichess\games_profile.csv");
+        let identity = DatasetIdentity {
+            visual_kind: VisualDatasetKind::Scatter,
+            source: DatasetSource::LocalCsv {
+                path: path.clone(),
+                limit: None,
+            },
+            row_count: 200_000,
+            field_bindings: Vec::new(),
+            lane_labels: Vec::new(),
+        };
+        let display = DatasetDisplayIdentity::from_dataset(
+            &identity,
+            Some(rawscope_data::DatasetProfileId::LichessGames),
+        );
+
+        assert_eq!(
+            display.visible_label(),
+            "games_profile.csv - 200,000 rows - Lichess games"
+        );
+        assert!(!display.visible_label().contains("private"));
+        assert!(display
+            .details_label()
+            .contains(&path.display().to_string()));
     }
 }

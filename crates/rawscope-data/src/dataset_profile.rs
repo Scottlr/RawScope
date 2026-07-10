@@ -5,7 +5,17 @@ use std::{error::Error, fmt};
 use crate::{LoadedColumnKind, LoadedColumnSchema, VisualFieldCatalog, VisualFieldSummary};
 
 const LICHESS_GAMES_PROFILE_VALUE: &str = "lichess-games";
-const LICHESS_GAMES_DISPLAY_NAME: &str = "Lichess-style chess games";
+const LICHESS_GAMES_DISPLAY_NAME: &str = "Lichess games";
+const LICHESS_PREFERRED_FILTER_COLUMNS: [&str; 8] = [
+    "winner",
+    "category",
+    "time_control",
+    "termination",
+    "event",
+    "weekday",
+    "eco",
+    "opening",
+];
 
 const LICHESS_GAMES_REQUIRED_COLUMNS: [DatasetProfileColumn; 4] = [
     DatasetProfileColumn::new("created_at", LoadedColumnKind::Integer),
@@ -39,6 +49,11 @@ const LICHESS_GAMES_PROFILE: DatasetProfile = DatasetProfile {
         show_equality_guide: true,
         supports_mean_difference: true,
         filter_columns: &LICHESS_FILTER_HINTS,
+    },
+    scatter_defaults: ScatterDatasetProfileDefaults {
+        show_equality_guide: true,
+        suggest_mean_difference: true,
+        preferred_filter_columns: &LICHESS_PREFERRED_FILTER_COLUMNS,
     },
 };
 
@@ -128,6 +143,13 @@ pub struct ScatterDatasetProfileHints {
     pub filter_columns: &'static [DatasetProfileFilterHint],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ScatterDatasetProfileDefaults {
+    pub show_equality_guide: bool,
+    pub suggest_mean_difference: bool,
+    pub preferred_filter_columns: &'static [&'static str],
+}
+
 impl TimelineDatasetProfileBinding {
     pub const fn new(time_column: &'static str, lane_column: &'static str) -> Self {
         Self {
@@ -146,6 +168,7 @@ pub struct DatasetProfile {
     pub scatter_binding: Option<ScatterDatasetProfileBinding>,
     pub timeline_binding: Option<TimelineDatasetProfileBinding>,
     pub scatter_hints: ScatterDatasetProfileHints,
+    pub scatter_defaults: ScatterDatasetProfileDefaults,
 }
 
 pub fn available_profile_filter_hints(

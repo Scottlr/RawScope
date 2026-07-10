@@ -318,10 +318,10 @@ fn point_reveal_selector(
         }
     });
     if let Some(stats) = stats {
-        let sampled = if stats.sampled { " sampled" } else { "" };
+        let sampled = if stats.sampled { " (sampled)" } else { "" };
         ui.label(format!(
-            "Points {} / {}{} | blend {:.2}",
-            stats.rendered_count, stats.eligible_count, sampled, stats.blend
+            "Points {} of {}{}",
+            stats.rendered_count, stats.eligible_count, sampled
         ));
     }
     selected

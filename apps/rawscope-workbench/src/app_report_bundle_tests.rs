@@ -6,9 +6,9 @@ use rawscope_data::{
     SyntheticPointCategory,
 };
 use rawscope_render::{
-    AggregateEvidenceBin, ComparisonRatio, DensityEncoding, PointRevealEvidence, PointRevealMode,
-    ScatterAggregateEvidenceContext, ScatterCohortEvidence, ScatterDensityMode,
-    ScatterDensityPresentation, ScatterEvidenceView, ScatterKindComparison,
+    scatter_selection_evidence_v4_json, AggregateEvidenceBin, ComparisonRatio, DensityEncoding,
+    PointRevealEvidence, PointRevealMode, ScatterAggregateEvidenceContext, ScatterCohortEvidence,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterEvidenceView, ScatterKindComparison,
     ScatterSelectionComparison, ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3,
     ScatterSelectionEvidenceV4, ScatterVisualQueryV4, SelectedCategoryCounts,
     SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
@@ -200,6 +200,17 @@ fn write_scatter_bundle_v4_creates_manifest_and_evidence() {
     assert!(context.contains("schema_version: 4"));
     assert!(context.contains("projection: Raw"));
     fs::remove_dir_all(&test_dir).unwrap();
+}
+
+#[test]
+fn v4_bundle_captures_curated_active_state() {
+    let json = scatter_selection_evidence_v4_json(&sample_scatter_evidence_v4()).unwrap();
+
+    assert!(json.contains("\"variant\": \"raw_xy\""));
+    assert!(json.contains("\"density_mode\": \"absolute_density\""));
+    assert!(json.contains("\"density_presentation\": \"topographic_field\""));
+    assert!(json.contains("\"mode\": \"auto\""));
+    assert!(json.contains("\"included_row_count\": 20000"));
 }
 
 #[test]

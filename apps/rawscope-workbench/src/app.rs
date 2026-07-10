@@ -218,6 +218,13 @@ impl WorkbenchApp {
     pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         self.cancel_visual_transition();
         self.clear_aggregate_overviews();
+        let active_profile = self.input.as_ref().and_then(|input| match input {
+            WorkbenchInput::Scatter { profile, .. } => *profile,
+            WorkbenchInput::Timeline { .. } => None,
+        });
+        if let Some(profile_id) = active_profile {
+            self.apply_scatter_profile_defaults(profile_id);
+        }
 
         if let Some(WorkbenchInput::Scatter {
             path,

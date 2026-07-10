@@ -8,6 +8,8 @@ const AXIS_FONT_SIZE_POINTS: f32 = 11.0;
 const TICK_LENGTH_POINTS: f32 = 4.0;
 const TICK_TEXT_GAP_POINTS: f32 = 5.0;
 const AXIS_LABEL_GAP_POINTS: f32 = 22.0;
+const GUIDE_LABEL_INSET_POINTS: f32 = 8.0;
+const GUIDE_LABEL_VERTICAL_OFFSET_POINTS: f32 = 6.0;
 
 pub(crate) fn show_plot_axes(
     ui: &mut Ui,
@@ -52,9 +54,10 @@ pub(crate) fn show_plot_axes(
                 let start = fraction_point(layout.plot_rect, guide.start_fraction);
                 let end = fraction_point(layout.plot_rect, guide.end_fraction);
                 plot_painter.line_segment([start, end], guide_stroke);
+                let (label_position, label_alignment) = guide_label_layout(start, end, guide.kind);
                 painter.text(
-                    start,
-                    Align2::LEFT_BOTTOM,
+                    label_position,
+                    label_alignment,
                     &guide.label,
                     font.clone(),
                     Color32::from_rgb(226, 193, 105),
@@ -253,5 +256,44 @@ mod tests {
         assert!(visible <= 3);
         assert!(tick_label_is_visible(0, 9, 180.0, 72.0));
         assert!(tick_label_is_visible(8, 9, 180.0, 72.0));
+    }
+
+    #[test]
+    fn guide_label_is_inset_from_y_axis() {
+        let plot_rect = Rect::from_min_max(pos2(58.0, 10.0), pos2(688.0, 462.0));
+        let guide_start = fraction_point(plot_rect, (0.0, 0.5));
+        let guide_end = fraction_point(plot_rect, (1.0, 0.5));
+        let (label_position, alignment) = guide_label_layout(
+            guide_start,
+            guide_end,
+            rawscope_render::ScatterReferenceGuideKind::Horizontal { y: 0.0 },
+        );
+
+        assert!(label_position.x > plot_rect.center().x);
+        assert_eq!(alignment, Align2::RIGHT_BOTTOM);
+        assert!(label_position.y < plot_rect.center().y);
+    }
+}
+
+fn guide_label_layout(
+    start: Pos2,
+    end: Pos2,
+    kind: rawscope_render::ScatterReferenceGuideKind,
+) -> (Pos2, Align2) {
+    match kind {
+        rawscope_render::ScatterReferenceGuideKind::Horizontal { .. } => (
+            Pos2::new(
+                end.x - GUIDE_LABEL_INSET_POINTS,
+                end.y - GUIDE_LABEL_VERTICAL_OFFSET_POINTS,
+            ),
+            Align2::RIGHT_BOTTOM,
+        ),
+        _ => (
+            Pos2::new(
+                start.x + GUIDE_LABEL_INSET_POINTS,
+                start.y - GUIDE_LABEL_VERTICAL_OFFSET_POINTS,
+            ),
+            Align2::LEFT_BOTTOM,
+        ),
     }
 }

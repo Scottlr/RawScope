@@ -116,6 +116,18 @@ fn lichess_profile_recommends_but_does_not_default_projection() {
 }
 
 #[test]
+fn lichess_profile_defaults_are_curated_for_visual_analysis() {
+    let defaults = dataset_profile(DatasetProfileId::LichessGames).scatter_defaults;
+
+    assert!(defaults.show_equality_guide);
+    assert!(defaults.suggest_mean_difference);
+    assert_eq!(
+        &defaults.preferred_filter_columns[..3],
+        &["winner", "category", "time_control"]
+    );
+}
+
+#[test]
 fn available_hints_skip_missing_columns() {
     let profile = dataset_profile(DatasetProfileId::LichessGames);
     let source = LoadedSourceTable {

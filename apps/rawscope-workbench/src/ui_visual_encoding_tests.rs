@@ -113,7 +113,7 @@ fn point_reveal_stats_are_projected_without_threshold_controls() {
 }
 
 #[test]
-fn eligible_scatter_exposes_explicit_projection_state() {
+fn lichess_projection_options_include_mean_difference() {
     let encoding = DensityEncodingUiState::scatter(
         DensityEncoding::scatter_default(),
         ScatterDensityPresentation::TopographicField,

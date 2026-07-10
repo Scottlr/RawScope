@@ -5,6 +5,11 @@ use std::{io, path::Path};
 use rawscope_data::{
     dataset_profile, load_dataset_schema, validate_dataset_profile, DatasetProfileId,
 };
+use rawscope_render::{
+    PointRevealConfig, ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
+};
+
+use crate::{app::WorkbenchApp, app_interaction_mode::WorkbenchInteractionMode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResolvedScatterInputBinding {
@@ -18,6 +23,21 @@ pub(crate) struct ResolvedTimelineInputBinding {
     pub(crate) time_column: String,
     pub(crate) lane_column: String,
     pub(crate) active_profile: Option<DatasetProfileId>,
+}
+
+impl WorkbenchApp {
+    pub(crate) fn apply_scatter_profile_defaults(&mut self, profile_id: DatasetProfileId) {
+        match profile_id {
+            DatasetProfileId::LichessGames => {
+                self.scatter.density_mode = ScatterDensityMode::AbsoluteDensity;
+                self.scatter.density_presentation = ScatterDensityPresentation::TopographicField;
+                self.scatter.relief_config = ReliefFieldConfig::default();
+                self.point_reveal.config = PointRevealConfig::default();
+                self.interaction_mode = WorkbenchInteractionMode::Pan;
+                self.scatter_filters.filters.clear();
+            }
+        }
+    }
 }
 
 pub(crate) fn resolve_scatter_input_binding(
@@ -292,5 +312,30 @@ mod tests {
             fs::remove_file(&path).unwrap();
         }
         path
+    }
+
+    #[test]
+    fn lichess_defaults_start_raw_unfiltered_and_topographic() {
+        let mut app = WorkbenchApp::default();
+        app.apply_scatter_profile_defaults(DatasetProfileId::LichessGames);
+
+        assert_eq!(
+            app.scatter_projection.active,
+            rawscope_data::ScatterProjection::RawXY
+        );
+        assert!(!app.scatter_filters.filters.is_active());
+        assert_eq!(
+            app.scatter.density_presentation,
+            ScatterDensityPresentation::TopographicField
+        );
+        assert_eq!(
+            app.scatter.density_mode,
+            ScatterDensityMode::AbsoluteDensity
+        );
+        assert_eq!(
+            app.point_reveal.config.mode,
+            rawscope_render::PointRevealMode::Auto
+        );
+        assert_eq!(app.interaction_mode, WorkbenchInteractionMode::Pan);
     }
 }

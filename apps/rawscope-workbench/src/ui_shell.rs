@@ -8,6 +8,7 @@ use crate::{
     ui_comparison::show_selection_comparison,
     ui_controls::UiActions,
     ui_dataset_diff::{show_dataset_diff_summary, show_dataset_diff_view},
+    ui_dataset_identity::format_row_count,
     ui_drilldown::show_selection_drilldown,
     ui_filters::show_filters,
     ui_missingness::{show_missingness_summary, show_missingness_view},
@@ -270,19 +271,6 @@ fn show_right_rail(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiAction
         }
         WorkbenchSurface::DatasetDiff => show_dataset_diff_summary(ui, state.dataset_diff.as_ref()),
         WorkbenchSurface::Primary => {
-            actions.scatter_inspection_action =
-                show_pinned_scatter_inspection(ui, state.scatter_inspection.as_ref());
-            if state
-                .scatter_inspection
-                .as_ref()
-                .is_some_and(|inspection| inspection.pinned.is_some())
-            {
-                ui.separator();
-            }
-            actions.filter_action = show_filters(ui, state.scatter_filters.as_ref());
-            if state.scatter_filters.is_some() {
-                ui.separator();
-            }
             let density_response = show_density_encoding(ui, state.density_encoding.as_ref());
             actions.set_density_transform = density_response.set_transform;
             actions.set_scatter_density_presentation = density_response.set_scatter_presentation;
@@ -291,6 +279,19 @@ fn show_right_rail(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiAction
             actions.set_scatter_density_mode = density_response.set_scatter_density_mode;
             actions.set_relief_config = density_response.set_relief_config;
             if density_response.shown {
+                ui.separator();
+            }
+            actions.filter_action = show_filters(ui, state.scatter_filters.as_ref());
+            if state.scatter_filters.is_some() {
+                ui.separator();
+            }
+            actions.scatter_inspection_action =
+                show_pinned_scatter_inspection(ui, state.scatter_inspection.as_ref());
+            if state
+                .scatter_inspection
+                .as_ref()
+                .is_some_and(|inspection| inspection.pinned.is_some())
+            {
                 ui.separator();
             }
             if show_view_context(ui, state.view_context.as_ref()) {
@@ -319,7 +320,7 @@ fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
         ui.label(
             RichText::new(format!(
                 "Cohort {}",
-                state.dataset_identity.row_count_label()
+                format_row_count(state.active_cohort_row_count)
             ))
             .monospace()
             .small()
