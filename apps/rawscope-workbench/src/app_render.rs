@@ -77,6 +77,8 @@ impl WorkbenchApp {
                         return;
                     };
                     let point_reveal_renderer = self.point_reveal.renderer.as_ref();
+                    let difference_renderer = self.scatter.difference_renderer.as_ref();
+                    let density_mode = self.scatter.density_mode;
                     let brush_screen_rect = self
                         .scatter
                         .active_brush_drag
@@ -100,9 +102,22 @@ impl WorkbenchApp {
                         });
 
                     gpu.render_frame(|device, queue, target_view, encoder| {
-                        scatter_density_renderer.render(encoder, target_view, plot_rect);
-                        if let Some(point_reveal_renderer) = point_reveal_renderer {
-                            point_reveal_renderer.render(queue, encoder, target_view, plot_rect);
+                        if density_mode == rawscope_render::ScatterDensityMode::FilteredDifference {
+                            if let Some(renderer) = difference_renderer {
+                                renderer.render(device, queue, encoder, target_view, plot_rect);
+                            }
+                        } else {
+                            scatter_density_renderer.render(encoder, target_view, plot_rect);
+                        }
+                        if density_mode == rawscope_render::ScatterDensityMode::AbsoluteDensity {
+                            if let Some(point_reveal_renderer) = point_reveal_renderer {
+                                point_reveal_renderer.render(
+                                    queue,
+                                    encoder,
+                                    target_view,
+                                    plot_rect,
+                                );
+                            }
                         }
                         scatter_brush_overlay_renderer.render(
                             queue,

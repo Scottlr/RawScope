@@ -142,11 +142,27 @@ impl WorkbenchApp {
                 return;
             }
         }
+        if let (Some(gpu), Some(renderer)) =
+            (self.gpu.as_ref(), self.scatter.difference_renderer.as_mut())
+        {
+            if let Err(err) =
+                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation.revision)
+            {
+                error!(error = %err, "failed to upload difference density filter mask");
+                self.scatter_filters.error = Some(err.to_string());
+                return;
+            }
+        }
 
+        let difference_remains_available =
+            next_filters.is_active() && evaluation.included_count > 0;
         self.scatter_filters.last_uploaded_revision = evaluation.revision;
         self.scatter_filters.filters = next_filters;
         self.scatter_filters.evaluation = Some(evaluation);
         self.scatter_filters.error = None;
+        if !difference_remains_available {
+            self.scatter.density_mode = rawscope_render::ScatterDensityMode::AbsoluteDensity;
+        }
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
         self.clear_brush();
@@ -248,5 +264,35 @@ mod tests {
             1
         );
         assert!(app.render_schedule.is_refining());
+    }
+
+    #[test]
+    fn filter_only_change_keeps_difference_baseline_clean() {
+        let mut app = WorkbenchApp::default();
+        app.scatter.source_rows = Some(source());
+        app.scatter.points = vec![
+            ScatterPointRecord {
+                row_id: RowId(0),
+                x: 1.0,
+                y: 1.0,
+                kind: ScatterPointKind::Unclassified,
+            },
+            ScatterPointRecord {
+                row_id: RowId(1),
+                x: 2.0,
+                y: 2.0,
+                kind: ScatterPointKind::Unclassified,
+            },
+        ];
+        app.initialize_scatter_filters();
+        app.scatter.difference_baseline_dirty = false;
+
+        app.apply_scatter_filter_action(FilterAction::SetCategories {
+            column_name: "winner".into(),
+            included_values: vec!["white".into()],
+            include_missing: false,
+        });
+
+        assert!(!app.scatter.difference_baseline_dirty);
     }
 }

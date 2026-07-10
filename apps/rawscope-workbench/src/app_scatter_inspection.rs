@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use rawscope_data::{
-    available_profile_filter_hints, dataset_profile, DatasetProfileFilterKind, FilterRevision,
-    LoadedSourceRow,
+    available_profile_filter_hints, dataset_profile, DatasetProfileFilterKind, FilterMask,
+    FilterRevision, LoadedSourceRow,
 };
 use rawscope_render::{
     build_scatter_inspection_grid, ScatterInspectionConfig, ScatterInspectionGrid,
@@ -23,6 +23,7 @@ const MAX_PINNED_CATEGORY_VALUES: usize = 4;
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ScatterInspectionState {
     pub(crate) grid: Option<ScatterInspectionGrid>,
+    pub(crate) baseline_grid: Option<ScatterInspectionGrid>,
     pub(crate) hovered: Option<ScatterInspectionHit>,
     pub(crate) pinned: Option<PinnedScatterInspection>,
     pub(crate) cache_viewport_revision: u64,
@@ -67,6 +68,16 @@ impl WorkbenchApp {
             config,
         ) {
             Ok(grid) => {
+                let baseline_mask = FilterMask::all_included(self.scatter.points.len());
+                self.scatter_inspection.baseline_grid = build_scatter_inspection_grid(
+                    &self.scatter.points,
+                    &baseline_mask,
+                    viewport.x_range(),
+                    viewport.y_range(),
+                    FilterRevision::default(),
+                    config,
+                )
+                .ok();
                 self.scatter_inspection.grid = Some(grid);
                 self.scatter_inspection.hovered = None;
                 self.scatter_inspection.cache_viewport_revision = viewport_revision;

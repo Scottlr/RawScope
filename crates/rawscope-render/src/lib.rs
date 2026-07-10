@@ -5,6 +5,7 @@ mod dataset_diff;
 mod density_encoding;
 mod density_reference;
 mod density_render_pipeline;
+mod difference_density;
 mod evidence_sample;
 mod gpu_density_pipeline;
 mod gpu_scatter_density;
@@ -20,6 +21,7 @@ mod scatter_density_gpu_state;
 mod scatter_density_presentation;
 mod scatter_density_renderer;
 mod scatter_density_reprojection;
+mod scatter_difference_renderer;
 mod scatter_inspection;
 mod scatter_point_renderer;
 mod scatter_point_reveal;
@@ -52,6 +54,11 @@ pub use density_encoding::{
     density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,
 };
 pub use density_reference::{scatter_density, timeline_density};
+pub use difference_density::{
+    difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
+    DifferenceDensityConfig, DifferenceDensityError, DifferenceDensityGrid, DifferenceDensityStats,
+    DifferenceInspection, DifferencePalette, ScatterDensityMode, DIFFERENCE_FIXED_POINT_SCALE,
+};
 pub use gpu_scatter_density::{
     gpu_scatter_density, gpu_scatter_density_masked, gpu_scatter_density_on_device,
     GpuScatterDensityError, GpuScatterDensityGrid,
@@ -81,6 +88,7 @@ pub use scatter_density_renderer::{
 pub use scatter_density_reprojection::{
     DensityFieldViewport, DensityQualityTier, DensityReprojection,
 };
+pub use scatter_difference_renderer::{ScatterDifferenceRenderStats, ScatterDifferenceRenderer};
 pub use scatter_inspection::{
     build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
     ScatterInspectionError, ScatterInspectionGrid, ScatterInspectionHit,

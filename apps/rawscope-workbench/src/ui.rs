@@ -347,6 +347,9 @@ impl WorkbenchApp {
                 tracing::error!(error = %err, "failed to switch scatter projection");
             }
         }
+        if let Some(mode) = actions.set_scatter_density_mode {
+            self.set_scatter_density_mode(mode);
+        }
 
         if actions.export_requested {
             match self.demo_mode {

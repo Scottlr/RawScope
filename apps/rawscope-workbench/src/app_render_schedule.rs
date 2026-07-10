@@ -188,10 +188,14 @@ impl WorkbenchApp {
         self.render_schedule.viewport_changed();
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
+        self.scatter.difference_baseline_dirty = true;
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
         {
             renderer.set_display_viewport(gpu.queue(), viewport.x_range(), viewport.y_range());
+        }
+        if let Some(renderer) = self.scatter.difference_renderer.as_mut() {
+            renderer.set_display_viewport(viewport.x_range(), viewport.y_range());
         }
         self.request_redraw();
     }
@@ -268,6 +272,25 @@ impl WorkbenchApp {
             }
         };
         self.scatter.render_stats = Some(stats);
+        if let Some(renderer) = self.scatter.difference_renderer.as_mut() {
+            let active_total = self
+                .scatter_filters
+                .evaluation
+                .as_ref()
+                .map_or(self.scatter.points.len() as u64, |evaluation| {
+                    evaluation.included_count as u64
+                });
+            let gpu = self.gpu.as_ref().expect("GPU checked above");
+            self.scatter.difference_stats = Some(renderer.update_fields(
+                gpu.device(),
+                gpu.queue(),
+                config,
+                self.scatter.difference_baseline_dirty,
+                active_total,
+                revision,
+            )?);
+            self.scatter.difference_baseline_dirty = false;
+        }
         let settled = self.render_schedule.work_completed(work);
         if settled {
             self.refresh_scatter_marginal_summary();

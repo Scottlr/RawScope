@@ -14,6 +14,8 @@ mod app_render_schedule;
 mod app_report_bundle;
 #[cfg(test)]
 mod app_report_bundle_tests;
+mod app_scatter_density;
+mod app_scatter_difference;
 mod app_scatter_filter;
 mod app_scatter_inspection;
 mod app_scatter_point_reveal;
@@ -30,6 +32,7 @@ mod ui_comparison;
 mod ui_controls;
 mod ui_dataset_diff;
 mod ui_dataset_identity;
+mod ui_difference_density;
 mod ui_drilldown;
 mod ui_filters;
 mod ui_missingness;

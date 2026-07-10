@@ -2,7 +2,9 @@
 
 use egui::{vec2, Area, Context, Frame, Id, Order, RichText, Ui};
 use rawscope_data::dataset_profile;
-use rawscope_render::ScatterInspectionHit;
+use rawscope_render::{
+    difference_inspection, DifferenceInspection, ScatterDensityMode, ScatterInspectionHit,
+};
 
 use crate::{
     app::WorkbenchApp,
@@ -17,6 +19,8 @@ pub(crate) struct ScatterInspectionUiState {
     pub(crate) pinned: Option<PinnedScatterInspection>,
     pub(crate) x_label: String,
     pub(crate) y_label: String,
+    pub(crate) hovered_difference: Option<DifferenceInspection>,
+    pub(crate) pinned_difference: Option<DifferenceInspection>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,7 +42,38 @@ pub(crate) fn scatter_inspection_ui_state(app: &WorkbenchApp) -> Option<ScatterI
         pinned: app.scatter_inspection.pinned.clone(),
         x_label,
         y_label,
+        hovered_difference: app
+            .scatter_inspection
+            .hovered
+            .as_ref()
+            .and_then(|hit| difference_for_hit(app, hit)),
+        pinned_difference: app
+            .scatter_inspection
+            .pinned
+            .as_ref()
+            .and_then(|pinned| difference_for_hit(app, &pinned.hit)),
     })
+}
+
+fn difference_for_hit(
+    app: &WorkbenchApp,
+    hit: &ScatterInspectionHit,
+) -> Option<DifferenceInspection> {
+    if app.scatter.density_mode != ScatterDensityMode::FilteredDifference {
+        return None;
+    }
+    let baseline = app
+        .scatter_inspection
+        .baseline_grid
+        .as_ref()?
+        .inspect_bin(hit.bin_x, hit.bin_y)?;
+    let active_total = app.scatter_filters.evaluation.as_ref()?.included_count as u64;
+    Some(difference_inspection(
+        baseline.count,
+        hit.count,
+        app.scatter.points.len() as u64,
+        active_total,
+    ))
 }
 
 pub(crate) fn show_scatter_inspection_tooltip(
@@ -57,7 +92,8 @@ pub(crate) fn show_scatter_inspection_tooltip(
         .fixed_pos(pointer + vec2(14.0, 14.0))
         .interactable(false)
         .show(context, |ui| {
-            Frame::popup(ui.style()).show(ui, |ui| show_hit(ui, state, hit));
+            Frame::popup(ui.style())
+                .show(ui, |ui| show_hit(ui, state, hit, state.hovered_difference));
         });
 }
 
@@ -74,7 +110,7 @@ pub(crate) fn show_pinned_scatter_inspection(
             action = Some(ScatterInspectionAction::ClearPinned);
         }
     });
-    show_hit(ui, state, &pinned.hit);
+    show_hit(ui, state, &pinned.hit, state.pinned_difference);
     for summary in &pinned.category_summaries {
         let values = summary
             .value_counts
@@ -102,12 +138,27 @@ pub(crate) fn show_pinned_scatter_inspection(
     action
 }
 
-fn show_hit(ui: &mut Ui, state: &ScatterInspectionUiState, hit: &ScatterInspectionHit) {
+fn show_hit(
+    ui: &mut Ui,
+    state: &ScatterInspectionUiState,
+    hit: &ScatterInspectionHit,
+    difference: Option<DifferenceInspection>,
+) {
     ui.label(
         RichText::new(format!("{} rows", hit.count))
             .strong()
             .color(ACCENT),
     );
+    if let Some(difference) = difference {
+        ui.label(format!(
+            "Active {} ({:.3}%) | baseline {} ({:.3}%)",
+            difference.active_count,
+            difference.active_share * 100.0,
+            difference.baseline_count,
+            difference.baseline_share * 100.0,
+        ));
+        ui.label(format!("Share delta {:+.4}%", difference.delta * 100.0));
+    }
     ui.label(format!(
         "{} {:.3}..{:.3}",
         state.x_label, hit.x_range.min, hit.x_range.max
