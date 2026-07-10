@@ -9,6 +9,9 @@ use crate::{app::WorkbenchApp, demo::DemoMode};
 
 impl WorkbenchApp {
     pub(crate) fn render(&mut self, event_loop: &ActiveEventLoop) {
+        if let Err(err) = self.prepare_scheduled_density() {
+            error!(error = %err, "failed to refine interactive scatter density");
+        }
         let Some(window) = self.window.as_ref().cloned() else {
             return;
         };
@@ -262,7 +265,9 @@ impl WorkbenchApp {
 
         match render_status {
             Ok(ClearFrameStatus::Presented) => {
-                self.update_window_title();
+                if !self.render_schedule.is_refining() {
+                    self.update_window_title();
+                }
             }
             Ok(ClearFrameStatus::SkippedZeroSizedSurface | ClearFrameStatus::SkippedOccluded) => {}
             Ok(ClearFrameStatus::SkippedTimeout | ClearFrameStatus::Reconfigured) => {

@@ -60,6 +60,13 @@ impl ScatterDensityGpuState {
     }
 
     pub(super) fn resize_grid(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        let requested_bins = u64::from(width) * u64::from(height);
+        if requested_bins <= self.count_capacity_bins {
+            self.grid_width = width;
+            self.grid_height = height;
+            self.last_max_bin_count = 0;
+            return;
+        }
         let (counts, max, full, max_readback) = grid_buffers(device, width, height);
         self.count_buffers = counts;
         self.max_count_buffer = max;
@@ -75,6 +82,7 @@ impl ScatterDensityGpuState {
         );
         self.grid_width = width;
         self.grid_height = height;
+        self.count_capacity_bins = requested_bins;
         self.active_count_buffer = 0;
         self.last_max_bin_count = 0;
         self.grid_generation += 1;

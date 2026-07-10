@@ -114,6 +114,7 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) can_reset: bool,
     pub(crate) can_export: bool,
     pub(crate) can_clear_selection: bool,
+    pub(crate) density_is_refining: bool,
 }
 
 impl WorkbenchUiState {
@@ -255,6 +256,7 @@ impl WorkbenchApp {
             can_reset,
             can_export,
             can_clear_selection,
+            density_is_refining: self.render_schedule.is_refining(),
         }
     }
 

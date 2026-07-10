@@ -316,6 +316,10 @@ fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
             );
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if state.density_is_refining {
+                ui.label(RichText::new("Refining").small().color(ACCENT));
+                return;
+            }
             let status_is_error = matches!(&state.export_status, ExportStatus::Failed { .. });
             let status_is_complete = matches!(&state.export_status, ExportStatus::Exported { .. });
             ui.label(

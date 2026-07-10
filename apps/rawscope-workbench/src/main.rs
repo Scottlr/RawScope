@@ -10,6 +10,7 @@ mod app_interaction_mode;
 mod app_missingness;
 mod app_plot_interaction;
 mod app_render;
+mod app_render_schedule;
 mod app_report_bundle;
 #[cfg(test)]
 mod app_report_bundle_tests;
