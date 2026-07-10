@@ -3,7 +3,6 @@
 use egui::ViewportId;
 use egui_wgpu::RendererOptions;
 use rawscope_core::VisualSelectionKind;
-use rawscope_data::{DatasetFieldRole, DatasetSource};
 use rawscope_render::{
     DatasetDiffSummary, MissingnessGrid, MissingnessSelection, MissingnessSelectionSummary,
     SelectionDrilldown,
@@ -13,7 +12,9 @@ use crate::{
     app::WorkbenchApp,
     app_comparison::WorkbenchComparison,
     demo::DemoMode,
-    ui_controls::{show_workbench_ui, UiActions, WorkbenchUiOutput},
+    ui_controls::UiActions,
+    ui_dataset_identity::DatasetDisplayIdentity,
+    ui_shell::{show_workbench_ui, WorkbenchShellState, WorkbenchUiOutput},
     ui_view_context::{view_axes_ui_state, view_context_ui_state, WorkbenchViewContextUiState},
     ui_visual_encoding::{density_encoding_ui_state, DensityEncodingUiState},
 };
@@ -88,7 +89,8 @@ impl ExportStatus {
 pub(crate) struct WorkbenchUiState {
     pub(crate) active_view: ActiveView,
     pub(crate) visible_surface: WorkbenchSurface,
-    pub(crate) dataset_label: String,
+    pub(crate) dataset_identity: DatasetDisplayIdentity,
+    pub(crate) shell: WorkbenchShellState,
     pub(crate) view_label: String,
     pub(crate) selection_label: String,
     pub(crate) linked_selection_label: String,
@@ -113,27 +115,7 @@ pub(crate) struct WorkbenchUiState {
 
 impl WorkbenchUiState {
     pub(crate) fn window_title(&self) -> String {
-        let drilldown_suffix = self
-            .drilldown
-            .as_ref()
-            .map(|drilldown| {
-                format!(
-                    " | drilldown {}/{}{}",
-                    drilldown.displayed_row_count,
-                    drilldown.selected_row_count,
-                    if drilldown.rows_are_sampled {
-                        " sampled"
-                    } else {
-                        ""
-                    }
-                )
-            })
-            .unwrap_or_default();
-
-        format!(
-            "RawScope | {} | {} | {}{}",
-            self.dataset_label, self.view_label, self.selection_label, drilldown_suffix
-        )
+        self.dataset_identity.window_title()
     }
 }
 
@@ -175,7 +157,13 @@ impl WorkbenchApp {
     pub(crate) fn ui_state(&self) -> WorkbenchUiState {
         let active_view = ActiveView::from_demo_mode(self.demo_mode);
         let visible_surface = self.visible_surface;
-        let dataset_label = dataset_label(self);
+        let dataset_identity = self
+            .dataset_identity
+            .as_ref()
+            .map(|identity| {
+                DatasetDisplayIdentity::from_dataset(identity, self.active_dataset_profile)
+            })
+            .unwrap_or_else(DatasetDisplayIdentity::unavailable);
         let view_label = view_label(self);
         let selection_label = selection_label(self);
         let linked_selection_label = linked_selection_label(self);
@@ -240,7 +228,8 @@ impl WorkbenchApp {
         WorkbenchUiState {
             active_view,
             visible_surface,
-            dataset_label,
+            dataset_identity,
+            shell: self.shell,
             view_label,
             selection_label,
             linked_selection_label,
@@ -282,6 +271,23 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn apply_ui_actions(&mut self, actions: UiActions) {
+        if actions.toggle_inspector {
+            self.shell.toggle_inspector();
+            self.request_redraw();
+        }
+        if actions.copy_dataset_path {
+            if let Some(path) = self
+                .dataset_identity
+                .as_ref()
+                .and_then(|identity| match &identity.source {
+                    rawscope_data::DatasetSource::LocalCsv { path, .. }
+                    | rawscope_data::DatasetSource::LocalParquet { path, .. } => Some(path),
+                    rawscope_data::DatasetSource::Synthetic { .. } => None,
+                })
+            {
+                self.egui_context.copy_text(path.display().to_string());
+            }
+        }
         if let Some(next_view) = actions.activate_view {
             let next_mode = match next_view {
                 ActiveView::Scatter => DemoMode::Scatter,
@@ -388,52 +394,6 @@ impl WorkbenchApp {
             self.request_redraw();
             self.update_window_title();
         }
-    }
-}
-
-fn dataset_label(app: &WorkbenchApp) -> String {
-    let Some(identity) = app.dataset_identity.as_ref() else {
-        return "Dataset unavailable".to_string();
-    };
-
-    let bindings = identity
-        .field_bindings
-        .iter()
-        .map(|binding| {
-            let role = match binding.role {
-                DatasetFieldRole::X => "x",
-                DatasetFieldRole::Y => "y",
-                DatasetFieldRole::Time => "time",
-                DatasetFieldRole::Lane => "lane",
-            };
-            format!("{role}={}", binding.column_name)
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    match &identity.source {
-        DatasetSource::Synthetic { seed, generator } => {
-            format!(
-                "Synthetic {generator} | seed {seed} | {} rows | {bindings}",
-                identity.row_count
-            )
-        }
-        DatasetSource::LocalCsv { path, limit } => format!(
-            "CSV {} | {} rows{} | {bindings}",
-            path.display(),
-            identity.row_count,
-            limit
-                .map(|value| format!(" (limit {value})"))
-                .unwrap_or_default()
-        ),
-        DatasetSource::LocalParquet { path, limit } => format!(
-            "Parquet {} | {} rows{} | {bindings}",
-            path.display(),
-            identity.row_count,
-            limit
-                .map(|value| format!(" (limit {value})"))
-                .unwrap_or_default()
-        ),
     }
 }
 
@@ -719,7 +679,7 @@ fn workbench_input_path_label(input: &crate::cli::WorkbenchInput) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{ActiveView, ExportStatus, WorkbenchSurface, WorkbenchUiState};
+    use super::ExportStatus;
 
     #[test]
     fn exported_status_label_includes_paths() {
@@ -729,76 +689,5 @@ mod tests {
         .label();
 
         assert!(label.contains("report-scatter-1234-1"));
-    }
-
-    #[test]
-    fn window_title_includes_dataset_view_and_selection() {
-        let state = WorkbenchUiState {
-            active_view: ActiveView::Scatter,
-            visible_surface: WorkbenchSurface::Primary,
-            dataset_label: "Synthetic scatter | 20000 rows".to_string(),
-            view_label: "grid 256x256 | x 0.0..100.0 | y 0.0..100.0".to_string(),
-            selection_label: "Selection 42 rows (0.21%)".to_string(),
-            linked_selection_label: "Linked 42 rows from scatter".to_string(),
-            comparison: None,
-            axis_primary_label: "x 0.0..100.0".to_string(),
-            axis_secondary_label: "y 0.0..100.0".to_string(),
-            view_axes: None,
-            density_encoding: None,
-            view_context: None,
-            export_status: ExportStatus::Idle,
-            drilldown: None,
-            missingness: None,
-            dataset_diff: None,
-            can_switch_to_scatter: true,
-            can_switch_to_timeline: true,
-            can_show_missingness: false,
-            can_show_dataset_diff: false,
-            can_reset: true,
-            can_export: true,
-            can_clear_selection: true,
-        };
-
-        let title = state.window_title();
-
-        assert!(title.contains("Synthetic scatter"));
-        assert!(title.contains("grid 256x256"));
-        assert!(title.contains("Selection 42 rows"));
-    }
-
-    #[test]
-    fn window_title_avoids_benchmark_language() {
-        let state = WorkbenchUiState {
-            active_view: ActiveView::Scatter,
-            visible_surface: WorkbenchSurface::Primary,
-            dataset_label: "Synthetic scatter | 20000 rows".to_string(),
-            view_label: "grid 256x256 | pts 20000 (20k) | max 32".to_string(),
-            selection_label: "Selection 42 rows (0.21%)".to_string(),
-            linked_selection_label: "Linked 42 rows from scatter".to_string(),
-            comparison: None,
-            axis_primary_label: "x 0.0..100.0".to_string(),
-            axis_secondary_label: "y 0.0..100.0".to_string(),
-            view_axes: None,
-            density_encoding: None,
-            view_context: None,
-            export_status: ExportStatus::Idle,
-            drilldown: None,
-            missingness: None,
-            dataset_diff: None,
-            can_switch_to_scatter: true,
-            can_switch_to_timeline: true,
-            can_show_missingness: false,
-            can_show_dataset_diff: false,
-            can_reset: true,
-            can_export: true,
-            can_clear_selection: true,
-        };
-
-        let title = state.window_title().to_ascii_lowercase();
-
-        assert!(!title.contains("benchmark"));
-        assert!(!title.contains("throughput"));
-        assert!(!title.contains("fps"));
-        assert!(!title.contains("frame time"));
     }
 }
