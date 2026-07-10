@@ -51,6 +51,14 @@ fn empty_filter_set_includes_every_row() {
 }
 
 #[test]
+fn all_included_mask_has_stable_gpu_alignment() {
+    let mask = FilterMask::all_included(3);
+
+    assert_eq!(mask.as_gpu_u32_slice(), &[1, 1, 1]);
+    assert_eq!(mask.included_count(), 3);
+}
+
+#[test]
 fn numeric_and_category_filters_compose_with_and() {
     let mut filters = FilterSet::default();
     filters.replace_for_column(DatasetFilter::NumericRange {

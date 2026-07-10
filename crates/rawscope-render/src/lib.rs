@@ -21,6 +21,8 @@ mod scatter_density_presentation;
 mod scatter_density_renderer;
 mod scatter_density_reprojection;
 mod scatter_inspection;
+mod scatter_point_renderer;
+mod scatter_point_reveal;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
@@ -82,6 +84,11 @@ pub use scatter_density_reprojection::{
 pub use scatter_inspection::{
     build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
     ScatterInspectionError, ScatterInspectionGrid, ScatterInspectionHit,
+};
+pub use scatter_point_renderer::ScatterPointRenderer;
+pub use scatter_point_reveal::{
+    project_point_to_plot_fraction, select_points_for_reveal, PointRevealConfig, PointRevealError,
+    PointRevealMode, PointRevealSelection, PointRevealStats,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,

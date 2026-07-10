@@ -47,6 +47,8 @@ impl WorkbenchApp {
         self.plot_surface = ui_output.plot_surface;
         self.apply_ui_actions(ui_output.actions);
         self.reassert_plot_cursor();
+        self.prepare_scatter_point_reveal();
+        self.refresh_point_reveal_emphasis();
 
         let paint_jobs = egui_context.tessellate(full_output.shapes, pixels_per_point);
         let textures_delta = full_output.textures_delta;
@@ -74,6 +76,7 @@ impl WorkbenchApp {
                     else {
                         return;
                     };
+                    let point_reveal_renderer = self.point_reveal.renderer.as_ref();
                     let brush_screen_rect = self
                         .scatter
                         .active_brush_drag
@@ -98,6 +101,9 @@ impl WorkbenchApp {
 
                     gpu.render_frame(|device, queue, target_view, encoder| {
                         scatter_density_renderer.render(encoder, target_view, plot_rect);
+                        if let Some(point_reveal_renderer) = point_reveal_renderer {
+                            point_reveal_renderer.render(queue, encoder, target_view, plot_rect);
+                        }
                         scatter_brush_overlay_renderer.render(
                             queue,
                             encoder,

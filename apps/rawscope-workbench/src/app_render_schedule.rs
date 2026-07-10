@@ -187,6 +187,7 @@ impl WorkbenchApp {
         };
         self.render_schedule.viewport_changed();
         self.invalidate_scatter_inspection();
+        self.invalidate_scatter_point_reveal();
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
         {
@@ -271,6 +272,7 @@ impl WorkbenchApp {
         if settled {
             self.refresh_scatter_marginal_summary();
             self.rebuild_scatter_inspection_cache();
+            self.invalidate_scatter_point_reveal();
             self.update_window_title();
         }
         Ok(())
