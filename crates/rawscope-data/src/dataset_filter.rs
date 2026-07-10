@@ -101,6 +101,13 @@ pub struct FilterMask {
 }
 
 impl FilterMask {
+    pub fn all_included(row_count: usize) -> Self {
+        Self {
+            included: vec![1; row_count],
+            included_count: row_count,
+        }
+    }
+
     pub fn includes(&self, row_id: RowId) -> bool {
         usize::try_from(row_id.0)
             .ok()

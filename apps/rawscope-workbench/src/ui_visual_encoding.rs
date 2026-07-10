@@ -2,14 +2,15 @@
 
 use egui::{Align, Color32, Layout, Rect, RichText, Sense, Ui};
 use rawscope_render::{
-    DensityEncoding, DensityPalette, DensityTransform, ScatterDensityPresentation,
+    DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
+    ScatterDensityPresentation,
 };
 
 use crate::{app::WorkbenchApp, demo::DemoMode, ui::WorkbenchSurface, ui_theme::segmented_button};
 
 const DENSITY_LEGEND_HEIGHT_PX: f32 = 16.0;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DensityEncodingUiState {
     pub(crate) encoding: DensityEncoding,
     pub(crate) scatter_presentation: Option<ScatterDensityPresentation>,
@@ -21,13 +22,16 @@ pub(crate) struct DensityEncodingUiState {
     pub(crate) range_label: String,
     pub(crate) zero_label: String,
     pub(crate) max_label: String,
+    pub(crate) point_reveal_mode: Option<PointRevealMode>,
+    pub(crate) point_reveal_stats: Option<PointRevealStats>,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub(crate) struct DensityEncodingResponse {
     pub(crate) shown: bool,
     pub(crate) set_transform: Option<DensityTransform>,
     pub(crate) set_scatter_presentation: Option<ScatterDensityPresentation>,
+    pub(crate) set_point_reveal_mode: Option<PointRevealMode>,
 }
 
 impl DensityEncodingUiState {
@@ -38,6 +42,8 @@ impl DensityEncodingUiState {
         grid_height: u32,
         max_bin_count: u32,
         max_bin_count_is_current: bool,
+        point_reveal_mode: PointRevealMode,
+        point_reveal_stats: Option<PointRevealStats>,
     ) -> Self {
         Self::new(
             encoding,
@@ -49,6 +55,8 @@ impl DensityEncodingUiState {
             "rows/bin",
             max_bin_count,
             max_bin_count_is_current,
+            Some(point_reveal_mode),
+            point_reveal_stats,
         )
     }
 
@@ -68,6 +76,8 @@ impl DensityEncodingUiState {
             "events/bin",
             max_bin_count,
             true,
+            None,
+            None,
         )
     }
 
@@ -81,6 +91,8 @@ impl DensityEncodingUiState {
         count_unit: &str,
         max_bin_count: u32,
         max_bin_count_is_current: bool,
+        point_reveal_mode: Option<PointRevealMode>,
+        point_reveal_stats: Option<PointRevealStats>,
     ) -> Self {
         Self {
             encoding,
@@ -104,6 +116,8 @@ impl DensityEncodingUiState {
             ),
             zero_label: "0".to_string(),
             max_label: format!("max {max_bin_count}"),
+            point_reveal_mode,
+            point_reveal_stats,
         }
     }
 }
@@ -123,6 +137,8 @@ pub(crate) fn density_encoding_ui_state(app: &WorkbenchApp) -> Option<DensityEnc
                 stats.grid_height,
                 stats.max_bin_count,
                 stats.max_bin_count_is_current,
+                app.point_reveal.config.mode,
+                app.point_reveal.stats,
             ))
         }
         DemoMode::Timeline => {
@@ -156,13 +172,48 @@ pub(crate) fn show_density_encoding(
         .scatter_presentation
         .and_then(|presentation| presentation_selector(ui, presentation));
     let set_transform = transform_selector(ui, encoding.encoding.transform);
+    let set_point_reveal_mode = encoding
+        .point_reveal_mode
+        .and_then(|mode| point_reveal_selector(ui, mode, encoding.point_reveal_stats));
     draw_density_legend(ui, encoding);
 
     DensityEncodingResponse {
         shown: true,
         set_transform,
         set_scatter_presentation,
+        set_point_reveal_mode,
     }
+}
+
+fn point_reveal_selector(
+    ui: &mut Ui,
+    active_mode: PointRevealMode,
+    stats: Option<PointRevealStats>,
+) -> Option<PointRevealMode> {
+    let mut selected = None;
+    ui.horizontal(|ui| {
+        ui.label("Points");
+        for (mode, label) in [
+            (PointRevealMode::Auto, "Auto"),
+            (PointRevealMode::Off, "Off"),
+        ] {
+            if ui
+                .add(segmented_button(label, active_mode == mode))
+                .clicked()
+                && active_mode != mode
+            {
+                selected = Some(mode);
+            }
+        }
+    });
+    if let Some(stats) = stats {
+        let sampled = if stats.sampled { " sampled" } else { "" };
+        ui.label(format!(
+            "Points {} / {}{} | blend {:.2}",
+            stats.rendered_count, stats.eligible_count, sampled, stats.blend
+        ));
+    }
+    selected
 }
 
 fn presentation_selector(
@@ -258,7 +309,8 @@ fn density_palette_colors(palette: DensityPalette) -> [Color32; 4] {
 #[cfg(test)]
 mod tests {
     use rawscope_render::{
-        DensityEncoding, DensityPalette, DensityTransform, ScatterDensityPresentation,
+        DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
+        ScatterDensityPresentation,
     };
 
     use super::DensityEncodingUiState;
@@ -272,6 +324,8 @@ mod tests {
             256,
             42,
             true,
+            PointRevealMode::Auto,
+            None,
         );
 
         assert_eq!(encoding.surface_label, "Scatter density");
@@ -316,12 +370,38 @@ mod tests {
             128,
             8,
             true,
+            PointRevealMode::Off,
+            None,
         );
 
         assert_eq!(encoding.encoding.transform, DensityTransform::Linear);
+        assert_eq!(encoding.point_reveal_mode, Some(PointRevealMode::Off));
         assert_eq!(
             encoding.scale_label,
             "Scale linear(count), normalized to viewport max"
         );
+    }
+
+    #[test]
+    fn point_reveal_stats_are_projected_without_threshold_controls() {
+        let stats = PointRevealStats {
+            eligible_count: 94_499,
+            rendered_count: 50_000,
+            sampled: true,
+            blend: 0.27,
+        };
+        let encoding = DensityEncodingUiState::scatter(
+            DensityEncoding::scatter_default(),
+            ScatterDensityPresentation::TopographicField,
+            256,
+            256,
+            100,
+            true,
+            PointRevealMode::Auto,
+            Some(stats),
+        );
+
+        assert_eq!(encoding.point_reveal_mode, Some(PointRevealMode::Auto));
+        assert_eq!(encoding.point_reveal_stats, Some(stats));
     }
 }

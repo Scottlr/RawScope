@@ -339,6 +339,9 @@ impl WorkbenchApp {
         if let Some(presentation) = actions.set_scatter_density_presentation {
             self.set_scatter_density_presentation(presentation);
         }
+        if let Some(mode) = actions.set_point_reveal_mode {
+            self.set_point_reveal_mode(mode);
+        }
 
         if actions.export_requested {
             match self.demo_mode {

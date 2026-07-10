@@ -16,6 +16,7 @@ mod app_report_bundle;
 mod app_report_bundle_tests;
 mod app_scatter_filter;
 mod app_scatter_inspection;
+mod app_scatter_point_reveal;
 mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;

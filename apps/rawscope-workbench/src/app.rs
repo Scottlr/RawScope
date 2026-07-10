@@ -35,6 +35,7 @@ use crate::{
     app_render_schedule::RenderSchedule,
     app_scatter_filter::ScatterFilterState,
     app_scatter_inspection::ScatterInspectionState,
+    app_scatter_point_reveal::ScatterPointRevealState,
     app_selection::ActiveLinkedSelection,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
@@ -95,6 +96,7 @@ pub struct WorkbenchApp {
     pub(crate) render_schedule: RenderSchedule,
     pub(crate) scatter_filters: ScatterFilterState,
     pub(crate) scatter_inspection: ScatterInspectionState,
+    pub(crate) point_reveal: ScatterPointRevealState,
 }
 
 /// Scatter-specific workbench state.
@@ -281,6 +283,7 @@ impl WorkbenchApp {
             self.rebuild_scatter_inspection_cache();
             self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+            self.initialize_scatter_point_reveal(gpu);
             self.rebuild_missingness_state();
 
             return Ok(());
@@ -340,6 +343,7 @@ impl WorkbenchApp {
         self.scatter.density_renderer = Some(scatter_density_renderer);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+        self.initialize_scatter_point_reveal(gpu);
         self.rebuild_missingness_state();
 
         Ok(())
@@ -365,6 +369,7 @@ impl WorkbenchApp {
         self.scatter.source_rows = None;
         self.scatter_filters = ScatterFilterState::default();
         self.scatter_inspection = ScatterInspectionState::default();
+        self.reset_scatter_point_reveal_mask();
         self.clear_dataset_diff_state();
         self.scatter.active_preset = preset;
         self.scatter.point_count_label = preset.row_count_label().to_string();
