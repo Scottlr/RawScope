@@ -74,9 +74,6 @@ pub(crate) enum ExportStatus {
     Failed {
         message: String,
     },
-    Unavailable {
-        reason: String,
-    },
 }
 
 impl ExportStatus {
@@ -86,7 +83,6 @@ impl ExportStatus {
             Self::NoSelection => "Export skipped: no finalized selection".to_string(),
             Self::Exported { bundle_dir } => format!("Exported bundle {bundle_dir}"),
             Self::Failed { message } => format!("Export failed: {message}"),
-            Self::Unavailable { reason } => reason.clone(),
         }
     }
 }
@@ -212,9 +208,7 @@ impl WorkbenchApp {
         };
         let can_export = match self.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
-                DemoMode::Scatter => {
-                    self.scatter.selection_evidence.is_some() && !self.scatter_filters.is_active()
-                }
+                DemoMode::Scatter => self.scatter.selection_evidence.is_some(),
                 DemoMode::Timeline => self.timeline.selection_evidence.is_some(),
             },
             WorkbenchSurface::Missingness => false,

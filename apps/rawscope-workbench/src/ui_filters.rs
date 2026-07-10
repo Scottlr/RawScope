@@ -5,8 +5,6 @@ use rawscope_data::{DatasetFilter, VisualFieldSummary};
 
 use crate::{app::WorkbenchApp, ui_theme::TEXT_MUTED};
 
-pub(crate) const FILTERED_EXPORT_UNAVAILABLE_REASON: &str =
-    "Filtered export requires scatter evidence v4";
 const MAX_VISIBLE_CATEGORY_OPTIONS: usize = 64;
 
 #[derive(Debug, Clone, PartialEq)]

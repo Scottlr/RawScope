@@ -7,11 +7,7 @@ use rawscope_data::{
 };
 use tracing::error;
 
-use crate::{
-    app::WorkbenchApp,
-    ui::ExportStatus,
-    ui_filters::{FilterAction, FILTERED_EXPORT_UNAVAILABLE_REASON},
-};
+use crate::{app::WorkbenchApp, ui::ExportStatus, ui_filters::FilterAction};
 
 const DEFAULT_EXPANDED_FILTER_COUNT: usize = 4;
 
@@ -166,13 +162,7 @@ impl WorkbenchApp {
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
         self.clear_brush();
-        self.export_status = if self.scatter_filters.is_active() {
-            ExportStatus::Unavailable {
-                reason: FILTERED_EXPORT_UNAVAILABLE_REASON.to_string(),
-            }
-        } else {
-            ExportStatus::Idle
-        };
+        self.export_status = ExportStatus::Idle;
         self.render_schedule.request_exact_refine();
         self.request_redraw();
     }

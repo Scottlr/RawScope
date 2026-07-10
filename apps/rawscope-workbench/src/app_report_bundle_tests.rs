@@ -2,12 +2,15 @@ use std::{fs, path::Path};
 
 use rawscope_core::{F32Range, RowId, U64Range};
 use rawscope_data::{
-    DatasetIdentity, DatasetProfileId, ScatterPointKind, SyntheticEventType, SyntheticPointCategory,
+    DatasetIdentity, DatasetProfileId, ScatterPointKind, ScatterProjection, SyntheticEventType,
+    SyntheticPointCategory,
 };
 use rawscope_render::{
-    AggregateEvidenceBin, ComparisonRatio, DensityEncoding, ScatterAggregateEvidenceContext,
-    ScatterEvidenceView, ScatterKindComparison, ScatterSelectionComparison,
-    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, SelectedCategoryCounts,
+    AggregateEvidenceBin, ComparisonRatio, DensityEncoding, PointRevealEvidence, PointRevealMode,
+    ScatterAggregateEvidenceContext, ScatterCohortEvidence, ScatterDensityMode,
+    ScatterDensityPresentation, ScatterEvidenceView, ScatterKindComparison,
+    ScatterSelectionComparison, ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3,
+    ScatterSelectionEvidenceV4, ScatterVisualQueryV4, SelectedCategoryCounts,
     SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
 };
 
@@ -175,6 +178,31 @@ fn write_scatter_bundle_v3_uses_enriched_visual_context() {
 }
 
 #[test]
+fn write_scatter_bundle_v4_creates_manifest_and_evidence() {
+    let test_dir = unique_test_dir("scatter-write-v4");
+    let bundle_paths = EvidenceReportBundlePaths::next_available(
+        &test_dir,
+        SCATTER_REPORT_BUNDLE_DIR_PREFIX,
+        1234,
+        1,
+    );
+    bundle_paths
+        .write_scatter_v4(&sample_scatter_evidence_v4())
+        .unwrap();
+
+    let manifest = fs::read_to_string(&bundle_paths.manifest_path).unwrap();
+    assert!(manifest.contains("\"evidence_schema_version\": 4"));
+    assert!(manifest.contains("rawscope.scatter-selection-evidence.v4"));
+    let evidence = fs::read_to_string(&bundle_paths.evidence_json_path).unwrap();
+    assert!(evidence.contains("\"visual_query\""));
+    assert!(evidence.contains("\"cohort\""));
+    let context = fs::read_to_string(&bundle_paths.visual_context_path).unwrap();
+    assert!(context.contains("schema_version: 4"));
+    assert!(context.contains("projection: Raw"));
+    fs::remove_dir_all(&test_dir).unwrap();
+}
+
+#[test]
 fn write_timeline_bundle_v3_includes_dataset_profile_metadata() {
     let test_dir = unique_test_dir("timeline-write-v3");
     let bundle_paths = EvidenceReportBundlePaths::next_available(
@@ -334,6 +362,38 @@ fn sample_scatter_evidence_v3() -> ScatterSelectionEvidenceV3 {
         },
         Some(DatasetProfileId::LichessGames),
     )
+}
+
+fn sample_scatter_evidence_v4() -> ScatterSelectionEvidenceV4 {
+    ScatterSelectionEvidenceV4::from_v3(
+        &sample_scatter_evidence_v3(),
+        ScatterVisualQueryV4 {
+            x_range: F32Range::new(0.0, 100.0),
+            y_range: F32Range::new(-25.0, 75.0),
+            grid_width: 256,
+            grid_height: 256,
+            projection: ScatterProjection::RawXY,
+            filters: vec![],
+            density_mode: ScatterDensityMode::AbsoluteDensity,
+            density_encoding: DensityEncoding::scatter_default(),
+            density_presentation: ScatterDensityPresentation::TopographicField,
+            difference: None,
+            point_reveal: PointRevealEvidence {
+                mode: PointRevealMode::Auto,
+                eligible_count: 20_000,
+                rendered_count: 0,
+                sampled: false,
+            },
+            relief: None,
+        },
+        ScatterCohortEvidence {
+            full_row_count: 20_000,
+            included_row_count: 20_000,
+            excluded_row_count: 0,
+        },
+        None,
+    )
+    .unwrap()
 }
 
 fn sample_timeline_evidence_v3() -> rawscope_render::TimelineSelectionEvidenceV3 {

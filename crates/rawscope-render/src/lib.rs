@@ -28,8 +28,10 @@ mod scatter_point_reveal;
 mod scatter_relief;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
+mod scatter_selection_evidence_v4;
 mod scatter_selection_export;
 mod scatter_selection_export_v3;
+mod scatter_selection_export_v4;
 mod scatter_viewport;
 mod selection_comparison;
 mod selection_drilldown;
@@ -114,6 +116,12 @@ pub use scatter_selection_evidence_v3::{
     AggregateEvidenceBin, ScatterAggregateEvidenceContext, ScatterEvidenceViewV3,
     ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
+pub use scatter_selection_evidence_v4::{
+    DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
+    ScatterCohortEvidence, ScatterSelectionEvidenceV4, ScatterSelectionEvidenceV4Error,
+    ScatterVisualQueryV4, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
+    SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
+};
 pub use scatter_selection_export::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown,
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
@@ -124,6 +132,10 @@ pub use scatter_selection_export_v3::{
     scatter_aggregate_evidence_context, scatter_selection_evidence_v3_json,
     scatter_selection_evidence_v3_markdown, ScatterSelectionExportError,
     SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+};
+pub use scatter_selection_export_v4::{
+    scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown,
+    SCATTER_SELECTION_EVIDENCE_V4_ARTIFACT_KIND,
 };
 pub use scatter_viewport::ScatterViewport;
 pub use selection_comparison::{

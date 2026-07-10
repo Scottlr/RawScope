@@ -14,6 +14,7 @@ mod app_render_schedule;
 mod app_report_bundle;
 #[cfg(test)]
 mod app_report_bundle_tests;
+mod app_report_bundle_v4;
 mod app_scatter_density;
 mod app_scatter_difference;
 mod app_scatter_filter;
