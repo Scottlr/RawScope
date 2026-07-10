@@ -4,13 +4,15 @@ use rawscope_gpu::ClearFrameStatus;
 use tracing::{error, warn};
 use winit::{
     application::ApplicationHandler,
-    event::{ElementState, MouseButton, WindowEvent},
+    event::{ElementState, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::WindowId,
 };
 
-use crate::{app::WorkbenchApp, demo::PointCountPreset};
+use crate::{
+    app::WorkbenchApp, app_interaction_mode::interaction_mode_for_shortcut, demo::PointCountPreset,
+};
 
 impl ApplicationHandler for WorkbenchApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -48,16 +50,12 @@ impl ApplicationHandler for WorkbenchApp {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_position = Some(position);
-                if self.demo_mode.is_scatter() && self.brush_is_active() {
-                    self.update_brush_to_cursor(position);
-                } else if self.demo_mode.is_timeline() && self.timeline_brush_is_active() {
-                    self.update_timeline_brush_to_cursor(position);
-                } else if self.demo_mode.is_scatter() && self.last_drag_position.is_some() {
-                    self.pan_to_cursor(position);
-                } else if self.demo_mode.is_timeline() && self.last_drag_position.is_some() {
-                    self.pan_timeline_to_cursor(position);
-                }
+                self.update_pointer_position(position, !event_consumed);
+            }
+            WindowEvent::CursorLeft { .. } if self.active_pointer_gesture.is_none() => {
+                self.cursor_position = None;
+                self.inspect_cursor_position = None;
+                self.update_pointer_cursor();
             }
             WindowEvent::MouseWheel { delta, .. }
                 if !event_consumed && self.demo_mode.is_scatter() =>
@@ -73,57 +71,21 @@ impl ApplicationHandler for WorkbenchApp {
                 state: ElementState::Released,
                 button,
                 ..
-            } => match button {
-                MouseButton::Right if self.demo_mode.is_scatter() && self.brush_is_active() => {
-                    self.end_brush();
-                }
-                MouseButton::Right
-                    if self.demo_mode.is_timeline() && self.timeline_brush_is_active() =>
-                {
-                    self.end_timeline_brush();
-                }
-                MouseButton::Left if self.demo_mode.is_scatter() && self.brush_is_active() => {
-                    self.end_brush();
-                }
-                MouseButton::Left
-                    if self.demo_mode.is_timeline() && self.timeline_brush_is_active() =>
-                {
-                    self.end_timeline_brush();
-                }
-                MouseButton::Left | MouseButton::Middle => self.end_pan(),
-                _ => {}
-            },
+            } => self.end_pointer_gesture(button),
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button,
                 ..
-            } if !event_consumed => match button {
-                MouseButton::Right if self.demo_mode.is_scatter() => {
-                    self.begin_brush();
-                }
-                MouseButton::Right if self.demo_mode.is_timeline() => {
-                    self.begin_timeline_brush();
-                }
-                MouseButton::Left if self.demo_mode.is_scatter() && self.modifiers.shift_key() => {
-                    self.begin_brush();
-                }
-                MouseButton::Left if self.demo_mode.is_timeline() && self.modifiers.shift_key() => {
-                    self.begin_timeline_brush();
-                }
-                MouseButton::Left | MouseButton::Middle if self.demo_mode.is_scatter() => {
-                    self.begin_pan();
-                }
-                MouseButton::Left | MouseButton::Middle
-                    if self.demo_mode.is_timeline() && !self.modifiers.shift_key() =>
-                {
-                    self.begin_timeline_pan();
-                }
-                _ => {}
-            },
+            } if !event_consumed => self.begin_pointer_gesture(button),
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.modifiers = modifiers.state();
             }
-            WindowEvent::KeyboardInput { event, .. } if !event_consumed => {
+            WindowEvent::Focused(false) if self.active_pointer_gesture.is_some() => {
+                self.cancel_active_pointer_gesture();
+            }
+            WindowEvent::KeyboardInput { event, .. }
+                if !event_consumed && !self.egui_context.text_edit_focused() =>
+            {
                 self.handle_keyboard_input(event.state, event.physical_key);
             }
             WindowEvent::Resized(size) => {
@@ -149,11 +111,15 @@ impl WorkbenchApp {
             return;
         }
 
-        match physical_key {
-            PhysicalKey::Code(KeyCode::Escape) if self.demo_mode.is_scatter() => self.clear_brush(),
-            PhysicalKey::Code(KeyCode::Escape) if self.demo_mode.is_timeline() => {
-                self.clear_timeline_brush();
+        if let PhysicalKey::Code(key) = physical_key {
+            if let Some(mode) = interaction_mode_for_shortcut(key) {
+                self.set_interaction_mode(mode);
+                return;
             }
+        }
+
+        match physical_key {
+            PhysicalKey::Code(KeyCode::Escape) => self.handle_escape(),
             PhysicalKey::Code(KeyCode::KeyE) if self.demo_mode.is_scatter() => {
                 self.export_selection_evidence();
             }

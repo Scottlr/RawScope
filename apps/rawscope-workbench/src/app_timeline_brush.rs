@@ -73,6 +73,12 @@ impl WorkbenchApp {
         }
     }
 
+    pub(crate) fn cancel_timeline_brush_gesture(&mut self) {
+        self.timeline.brush_drag_start = None;
+        self.timeline.active_brush_drag = None;
+        self.request_redraw();
+    }
+
     pub(crate) fn timeline_brush_is_active(&self) -> bool {
         self.timeline.brush_drag_start.is_some()
     }

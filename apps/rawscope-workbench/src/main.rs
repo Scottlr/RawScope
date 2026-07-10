@@ -6,6 +6,7 @@ mod app_dataset_diff;
 mod app_dataset_profile;
 mod app_events;
 mod app_export;
+mod app_interaction_mode;
 mod app_missingness;
 mod app_plot_interaction;
 mod app_render;

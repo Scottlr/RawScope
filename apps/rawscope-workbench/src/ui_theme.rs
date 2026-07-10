@@ -133,6 +133,26 @@ pub(crate) fn icon_command_button(
     .on_hover_text(tooltip)
 }
 
+pub(crate) fn icon_segment_button(
+    ui: &mut Ui,
+    icon_name: &str,
+    tooltip: &str,
+    selected: bool,
+) -> Response {
+    let icon = iconflow::try_icon(Pack::Lucide, icon_name, IconStyle::Regular, Size::Regular)
+        .expect("workbench mode icons are compile-time constants");
+    let glyph = char::from_u32(icon.codepoint).expect("iconflow returns valid Unicode codepoints");
+    let text = RichText::new(glyph.to_string())
+        .font(FontId::new(16.0, FontFamily::Name(icon.family.into())));
+    ui.add(
+        Button::new(text)
+            .selected(selected)
+            .min_size(vec2(32.0, 30.0))
+            .corner_radius(CONTROL_CORNER_RADIUS_PX),
+    )
+    .on_hover_text(tooltip)
+}
+
 pub(crate) fn segmented_button(label: &str, selected: bool) -> Button<'_> {
     Button::new(label)
         .selected(selected)

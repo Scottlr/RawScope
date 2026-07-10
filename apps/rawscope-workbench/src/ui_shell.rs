@@ -3,6 +3,7 @@
 use egui::{Align, Layout, Panel, RichText, ScrollArea, Ui};
 
 use crate::{
+    app_interaction_mode::WorkbenchInteractionMode,
     ui::{ActiveView, ExportStatus, WorkbenchSurface, WorkbenchUiState},
     ui_comparison::show_selection_comparison,
     ui_controls::UiActions,
@@ -12,8 +13,8 @@ use crate::{
     ui_plot_axes::show_plot_axes,
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
     ui_theme::{
-        export_status_color, icon_command_button, navigation_button, right_rail_frame,
-        status_badge, status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
+        export_status_color, icon_command_button, icon_segment_button, navigation_button,
+        right_rail_frame, status_badge, status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
     },
     ui_view_context::show_view_context,
     ui_visual_encoding::show_density_encoding,
@@ -152,6 +153,9 @@ fn show_primary_toolbar(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiA
             actions.activate_surface = Some(WorkbenchSurface::DatasetDiff);
         }
 
+        ui.separator();
+        show_interaction_modes(ui, state, actions);
+
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             if icon_command_button(ui, "download", "Export evidence", state.can_export).clicked() {
                 actions.export_requested = true;
@@ -166,6 +170,26 @@ fn show_primary_toolbar(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiA
             }
         });
     });
+}
+
+fn show_interaction_modes(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiActions) {
+    let modes = [
+        (WorkbenchInteractionMode::Pan, "hand", "Pan (H)"),
+        (WorkbenchInteractionMode::Brush, "scan", "Brush (B)"),
+        (
+            WorkbenchInteractionMode::Inspect,
+            "scan-search",
+            "Inspect coordinates (I)",
+        ),
+    ];
+    let previous_spacing = ui.spacing().item_spacing.x;
+    ui.spacing_mut().item_spacing.x = 2.0;
+    for (mode, icon, tooltip) in modes {
+        if icon_segment_button(ui, icon, tooltip, state.interaction_mode == mode).clicked() {
+            actions.set_interaction_mode = Some(mode);
+        }
+    }
+    ui.spacing_mut().item_spacing.x = previous_spacing;
 }
 
 fn show_session_context(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiActions) {
@@ -282,6 +306,15 @@ fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
                 .small()
                 .color(TEXT_MUTED),
         );
+        if let Some(position) = state.inspect_cursor_position {
+            ui.separator();
+            ui.label(
+                RichText::new(format!("Inspect x {:.6}  y {:.6}", position.x, position.y))
+                    .monospace()
+                    .small()
+                    .color(ACCENT),
+            );
+        }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let status_is_error = matches!(&state.export_status, ExportStatus::Failed { .. });
             let status_is_complete = matches!(&state.export_status, ExportStatus::Exported { .. });
