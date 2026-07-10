@@ -12,17 +12,17 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, scatter_marginal_summary_masked, BrushScreenPoint,
-    DatasetDiffSummary, DensityEncoding, DensityReadbackPolicy, ScatterAggregateOverview,
-    ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityPresentation, ScatterDensityRenderStats, ScatterDensityRenderer,
-    ScatterDensityRendererConfig, ScatterDensityUpdate, ScatterMarginalSummary,
-    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
-    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
-    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
-    TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
+    scatter_marginal_summary, BrushScreenPoint, DatasetDiffSummary, DensityEncoding,
+    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterDensityRenderStats,
+    ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDifferenceRenderStats,
+    ScatterDifferenceRenderer, ScatterMarginalSummary, ScatterSelectionEvidence, ScatterViewport,
+    SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag,
+    TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
+    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionEvidence,
+    TimelineSelectionSummary, TimelineViewport,
 };
-use tracing::{error, info};
+use tracing::info;
 use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
 
 use crate::{
@@ -104,6 +104,10 @@ pub struct WorkbenchApp {
 /// Scatter-specific workbench state.
 pub(crate) struct ScatterWorkbenchState {
     pub(crate) density_renderer: Option<ScatterDensityRenderer>,
+    pub(crate) difference_renderer: Option<ScatterDifferenceRenderer>,
+    pub(crate) density_mode: ScatterDensityMode,
+    pub(crate) difference_stats: Option<ScatterDifferenceRenderStats>,
+    pub(crate) difference_baseline_dirty: bool,
     pub(crate) density_dataset_revision: u64,
     pub(crate) density_encoding: DensityEncoding,
     pub(crate) density_presentation: ScatterDensityPresentation,
@@ -146,6 +150,10 @@ impl Default for ScatterWorkbenchState {
     fn default() -> Self {
         Self {
             density_renderer: None,
+            difference_renderer: None,
+            density_mode: ScatterDensityMode::AbsoluteDensity,
+            difference_stats: None,
+            difference_baseline_dirty: true,
             density_dataset_revision: 0,
             density_encoding: DensityEncoding::scatter_default(),
             density_presentation: ScatterDensityPresentation::TopographicField,
@@ -260,6 +268,7 @@ impl WorkbenchApp {
                 row_count = render_stats.point_count,
                 "RawScope local CSV scatter-density dataset prepared"
             );
+            self.initialize_scatter_difference(gpu, &dataset.points, renderer_config)?;
 
             self.dataset_identity = Some(dataset.identity);
             self.active_dataset_profile = resolved_binding.active_profile;
@@ -318,6 +327,7 @@ impl WorkbenchApp {
         )?;
         let scatter_brush_overlay_renderer =
             ScatterBrushOverlayRenderer::new(gpu.device(), gpu.surface_format());
+        self.initialize_scatter_difference(gpu, &dataset.points, renderer_config)?;
         let render_stats = scatter_density_renderer.stats();
         info!(
             seed = DEMO_SEED,
@@ -354,133 +364,5 @@ impl WorkbenchApp {
         self.rebuild_missingness_state();
 
         Ok(())
-    }
-
-    pub(crate) fn switch_point_preset(&mut self, preset: PointCountPreset) {
-        if !self.demo_mode.is_scatter() {
-            return;
-        }
-        if self.input.is_some() {
-            return;
-        }
-
-        let preset_is_already_active = self.scatter.active_preset == preset;
-        if preset_is_already_active {
-            return;
-        }
-
-        let dataset =
-            generate_synthetic_points(SyntheticPointConfig::new(DEMO_SEED, preset.row_count));
-        let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
-        self.scatter.points = dataset.points;
-        self.scatter.source_rows = None;
-        self.scatter_filters = ScatterFilterState::default();
-        self.scatter_inspection = ScatterInspectionState::default();
-        self.scatter_projection = ScatterProjectionState::default();
-        self.reset_scatter_point_reveal_mask();
-        self.clear_dataset_diff_state();
-        self.scatter.active_preset = preset;
-        self.scatter.point_count_label = preset.row_count_label().to_string();
-        self.dataset_identity = Some(dataset.identity);
-        self.active_dataset_profile = None;
-        self.dataset_metadata = Some(dataset.metadata);
-        self.clear_active_selection();
-        self.scatter.viewport = Some(viewport);
-        self.export_status = crate::ui::ExportStatus::Idle;
-        self.clear_brush();
-        self.rebuild_missingness_state();
-        self.rebuild_scatter_aggregate_overview();
-
-        self.scatter.density_dataset_revision += 1;
-        if let (Some(gpu), Some(renderer)) =
-            (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
-        {
-            if let Err(err) = renderer.replace_dataset(
-                gpu.device(),
-                gpu.queue(),
-                &self.scatter.points,
-                self.scatter.density_dataset_revision,
-            ) {
-                error!(error = %err, "failed to replace resident scatter dataset");
-                return;
-            }
-        }
-
-        if let Err(err) = self.recompute_density() {
-            error!(
-                error = %err,
-                point_count = preset.row_count,
-                "failed to recompute scatter density after preset change"
-            );
-        }
-    }
-
-    pub(crate) fn recompute_density(&mut self) -> Result<(), Box<dyn Error>> {
-        self.refresh_scatter_marginal_summary();
-        let Some(gpu) = self.gpu.as_ref() else {
-            return Ok(());
-        };
-        let Some(viewport) = self.scatter.viewport else {
-            return Ok(());
-        };
-        let Some(scatter_density_renderer) = self.scatter.density_renderer.as_mut() else {
-            return Ok(());
-        };
-
-        let renderer_config = ScatterDensityRendererConfig::new(
-            viewport.x_range(),
-            viewport.y_range(),
-            DEMO_GRID_WIDTH,
-            DEMO_GRID_HEIGHT,
-        )
-        .with_encoding(self.scatter.density_encoding)
-        .with_presentation(self.scatter.density_presentation);
-        let stats = scatter_density_renderer.update_density(
-            gpu.device(),
-            gpu.queue(),
-            ScatterDensityUpdate {
-                config: renderer_config,
-                readback: DensityReadbackPolicy::None,
-            },
-        )?;
-        self.scatter.render_stats = Some(stats);
-        self.render_schedule.exact_field_settled();
-        self.rebuild_scatter_inspection_cache();
-        self.update_window_title();
-        self.request_redraw();
-
-        Ok(())
-    }
-
-    pub(crate) fn refresh_scatter_marginal_summary(&mut self) {
-        let Some(viewport) = self.scatter.viewport else {
-            self.scatter.marginal_summary = None;
-            return;
-        };
-
-        self.scatter.marginal_summary = self
-            .scatter_filters
-            .evaluation
-            .as_ref()
-            .map(|evaluation| {
-                scatter_marginal_summary_masked(
-                    &self.scatter.points,
-                    &evaluation.mask,
-                    viewport.x_range(),
-                    viewport.y_range(),
-                    MARGINAL_BIN_COUNT,
-                    MARGINAL_BIN_COUNT,
-                )
-                .expect("filter evaluation remains aligned with scatter points")
-            })
-            .or_else(|| {
-                Some(scatter_marginal_summary(
-                    &self.scatter.points,
-                    viewport.x_range(),
-                    viewport.y_range(),
-                    MARGINAL_BIN_COUNT,
-                    MARGINAL_BIN_COUNT,
-                ))
-            });
     }
 }

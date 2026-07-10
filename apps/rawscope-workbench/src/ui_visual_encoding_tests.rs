@@ -1,7 +1,7 @@
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
     DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
-    ScatterDensityPresentation,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterDifferenceRenderStats,
 };
 
 use super::DensityEncodingUiState;
@@ -18,6 +18,9 @@ fn scatter_encoding_makes_density_transform_and_range_visible() {
         PointRevealMode::Auto,
         None,
         Some(ScatterProjection::RawXY),
+        ScatterDensityMode::AbsoluteDensity,
+        false,
+        None,
     );
 
     assert_eq!(encoding.surface_label, "Scatter density");
@@ -65,6 +68,9 @@ fn encoding_state_reflects_active_transform() {
         PointRevealMode::Off,
         None,
         None,
+        ScatterDensityMode::AbsoluteDensity,
+        false,
+        None,
     );
 
     assert_eq!(encoding.encoding.transform, DensityTransform::Linear);
@@ -93,6 +99,9 @@ fn point_reveal_stats_are_projected_without_threshold_controls() {
         PointRevealMode::Auto,
         Some(stats),
         Some(ScatterProjection::RawXY),
+        ScatterDensityMode::AbsoluteDensity,
+        true,
+        None,
     );
 
     assert_eq!(encoding.point_reveal_mode, Some(PointRevealMode::Auto));
@@ -111,10 +120,43 @@ fn eligible_scatter_exposes_explicit_projection_state() {
         PointRevealMode::Auto,
         None,
         Some(ScatterProjection::MeanDifference),
+        ScatterDensityMode::AbsoluteDensity,
+        true,
+        None,
     );
 
     assert_eq!(
         encoding.scatter_projection,
         Some(ScatterProjection::MeanDifference)
     );
+}
+
+#[test]
+fn difference_mode_projects_cohort_totals_and_availability() {
+    let stats = ScatterDifferenceRenderStats {
+        baseline_total: 200_000,
+        active_total: 94_499,
+        baseline_recompute_count: 1,
+    };
+    let encoding = DensityEncodingUiState::scatter(
+        DensityEncoding::scatter_default(),
+        ScatterDensityPresentation::TopographicField,
+        256,
+        256,
+        10,
+        true,
+        PointRevealMode::Auto,
+        None,
+        Some(ScatterProjection::RawXY),
+        ScatterDensityMode::FilteredDifference,
+        true,
+        Some(stats),
+    );
+
+    assert_eq!(
+        encoding.scatter_density_mode,
+        Some(ScatterDensityMode::FilteredDifference)
+    );
+    assert!(encoding.difference_available);
+    assert_eq!(encoding.difference_stats, Some(stats));
 }

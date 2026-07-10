@@ -4,10 +4,16 @@ use egui::{Align, Color32, Layout, Rect, RichText, Sense, Ui};
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
     DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
-    ScatterDensityPresentation,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterDifferenceRenderStats,
 };
 
-use crate::{app::WorkbenchApp, demo::DemoMode, ui::WorkbenchSurface, ui_theme::segmented_button};
+use crate::{
+    app::WorkbenchApp,
+    demo::DemoMode,
+    ui::WorkbenchSurface,
+    ui_difference_density::{density_mode_selector, draw_difference_legend},
+    ui_theme::segmented_button,
+};
 
 const DENSITY_LEGEND_HEIGHT_PX: f32 = 16.0;
 
@@ -26,6 +32,9 @@ pub(crate) struct DensityEncodingUiState {
     pub(crate) point_reveal_mode: Option<PointRevealMode>,
     pub(crate) point_reveal_stats: Option<PointRevealStats>,
     pub(crate) scatter_projection: Option<ScatterProjection>,
+    pub(crate) scatter_density_mode: Option<ScatterDensityMode>,
+    pub(crate) difference_available: bool,
+    pub(crate) difference_stats: Option<ScatterDifferenceRenderStats>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -35,6 +44,7 @@ pub(crate) struct DensityEncodingResponse {
     pub(crate) set_scatter_presentation: Option<ScatterDensityPresentation>,
     pub(crate) set_point_reveal_mode: Option<PointRevealMode>,
     pub(crate) set_scatter_projection: Option<ScatterProjection>,
+    pub(crate) set_scatter_density_mode: Option<ScatterDensityMode>,
 }
 
 impl DensityEncodingUiState {
@@ -48,6 +58,9 @@ impl DensityEncodingUiState {
         point_reveal_mode: PointRevealMode,
         point_reveal_stats: Option<PointRevealStats>,
         scatter_projection: Option<ScatterProjection>,
+        scatter_density_mode: ScatterDensityMode,
+        difference_available: bool,
+        difference_stats: Option<ScatterDifferenceRenderStats>,
     ) -> Self {
         Self::new(
             encoding,
@@ -62,6 +75,9 @@ impl DensityEncodingUiState {
             Some(point_reveal_mode),
             point_reveal_stats,
             scatter_projection,
+            Some(scatter_density_mode),
+            difference_available,
+            difference_stats,
         )
     }
 
@@ -84,6 +100,9 @@ impl DensityEncodingUiState {
             None,
             None,
             None,
+            None,
+            false,
+            None,
         )
     }
 
@@ -100,6 +119,9 @@ impl DensityEncodingUiState {
         point_reveal_mode: Option<PointRevealMode>,
         point_reveal_stats: Option<PointRevealStats>,
         scatter_projection: Option<ScatterProjection>,
+        scatter_density_mode: Option<ScatterDensityMode>,
+        difference_available: bool,
+        difference_stats: Option<ScatterDifferenceRenderStats>,
     ) -> Self {
         Self {
             encoding,
@@ -126,6 +148,9 @@ impl DensityEncodingUiState {
             point_reveal_mode,
             point_reveal_stats,
             scatter_projection,
+            scatter_density_mode,
+            difference_available,
+            difference_stats,
         }
     }
 }
@@ -150,6 +175,14 @@ pub(crate) fn density_encoding_ui_state(app: &WorkbenchApp) -> Option<DensityEnc
                 app.scatter_projection
                     .available
                     .then_some(app.scatter_projection.active),
+                app.scatter.density_mode,
+                app.scatter_filters.is_active()
+                    && app
+                        .scatter_filters
+                        .evaluation
+                        .as_ref()
+                        .is_some_and(|evaluation| evaluation.included_count > 0),
+                app.scatter.difference_stats,
             ))
         }
         DemoMode::Timeline => {
@@ -172,24 +205,46 @@ pub(crate) fn show_density_encoding(
         return DensityEncodingResponse::default();
     };
 
+    let difference_is_active =
+        encoding.scatter_density_mode == Some(ScatterDensityMode::FilteredDifference);
     ui.heading("Visual Encoding");
-    ui.label(RichText::new(&encoding.surface_label).strong());
-    ui.label(&encoding.measure_label);
+    ui.label(
+        RichText::new(if difference_is_active {
+            "Normalized share difference"
+        } else {
+            &encoding.surface_label
+        })
+        .strong(),
+    );
+    if !difference_is_active {
+        ui.label(&encoding.measure_label);
+    }
     ui.label(&encoding.bin_grid_label);
-    ui.label(&encoding.scale_label);
-    ui.label(&encoding.palette_label);
-    ui.label(&encoding.range_label);
-    let set_scatter_presentation = encoding
-        .scatter_presentation
-        .and_then(|presentation| presentation_selector(ui, presentation));
+    if !difference_is_active {
+        ui.label(&encoding.scale_label);
+        ui.label(&encoding.palette_label);
+        ui.label(&encoding.range_label);
+    }
+    let set_scatter_density_mode = encoding
+        .scatter_density_mode
+        .and_then(|mode| density_mode_selector(ui, mode, encoding.difference_available));
     let set_scatter_projection = encoding
         .scatter_projection
         .and_then(|projection| projection_selector(ui, projection));
-    let set_transform = transform_selector(ui, encoding.encoding.transform);
-    let set_point_reveal_mode = encoding
-        .point_reveal_mode
-        .and_then(|mode| point_reveal_selector(ui, mode, encoding.point_reveal_stats));
-    draw_density_legend(ui, encoding);
+    let (set_scatter_presentation, set_transform, set_point_reveal_mode) = if difference_is_active {
+        draw_difference_legend(ui, encoding.difference_stats);
+        (None, None, None)
+    } else {
+        let presentation = encoding
+            .scatter_presentation
+            .and_then(|presentation| presentation_selector(ui, presentation));
+        let transform = transform_selector(ui, encoding.encoding.transform);
+        let points = encoding
+            .point_reveal_mode
+            .and_then(|mode| point_reveal_selector(ui, mode, encoding.point_reveal_stats));
+        draw_density_legend(ui, encoding);
+        (presentation, transform, points)
+    };
 
     DensityEncodingResponse {
         shown: true,
@@ -197,6 +252,7 @@ pub(crate) fn show_density_encoding(
         set_scatter_presentation,
         set_point_reveal_mode,
         set_scatter_projection,
+        set_scatter_density_mode,
     }
 }
 

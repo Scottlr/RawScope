@@ -7,8 +7,9 @@ use rawscope_data::{
 };
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{
-    gpu_scatter_density, gpu_scatter_density_masked, scatter_density, DensityReadbackPolicy,
-    ScatterDensityGpuState, ScatterDensityRendererConfig, ScatterDensityUpdate,
+    gpu_scatter_density, gpu_scatter_density_masked, normalized_difference_density,
+    scatter_density, DensityReadbackPolicy, ScatterDensityGpuState, ScatterDensityRendererConfig,
+    ScatterDensityUpdate,
 };
 
 #[test]
@@ -76,6 +77,61 @@ fn gpu_scatter_density_matches_cpu_reference_for_edges_and_out_of_range_points()
         assert_eq!(gpu_grid.count(9, 9), 1);
         assert_eq!(gpu_grid.count(5, 5), 1);
         assert_eq!(gpu_grid.total_count(), 3);
+    });
+}
+
+#[test]
+#[ignore = "requires a local WGPU adapter"]
+fn gpu_difference_matches_cpu_reference() {
+    pollster::block_on(async {
+        let context = ComputeContext::new().await.unwrap();
+        let points = vec![
+            point(0, 1.0, 1.0),
+            point(1, 1.0, 1.0),
+            point(2, 8.0, 8.0),
+            point(3, 8.0, 8.0),
+        ];
+        let source = filter_source(&["keep", "keep", "drop", "drop"]);
+        let catalog = build_visual_field_catalog(&source, VisualFieldCatalogConfig::default());
+        let mut filters = FilterSet::default();
+        filters.replace_for_column(DatasetFilter::Categories {
+            column_name: "cohort".into(),
+            included_values: vec!["keep".into()],
+            include_missing: false,
+        });
+        let evaluation = evaluate_filters(&source, &catalog, &filters).unwrap();
+        let range = F32Range::new(0.0, 10.0);
+        let active = gpu_scatter_density_masked(
+            &context,
+            &points,
+            &evaluation.mask,
+            evaluation.revision,
+            range,
+            range,
+            2,
+            2,
+        )
+        .await
+        .unwrap();
+        let cpu_baseline = scatter_density(&points, range, range, 2, 2);
+        let gpu_difference = normalized_difference_density(
+            &cpu_counts(&cpu_baseline),
+            active.counts(),
+            points.len() as u64,
+            evaluation.included_count as u64,
+        )
+        .unwrap();
+        let cpu_active = scatter_density(&points[..2], range, range, 2, 2);
+        let cpu_difference = normalized_difference_density(
+            &cpu_counts(&cpu_baseline),
+            &cpu_counts(&cpu_active),
+            points.len() as u64,
+            evaluation.included_count as u64,
+        )
+        .unwrap();
+
+        assert_eq!(gpu_difference.deltas, cpu_difference.deltas);
+        assert_eq!(gpu_difference.stats, cpu_difference.stats);
     });
 }
 

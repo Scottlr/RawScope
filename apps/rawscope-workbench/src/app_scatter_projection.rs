@@ -95,6 +95,20 @@ impl WorkbenchApp {
                 self.scatter_filters.last_uploaded_revision = evaluation.revision;
             }
         }
+        if let (Some(gpu), Some(renderer)) =
+            (self.gpu.as_ref(), self.scatter.difference_renderer.as_mut())
+        {
+            renderer.replace_dataset(
+                gpu.device(),
+                gpu.queue(),
+                &projected.points,
+                self.scatter.density_dataset_revision,
+            )?;
+            if let Some(evaluation) = self.scatter_filters.evaluation.as_ref() {
+                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation.revision)?;
+            }
+        }
+        self.scatter.difference_baseline_dirty = true;
 
         self.scatter.points = projected.points;
         self.scatter.viewport = Some(ScatterViewport::new(projected.x_range, projected.y_range));

@@ -143,6 +143,23 @@ pub fn build_scatter_inspection_grid(
 }
 
 impl ScatterInspectionGrid {
+    pub fn inspect_bin(&self, bin_x: u32, bin_y: u32) -> Option<ScatterInspectionHit> {
+        if bin_x >= self.grid_width || bin_y >= self.grid_height {
+            return None;
+        }
+        let bin = self
+            .bins
+            .get(bin_y as usize * self.grid_width as usize + bin_x as usize)?;
+        Some(ScatterInspectionHit {
+            bin_x,
+            bin_y,
+            x_range: bin_range(self.x_range, bin_x, self.grid_width),
+            y_range: bin_range(self.y_range, bin_y, self.grid_height),
+            count: bin.count,
+            row_ids: Arc::clone(&bin.row_ids),
+        })
+    }
+
     pub fn inspect_fraction(
         &self,
         x_fraction: f32,
@@ -155,17 +172,7 @@ impl ScatterInspectionGrid {
         let data_y = self.y_range.max - y_fraction * self.y_range.span();
         let bin_x = bin_f32(data_x, self.x_range, self.grid_width)?;
         let bin_y = bin_f32(data_y, self.y_range, self.grid_height)?;
-        let bin = self
-            .bins
-            .get(bin_y as usize * self.grid_width as usize + bin_x as usize)?;
-        Some(ScatterInspectionHit {
-            bin_x,
-            bin_y,
-            x_range: bin_range(self.x_range, bin_x, self.grid_width),
-            y_range: bin_range(self.y_range, bin_y, self.grid_height),
-            count: bin.count,
-            row_ids: Arc::clone(&bin.row_ids),
-        })
+        self.inspect_bin(bin_x, bin_y)
     }
 }
 
