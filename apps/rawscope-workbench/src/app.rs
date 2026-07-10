@@ -12,8 +12,8 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, DatasetDiffSummary, DensityEncoding, ScatterAggregateOverview,
-    ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    scatter_marginal_summary, BrushScreenPoint, DatasetDiffSummary, DensityEncoding,
+    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
     ScatterDensityPresentation, ScatterDensityRenderStats, ScatterDensityRenderer,
     ScatterDensityRendererConfig, ScatterMarginalSummary, ScatterSelectionEvidence,
     ScatterViewport, SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview,
@@ -22,9 +22,7 @@ use rawscope_render::{
     TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::{error, info};
-use winit::{
-    dpi::PhysicalPosition, event::MouseScrollDelta, keyboard::ModifiersState, window::Window,
-};
+use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
 
 use crate::{
     app_dataset_profile::resolve_scatter_input_binding,
@@ -33,6 +31,7 @@ use crate::{
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
     ui::{ExportStatus, WorkbenchSurface},
+    ui_plot_surface::PlotSurfaceLayout,
 };
 
 pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
@@ -58,6 +57,7 @@ pub struct WorkbenchApp {
     pub(crate) egui_state: Option<EguiWinitState>,
     pub(crate) egui_renderer: Option<EguiRenderer>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
+    pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
     pub(crate) active_dataset_profile: Option<rawscope_data::DatasetProfileId>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
@@ -91,7 +91,7 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) render_stats: Option<ScatterDensityRenderStats>,
     pub(crate) marginal_summary: Option<ScatterMarginalSummary>,
     pub(crate) scatter_aggregate_overview: Option<ScatterAggregateOverview>,
-    pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
+    pub(crate) brush_drag_start: Option<BrushScreenPoint>,
     pub(crate) active_brush_drag: Option<ScatterBrushDrag>,
     pub(crate) active_brush_selection: Option<ScatterBrushSelection>,
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
@@ -110,7 +110,7 @@ pub(crate) struct TimelineWorkbenchState {
     pub(crate) marginal_summary: Option<TimelineMarginalSummary>,
     pub(crate) overview_summary: Option<TimelineOverviewSummary>,
     pub(crate) timeline_aggregate_overview: Option<TimelineAggregateOverview>,
-    pub(crate) brush_drag_start: Option<PhysicalPosition<f64>>,
+    pub(crate) brush_drag_start: Option<BrushScreenPoint>,
     pub(crate) active_brush_drag: Option<TimelineBrushDrag>,
     pub(crate) active_brush_selection: Option<TimelineBrushSelection>,
     pub(crate) selection_summary: Option<TimelineSelectionSummary>,
@@ -357,104 +357,6 @@ impl WorkbenchApp {
                 point_count = preset.row_count,
                 "failed to recompute scatter density after preset change"
             );
-        }
-    }
-
-    pub(crate) fn zoom_at_cursor(&mut self, scroll_delta: MouseScrollDelta) {
-        if !self.demo_mode.is_scatter() {
-            return;
-        }
-
-        let cursor_fraction = self.cursor_fraction();
-        let Some(viewport) = self.scatter.viewport.as_mut() else {
-            return;
-        };
-
-        let zoom_scroll = match scroll_delta {
-            MouseScrollDelta::LineDelta(_, y) => y,
-            MouseScrollDelta::PixelDelta(position) => position.y as f32,
-        };
-        if zoom_scroll == 0.0 {
-            return;
-        }
-
-        let zoom_scale = if zoom_scroll > 0.0 {
-            WHEEL_ZOOM_IN_SCALE
-        } else {
-            WHEEL_ZOOM_OUT_SCALE
-        };
-        let (anchor_x, anchor_y) = cursor_fraction
-            .map(|(x_fraction, y_fraction)| viewport.data_point_at_fraction(x_fraction, y_fraction))
-            .unwrap_or_else(|| {
-                let centre_fraction = 0.5;
-                viewport.data_point_at_fraction(centre_fraction, centre_fraction)
-            });
-
-        viewport.zoom_around(anchor_x, anchor_y, zoom_scale);
-        if let Err(err) = self.recompute_density() {
-            error!(error = %err, "failed to recompute scatter density after zoom");
-        }
-    }
-
-    pub(crate) fn begin_pan(&mut self) {
-        if !self.demo_mode.is_scatter() {
-            return;
-        }
-
-        self.last_drag_position = self.cursor_position;
-    }
-
-    pub(crate) fn end_pan(&mut self) {
-        self.last_drag_position = None;
-    }
-
-    pub(crate) fn pan_to_cursor(&mut self, position: PhysicalPosition<f64>) {
-        if !self.demo_mode.is_scatter() {
-            return;
-        }
-
-        let Some(last_drag_position) = self.last_drag_position else {
-            return;
-        };
-        let Some(window) = &self.window else {
-            return;
-        };
-        let Some(viewport) = self.scatter.viewport.as_mut() else {
-            return;
-        };
-
-        let window_size = window.inner_size();
-        let window_has_area = window_size.width > 0 && window_size.height > 0;
-        if !window_has_area {
-            return;
-        }
-
-        let delta_x_fraction =
-            (position.x - last_drag_position.x) as f32 / window_size.width as f32;
-        let delta_y_fraction =
-            (position.y - last_drag_position.y) as f32 / window_size.height as f32;
-        let data_delta_x = -delta_x_fraction * viewport.x_range().span();
-        let data_delta_y = -delta_y_fraction * viewport.y_range().span();
-
-        viewport.pan_by(data_delta_x, data_delta_y);
-        self.last_drag_position = Some(position);
-        if let Err(err) = self.recompute_density() {
-            error!(error = %err, "failed to recompute scatter density after pan");
-        }
-    }
-
-    pub(crate) fn reset_viewport(&mut self) {
-        if !self.demo_mode.is_scatter() {
-            return;
-        }
-
-        let Some(viewport) = self.scatter.viewport.as_mut() else {
-            return;
-        };
-
-        viewport.reset();
-        if let Err(err) = self.recompute_density() {
-            error!(error = %err, "failed to recompute scatter density after reset");
         }
     }
 

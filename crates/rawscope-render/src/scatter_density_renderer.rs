@@ -12,7 +12,7 @@ use crate::density_render_pipeline::{
 use crate::gpu_scatter_density::{
     dispatch_scatter_density, GpuScatterDensityError, ScatterDensityComputeConfig,
 };
-use crate::{DensityEncoding, ScatterDensityPresentation};
+use crate::{DensityEncoding, PlotRectPx, ScatterDensityPresentation};
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/scatter_density_render.wgsl");
 
@@ -205,8 +205,13 @@ impl ScatterDensityRenderer {
         self.stats
     }
 
-    /// Encodes one fullscreen scatter-density render pass.
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target_view: &wgpu::TextureView) {
+    /// Encodes one scatter-density render pass clipped to the physical plot.
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+    ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("RawScope Scatter Density Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -231,6 +236,15 @@ impl ScatterDensityRenderer {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_viewport(
+            plot_rect.x as f32,
+            plot_rect.y as f32,
+            plot_rect.width as f32,
+            plot_rect.height as f32,
+            0.0,
+            1.0,
+        );
+        render_pass.set_scissor_rect(plot_rect.x, plot_rect.y, plot_rect.width, plot_rect.height);
         render_pass.draw(0..3, 0..1);
     }
 }

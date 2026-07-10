@@ -2,7 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BrushScreenRect, BrushScreenSize};
+use crate::{BrushScreenRect, BrushScreenSize, PlotRectPx};
 
 const OVERLAY_SHADER_SOURCE: &str = include_str!("shaders/scatter_brush_overlay.wgsl");
 const BRUSH_FILL_RGBA: [f32; 4] = [1.0, 0.72, 0.22, 0.18];
@@ -50,12 +50,12 @@ impl ScatterBrushOverlayRenderer {
         encoder: &mut wgpu::CommandEncoder,
         target_view: &wgpu::TextureView,
         screen_rect: Option<BrushScreenRect>,
-        screen_size: BrushScreenSize,
+        plot_rect: PlotRectPx,
     ) {
         let Some(screen_rect) = screen_rect else {
             return;
         };
-        let Some(params) = BrushOverlayParams::from_screen_rect(screen_rect, screen_size) else {
+        let Some(params) = BrushOverlayParams::from_plot_rect(screen_rect, plot_rect) else {
             return;
         };
 
@@ -80,6 +80,15 @@ impl ScatterBrushOverlayRenderer {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_viewport(
+            plot_rect.x as f32,
+            plot_rect.y as f32,
+            plot_rect.width as f32,
+            plot_rect.height as f32,
+            0.0,
+            1.0,
+        );
+        render_pass.set_scissor_rect(plot_rect.x, plot_rect.y, plot_rect.width, plot_rect.height);
         render_pass.draw(0..3, 0..1);
     }
 }
@@ -100,10 +109,8 @@ struct BrushOverlayParams {
 }
 
 impl BrushOverlayParams {
-    fn from_screen_rect(
-        screen_rect: BrushScreenRect,
-        screen_size: BrushScreenSize,
-    ) -> Option<Self> {
+    fn from_plot_rect(screen_rect: BrushScreenRect, plot_rect: PlotRectPx) -> Option<Self> {
+        let screen_size = plot_rect.screen_size();
         let screen_has_area = screen_size.width > 0.0 && screen_size.height > 0.0;
         if !screen_has_area {
             return None;
@@ -115,11 +122,13 @@ impl BrushOverlayParams {
             return None;
         }
 
+        let plot_origin_x = plot_rect.x as f32;
+        let plot_origin_y = plot_rect.y as f32;
         Some(Self {
-            min_x_px: rect.min_x,
-            min_y_px: rect.min_y,
-            max_x_px: rect.max_x,
-            max_y_px: rect.max_y,
+            min_x_px: plot_origin_x + rect.min_x,
+            min_y_px: plot_origin_y + rect.min_y,
+            max_x_px: plot_origin_x + rect.max_x,
+            max_y_px: plot_origin_y + rect.max_y,
             screen_width_px: screen_size.width,
             screen_height_px: screen_size.height,
             border_width_px: BRUSH_BORDER_WIDTH_PX,
@@ -214,7 +223,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn overlay_params_clamp_brush_rect_to_screen() {
+    fn overlay_params_clamp_local_brush_and_add_plot_origin() {
         let screen_rect = BrushScreenRect {
             min_x: -10.0,
             min_y: 5.0,
@@ -222,27 +231,27 @@ mod tests {
             max_y: 80.0,
         };
 
-        let params =
-            BrushOverlayParams::from_screen_rect(screen_rect, BrushScreenSize::new(100.0, 60.0))
-                .unwrap();
+        let plot_rect = PlotRectPx::try_new(20, 30, 100, 60, 200, 120).unwrap();
+        let params = BrushOverlayParams::from_plot_rect(screen_rect, plot_rect).unwrap();
 
-        assert_eq!(params.min_x_px, 0.0);
-        assert_eq!(params.min_y_px, 5.0);
-        assert_eq!(params.max_x_px, 100.0);
-        assert_eq!(params.max_y_px, 60.0);
+        assert_eq!(params.min_x_px, 20.0);
+        assert_eq!(params.min_y_px, 35.0);
+        assert_eq!(params.max_x_px, 120.0);
+        assert_eq!(params.max_y_px, 90.0);
     }
 
     #[test]
-    fn overlay_params_skip_zero_sized_screen() {
+    fn overlay_params_skip_zero_area_brush() {
         let screen_rect = BrushScreenRect {
             min_x: 0.0,
             min_y: 0.0,
-            max_x: 10.0,
+            max_x: 0.0,
             max_y: 10.0,
         };
+        let plot_rect = PlotRectPx::try_new(0, 0, 100, 60, 100, 60).unwrap();
 
         assert_eq!(
-            BrushOverlayParams::from_screen_rect(screen_rect, BrushScreenSize::new(0.0, 60.0)),
+            BrushOverlayParams::from_plot_rect(screen_rect, plot_rect),
             None
         );
     }

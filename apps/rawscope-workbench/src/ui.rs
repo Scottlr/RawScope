@@ -13,7 +13,7 @@ use crate::{
     app::WorkbenchApp,
     app_comparison::WorkbenchComparison,
     demo::DemoMode,
-    ui_controls::{show_workbench_ui, UiActions},
+    ui_controls::{show_workbench_ui, UiActions, WorkbenchUiOutput},
     ui_view_context::{view_axes_ui_state, view_context_ui_state, WorkbenchViewContextUiState},
     ui_visual_encoding::{density_encoding_ui_state, DensityEncodingUiState},
 };
@@ -264,9 +264,21 @@ impl WorkbenchApp {
         }
     }
 
-    pub(crate) fn show_ui(&mut self, ui: &mut egui::Ui) -> UiActions {
+    pub(crate) fn show_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        pixels_per_point: f32,
+        surface_width_px: u32,
+        surface_height_px: u32,
+    ) -> WorkbenchUiOutput {
         let ui_state = self.ui_state();
-        show_workbench_ui(ui, &ui_state)
+        show_workbench_ui(
+            ui,
+            &ui_state,
+            pixels_per_point,
+            surface_width_px,
+            surface_height_px,
+        )
     }
 
     pub(crate) fn apply_ui_actions(&mut self, actions: UiActions) {

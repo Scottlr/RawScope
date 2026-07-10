@@ -1,8 +1,8 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{ScatterPointKind, ScatterPointRecord, SyntheticPointCategory};
 use rawscope_render::{
-    BrushScreenPoint, BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
-    ScatterViewport, SelectedRegionSummary,
+    BrushScreenPoint, BrushScreenRect, BrushScreenSize, PlotPointPx, PlotRectPx, ScatterBrushDrag,
+    ScatterBrushSelection, ScatterViewport, SelectedRegionSummary,
 };
 
 fn viewport() -> ScatterViewport {
@@ -86,6 +86,29 @@ fn drag_finalizes_screen_brush_to_data_space_range() {
 
     assert_eq!(selection.x_range, F32Range::new(10.0, 40.0));
     assert_eq!(selection.y_range, F32Range::new(30.0, 80.0));
+}
+
+#[test]
+fn scatter_brush_round_trips_through_offset_plot_rect() {
+    let plot_rect = PlotRectPx::try_new(200, 100, 800, 400, 1_200, 800).unwrap();
+    let start = plot_rect
+        .local_point(PlotPointPx::new(400.0, 200.0))
+        .unwrap();
+    let end = plot_rect
+        .local_point(PlotPointPx::new(800.0, 400.0))
+        .unwrap();
+    let selection =
+        ScatterBrushSelection::from_screen_points(start, end, plot_rect.screen_size(), viewport())
+            .unwrap();
+
+    let projected = selection
+        .project_to_screen(viewport(), plot_rect.screen_size())
+        .unwrap();
+
+    assert_eq!(projected.min_x + plot_rect.x as f32, 400.0);
+    assert_eq!(projected.min_y + plot_rect.y as f32, 200.0);
+    assert_eq!(projected.max_x + plot_rect.x as f32, 800.0);
+    assert_eq!(projected.max_y + plot_rect.y as f32, 400.0);
 }
 
 #[test]

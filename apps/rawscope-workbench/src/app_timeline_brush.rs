@@ -1,8 +1,8 @@
 //! Timeline brush interaction helpers for the workbench timeline-density demo.
 
 use rawscope_render::{
-    timeline_selection_drilldown, BrushScreenPoint, BrushScreenRect, TimelineBrushDrag,
-    TimelineEvidenceConfig, TimelineSelectionEvidence, TimelineSelectionSummary,
+    timeline_selection_drilldown, BrushScreenRect, TimelineBrushDrag, TimelineEvidenceConfig,
+    TimelineSelectionEvidence, TimelineSelectionSummary,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -14,9 +14,12 @@ impl WorkbenchApp {
         if !self.demo_mode.is_timeline() {
             return;
         }
+        let Some(brush_start) = self.plot_local_cursor_point() else {
+            return;
+        };
 
         self.last_drag_position = None;
-        self.timeline.brush_drag_start = self.cursor_position;
+        self.timeline.brush_drag_start = Some(brush_start);
         self.update_timeline_brush_from_cursor();
     }
 
@@ -85,10 +88,13 @@ impl WorkbenchApp {
             return;
         };
 
-        let screen_size = self.screen_size();
-        let brush_start =
-            BrushScreenPoint::new(brush_drag_start.x as f32, brush_drag_start.y as f32);
-        let brush_end = BrushScreenPoint::new(cursor_position.x as f32, cursor_position.y as f32);
+        let Some(screen_size) = self.plot_screen_size() else {
+            return;
+        };
+        let Some(brush_end) = self.clamped_plot_local_point(cursor_position) else {
+            return;
+        };
+        let brush_start = brush_drag_start;
         let next_drag = BrushScreenRect::from_points(brush_start, brush_end, screen_size)
             .map(TimelineBrushDrag::from_screen_rect);
 
@@ -116,7 +122,9 @@ impl WorkbenchApp {
             return;
         };
 
-        let screen_size = self.screen_size();
+        let Some(screen_size) = self.plot_screen_size() else {
+            return;
+        };
         self.timeline.active_brush_selection = active_drag.finalize(screen_size, viewport);
         self.timeline.selection_summary = self.timeline.active_brush_selection.map(|selection| {
             TimelineSelectionSummary::from_events(

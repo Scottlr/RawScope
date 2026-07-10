@@ -149,7 +149,7 @@ The highest-impact discovered problems are concrete:
 
 | ID | Completed | Title | Description | Github Issue # | Blocked By | Task File |
 |---|---|---|---|---|---|---|
-| T001 | [ ] | Add Authoritative Plot Geometry And GPU Scissoring | Introduce one physical plot rectangle shared by WGPU rendering, input math, brush projection, and egui overlays; split plot coordination out of oversized workbench owners. |  | None | [`tasks/T001.md`](tasks/T001.md) |
+| T001 | [x] | Add Authoritative Plot Geometry And GPU Scissoring | Introduce one physical plot rectangle shared by WGPU rendering, input math, brush projection, and egui overlays; split plot coordination out of oversized workbench owners. |  | None | [`tasks/T001.md`](tasks/T001.md) |
 | T002 | [ ] | Add Refined Axes Grid And Dataset Guides | Replace fixed guard-margin axes with nice numeric ticks, clipped grid lines, stable gutters, and truthful equality/zero guides derived from the active plot geometry. |  | T001 | [`tasks/T002.md`](tasks/T002.md) |
 | T003 | [ ] | Refine Workbench Chrome And Dataset Identity | Build a compact icon-led toolbar, collapsible inspector, short dataset identity, restrained status bar, and concise window title without hiding reproducibility details. |  | T001 | [`tasks/T003.md`](tasks/T003.md) |
 | T004 | [ ] | Add Explicit Pan Brush And Inspect Modes | Make interaction state explicit with Pan, Brush, and Inspect modes, cursor feedback, temporary modifier overrides, and plot-bounded event routing. |  | T001, T003 | [`tasks/T004.md`](tasks/T004.md) |
