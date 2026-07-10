@@ -25,7 +25,7 @@ impl WorkbenchApp {
             };
             egui_state.take_egui_input(window.as_ref())
         };
-        let mut ui_output = crate::ui_controls::WorkbenchUiOutput::default();
+        let mut ui_output = crate::ui_shell::WorkbenchUiOutput::default();
         let full_output = egui_context.run_ui(raw_input, |ui| {
             ui_output = self.show_ui(
                 ui,

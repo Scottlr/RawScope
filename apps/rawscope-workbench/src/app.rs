@@ -32,6 +32,7 @@ use crate::{
     demo::{DemoMode, PointCountPreset},
     ui::{ExportStatus, WorkbenchSurface},
     ui_plot_surface::PlotSurfaceLayout,
+    ui_shell::WorkbenchShellState,
 };
 
 pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
@@ -67,6 +68,7 @@ pub struct WorkbenchApp {
     pub(crate) next_selection_id: SelectionId,
     pub(crate) visible_surface: WorkbenchSurface,
     pub(crate) export_status: ExportStatus,
+    pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
     pub(crate) dataset_diff_summary: Option<DatasetDiffSummary>,

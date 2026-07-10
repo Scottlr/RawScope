@@ -8,6 +8,7 @@ license.workspace = true
 egui = "0.35.0"
 egui-wgpu = "0.35.0"
 egui-winit = "0.35.0"
+iconflow = { version = "1.0.0", default-features = false, features = ["pack-lucide"] }
 pollster = "0.4.0"
 rawscope-core = { path = "../../crates/rawscope-core" }
 rawscope-data = { path = "../../crates/rawscope-data" }

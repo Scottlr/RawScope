@@ -1,11 +1,13 @@
 //! RawScope-owned visual language for the egui workbench shell.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use egui::{
-    vec2, Button, Color32, Context, CornerRadius, CursorIcon, FontFamily, FontId, Frame, Margin,
-    RichText, Shadow, Stroke, Style, TextStyle, Ui, Visuals,
+    vec2, Button, Color32, Context, CornerRadius, CursorIcon, FontData, FontDefinitions,
+    FontFamily, FontId, Frame, Margin, Response, RichText, Shadow, Stroke, Style, TextStyle, Ui,
+    Visuals,
 };
+use iconflow::{Pack, Size, Style as IconStyle};
 
 pub(crate) const ACCENT: Color32 = Color32::from_rgb(63, 191, 184);
 pub(crate) const ACCENT_BRIGHT: Color32 = Color32::from_rgb(87, 216, 205);
@@ -28,6 +30,7 @@ const PANEL_HORIZONTAL_MARGIN_PX: i8 = 14;
 const PANEL_VERTICAL_MARGIN_PX: i8 = 10;
 
 pub(crate) fn apply_theme(context: &Context) {
+    register_icon_fonts(context);
     let mut style = Style {
         text_styles: BTreeMap::from([
             (
@@ -64,6 +67,21 @@ pub(crate) fn apply_theme(context: &Context) {
     context.set_global_style(style);
 }
 
+fn register_icon_fonts(context: &Context) {
+    let mut definitions = FontDefinitions::default();
+    for font in iconflow::fonts() {
+        let font_name = font.family.to_string();
+        definitions.font_data.insert(
+            font_name.clone(),
+            Arc::new(FontData::from_static(font.bytes)),
+        );
+        definitions
+            .families
+            .insert(FontFamily::Name(font.family.into()), vec![font_name]);
+    }
+    context.set_fonts(definitions);
+}
+
 pub(crate) fn toolbar_frame() -> Frame {
     Frame::new()
         .fill(APP_BACKGROUND)
@@ -95,10 +113,24 @@ pub(crate) fn navigation_button(label: &str, selected: bool) -> Button<'_> {
         .corner_radius(CONTROL_CORNER_RADIUS_PX)
 }
 
-pub(crate) fn command_button(label: &str) -> Button<'_> {
-    Button::new(label)
-        .min_size(vec2(68.0, 30.0))
-        .corner_radius(CONTROL_CORNER_RADIUS_PX)
+pub(crate) fn icon_command_button(
+    ui: &mut Ui,
+    icon_name: &str,
+    tooltip: &str,
+    enabled: bool,
+) -> Response {
+    let icon = iconflow::try_icon(Pack::Lucide, icon_name, IconStyle::Regular, Size::Regular)
+        .expect("workbench command icons are compile-time constants");
+    let glyph = char::from_u32(icon.codepoint).expect("iconflow returns valid Unicode codepoints");
+    let text = RichText::new(glyph.to_string())
+        .font(FontId::new(16.0, FontFamily::Name(icon.family.into())));
+    ui.add_enabled(
+        enabled,
+        Button::new(text)
+            .min_size(vec2(30.0, 30.0))
+            .corner_radius(CONTROL_CORNER_RADIUS_PX),
+    )
+    .on_hover_text(tooltip)
 }
 
 pub(crate) fn segmented_button(label: &str, selected: bool) -> Button<'_> {
