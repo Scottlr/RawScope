@@ -119,6 +119,7 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) density_is_refining: bool,
     pub(crate) reduced_motion: bool,
     pub(crate) scatter_filters: Option<ScatterFiltersUiState>,
+    pub(crate) active_cohort_row_count: usize,
     pub(crate) scatter_inspection: Option<ScatterInspectionUiState>,
 }
 
@@ -179,6 +180,19 @@ impl WorkbenchApp {
         let comparison = self.active_comparison.clone();
         let (axis_primary_label, axis_secondary_label) = axis_labels(self);
         let scatter_inspection = scatter_inspection_ui_state(self);
+        let scatter_filters = scatter_filters_ui_state(self);
+        let active_cohort_row_count = if self.demo_mode.is_scatter() {
+            scatter_filters.as_ref().map_or(
+                self.dataset_identity
+                    .as_ref()
+                    .map_or(0, |identity| identity.row_count),
+                |filters| filters.included_count,
+            )
+        } else {
+            self.dataset_identity
+                .as_ref()
+                .map_or(0, |identity| identity.row_count)
+        };
         let view_axes = view_axes_ui_state(self);
         let density_encoding = density_encoding_ui_state(self);
         let view_context = view_context_ui_state(self);
@@ -264,7 +278,8 @@ impl WorkbenchApp {
             can_clear_selection,
             density_is_refining: self.render_schedule.is_refining(),
             reduced_motion: self.visual_transition.config.reduced_motion,
-            scatter_filters: scatter_filters_ui_state(self),
+            scatter_filters,
+            active_cohort_row_count,
             scatter_inspection,
         }
     }

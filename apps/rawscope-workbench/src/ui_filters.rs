@@ -369,7 +369,7 @@ mod tests {
     use crate::app_scatter_filter::ScatterFilterState;
 
     #[test]
-    fn lichess_filter_controls_follow_profile_priority() {
+    fn lichess_filter_order_matches_profile_hints() {
         let source = LoadedSourceTable {
             columns: [
                 "opening",

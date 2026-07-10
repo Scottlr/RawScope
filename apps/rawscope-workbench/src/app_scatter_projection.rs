@@ -3,8 +3,8 @@
 use std::error::Error;
 
 use rawscope_data::{
-    project_scatter_points, LoadedColumnKind, ScatterPointRecord, ScatterProjection,
-    ScatterProjectionLabels, ScatterProjectionSpec,
+    dataset_profile, project_scatter_points, LoadedColumnKind, ScatterPointRecord,
+    ScatterProjection, ScatterProjectionLabels, ScatterProjectionSpec,
 };
 use rawscope_render::ScatterViewport;
 
@@ -36,21 +36,28 @@ impl Default for ScatterProjectionState {
 
 impl WorkbenchApp {
     pub(crate) fn initialize_scatter_projection(&mut self, x_column: &str, y_column: &str) {
-        let available = self
-            .scatter_filters
-            .catalog
-            .as_ref()
-            .is_some_and(|catalog| {
-                [x_column, y_column].into_iter().all(|column_name| {
-                    catalog.fields.iter().any(|field| {
-                        field.column_name == column_name
-                            && matches!(
-                                field.source_kind,
-                                LoadedColumnKind::Integer | LoadedColumnKind::Float
-                            )
-                    })
-                })
+        let profile_recommends_projection =
+            self.active_dataset_profile.map_or(true, |profile_id| {
+                dataset_profile(profile_id)
+                    .scatter_defaults
+                    .suggest_mean_difference
             });
+        let available = profile_recommends_projection
+            && self
+                .scatter_filters
+                .catalog
+                .as_ref()
+                .is_some_and(|catalog| {
+                    [x_column, y_column].into_iter().all(|column_name| {
+                        catalog.fields.iter().any(|field| {
+                            field.column_name == column_name
+                                && matches!(
+                                    field.source_kind,
+                                    LoadedColumnKind::Integer | LoadedColumnKind::Float
+                                )
+                        })
+                    })
+                });
         self.scatter_projection = ScatterProjectionState {
             active: ScatterProjection::RawXY,
             spec: Some(ScatterProjectionSpec::new(x_column, y_column)),

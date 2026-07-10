@@ -22,7 +22,7 @@ pub use dataset_profile::{
     supported_dataset_profile_ids, validate_dataset_profile, DatasetProfile, DatasetProfileColumn,
     DatasetProfileFilterHint, DatasetProfileFilterKind, DatasetProfileId, DatasetProfileParseError,
     DatasetProfileValidationError, DatasetProfileValidationMismatch, ScatterDatasetProfileBinding,
-    ScatterDatasetProfileHints, TimelineDatasetProfileBinding,
+    ScatterDatasetProfileDefaults, ScatterDatasetProfileHints, TimelineDatasetProfileBinding,
 };
 pub use local_dataset::{
     load_dataset_schema, load_parquet_scatter_dataset, load_parquet_timeline_dataset,
