@@ -13,13 +13,13 @@ use rawscope_data::{
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
     scatter_marginal_summary, BrushScreenPoint, DatasetDiffSummary, DensityEncoding,
-    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityPresentation, ScatterDensityRenderStats, ScatterDensityRenderer,
-    ScatterDensityRendererConfig, ScatterMarginalSummary, ScatterSelectionEvidence,
-    ScatterViewport, SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview,
-    TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
-    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionEvidence,
-    TimelineSelectionSummary, TimelineViewport,
+    DensityReadbackPolicy, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
+    ScatterBrushSelection, ScatterDensityPresentation, ScatterDensityRenderStats,
+    ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDensityUpdate,
+    ScatterMarginalSummary, ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
+    SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
+    TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::{error, info};
 use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
@@ -93,6 +93,7 @@ pub struct WorkbenchApp {
 /// Scatter-specific workbench state.
 pub(crate) struct ScatterWorkbenchState {
     pub(crate) density_renderer: Option<ScatterDensityRenderer>,
+    pub(crate) density_dataset_revision: u64,
     pub(crate) density_encoding: DensityEncoding,
     pub(crate) density_presentation: ScatterDensityPresentation,
     pub(crate) points: Vec<ScatterPointRecord>,
@@ -134,6 +135,7 @@ impl Default for ScatterWorkbenchState {
     fn default() -> Self {
         Self {
             density_renderer: None,
+            density_dataset_revision: 0,
             density_encoding: DensityEncoding::scatter_default(),
             density_presentation: ScatterDensityPresentation::TopographicField,
             points: Vec::new(),
@@ -363,6 +365,21 @@ impl WorkbenchApp {
         self.rebuild_missingness_state();
         self.rebuild_scatter_aggregate_overview();
 
+        self.scatter.density_dataset_revision += 1;
+        if let (Some(gpu), Some(renderer)) =
+            (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
+        {
+            if let Err(err) = renderer.replace_dataset(
+                gpu.device(),
+                gpu.queue(),
+                &self.scatter.points,
+                self.scatter.density_dataset_revision,
+            ) {
+                error!(error = %err, "failed to replace resident scatter dataset");
+                return;
+            }
+        }
+
         if let Err(err) = self.recompute_density() {
             error!(
                 error = %err,
@@ -395,8 +412,10 @@ impl WorkbenchApp {
         let stats = scatter_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
-            &self.scatter.points,
-            renderer_config,
+            ScatterDensityUpdate {
+                config: renderer_config,
+                readback: DensityReadbackPolicy::None,
+            },
         )?;
         self.scatter.render_stats = Some(stats);
         self.update_window_title();

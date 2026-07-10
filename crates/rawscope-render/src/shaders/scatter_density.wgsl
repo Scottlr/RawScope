@@ -23,6 +23,9 @@ var<uniform> params: Params;
 @group(0) @binding(2)
 var<storage, read_write> counts: array<atomic<u32>>;
 
+@group(0) @binding(3)
+var<storage, read_write> max_count: array<atomic<u32>>;
+
 fn bin_f32(value: f32, range_min: f32, range_max: f32, bin_count: u32) -> u32 {
     if value == range_max {
         return bin_count - 1u;
@@ -50,5 +53,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let x_bin = bin_f32(point.x, params.x_min, params.x_max, params.grid_width);
     let y_bin = bin_f32(point.y, params.y_min, params.y_max, params.grid_height);
     let bin_index = y_bin * params.grid_width + x_bin;
-    atomicAdd(&counts[bin_index], 1u);
+    let previous = atomicAdd(&counts[bin_index], 1u);
+    atomicMax(&max_count[0], previous + 1u);
 }

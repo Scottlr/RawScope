@@ -20,6 +20,9 @@ var<storage, read> counts: array<u32>;
 @group(0) @binding(1)
 var<uniform> params: RenderParams;
 
+@group(0) @binding(2)
+var<storage, read> max_counts: array<u32>;
+
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var positions = array<vec2<f32>, 3>(
@@ -120,7 +123,7 @@ fn reconstructed_intensity(grid_position: vec2<f32>) -> f32 {
     let interpolated_count = mix(lower_count, upper_count, blend.y);
     return density_intensity_value(
         interpolated_count,
-        params.max_bin_count,
+        max_counts[0],
         params.transform_id,
     );
 }
@@ -193,6 +196,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let y_bin = min(u32(y_uv * f32(params.grid_height)), params.grid_height - 1u);
     let bin_index = y_bin * params.grid_width + x_bin;
     let count = counts[bin_index];
-    let intensity = density_intensity(count, params.max_bin_count, params.transform_id);
+    let intensity = density_intensity(count, max_counts[0], params.transform_id);
     return vec4<f32>(density_colour(intensity, params.palette_id), 1.0);
 }
