@@ -28,6 +28,7 @@ impl WorkbenchApp {
         if preset_is_already_active {
             return;
         }
+        self.cancel_visual_transition();
 
         let dataset =
             generate_synthetic_points(SyntheticPointConfig::new(DEMO_SEED, preset.row_count));

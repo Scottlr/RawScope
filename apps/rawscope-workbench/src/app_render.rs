@@ -12,6 +12,12 @@ impl WorkbenchApp {
         if let Err(err) = self.prepare_scheduled_density() {
             error!(error = %err, "failed to refine interactive scatter density");
         }
+        let transition_frame = self.visual_transition_frame();
+        if let (Some(gpu), Some(renderer)) =
+            (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
+        {
+            renderer.set_transition_progress(gpu.queue(), transition_frame.alpha);
+        }
         let Some(window) = self.window.as_ref().cloned() else {
             return;
         };
@@ -79,6 +85,8 @@ impl WorkbenchApp {
                     let point_reveal_renderer = self.point_reveal.renderer.as_ref();
                     let difference_renderer = self.scatter.difference_renderer.as_ref();
                     let density_mode = self.scatter.density_mode;
+                    let semantic_modes = transition_frame.semantic_modes;
+                    let transition_alpha = transition_frame.alpha;
                     let brush_screen_rect = self
                         .scatter
                         .active_brush_drag
@@ -102,7 +110,58 @@ impl WorkbenchApp {
                         });
 
                     gpu.render_frame(|device, queue, target_view, encoder| {
-                        if density_mode == rawscope_render::ScatterDensityMode::FilteredDifference {
+                        if let Some((from, to)) = semantic_modes {
+                            match from {
+                                rawscope_render::ScatterDensityMode::AbsoluteDensity => {
+                                    scatter_density_renderer.render_blended(
+                                        encoder,
+                                        target_view,
+                                        plot_rect,
+                                        true,
+                                        1.0,
+                                    );
+                                }
+                                rawscope_render::ScatterDensityMode::FilteredDifference => {
+                                    if let Some(renderer) = difference_renderer {
+                                        renderer.render_blended(
+                                            device,
+                                            queue,
+                                            encoder,
+                                            target_view,
+                                            plot_rect,
+                                            true,
+                                            1.0,
+                                        );
+                                    }
+                                }
+                            }
+                            match to {
+                                rawscope_render::ScatterDensityMode::AbsoluteDensity => {
+                                    scatter_density_renderer.render_blended(
+                                        encoder,
+                                        target_view,
+                                        plot_rect,
+                                        false,
+                                        transition_alpha,
+                                    );
+                                }
+                                rawscope_render::ScatterDensityMode::FilteredDifference => {
+                                    if let Some(renderer) = difference_renderer {
+                                        renderer.render_blended(
+                                            device,
+                                            queue,
+                                            encoder,
+                                            target_view,
+                                            plot_rect,
+                                            false,
+                                            transition_alpha,
+                                        );
+                                    }
+                                }
+                            }
+                        } else if density_mode
+                            == rawscope_render::ScatterDensityMode::FilteredDifference
+                        {
                             if let Some(renderer) = difference_renderer {
                                 renderer.render(device, queue, encoder, target_view, plot_rect);
                             }
@@ -111,11 +170,16 @@ impl WorkbenchApp {
                         }
                         if density_mode == rawscope_render::ScatterDensityMode::AbsoluteDensity {
                             if let Some(point_reveal_renderer) = point_reveal_renderer {
-                                point_reveal_renderer.render(
+                                point_reveal_renderer.render_with_transition_alpha(
                                     queue,
                                     encoder,
                                     target_view,
                                     plot_rect,
+                                    if transition_frame.running {
+                                        transition_alpha
+                                    } else {
+                                        1.0
+                                    },
                                 );
                             }
                         }
@@ -317,6 +381,9 @@ impl WorkbenchApp {
                 error!(error = %err, "failed to render workbench frame");
                 event_loop.exit();
             }
+        }
+        if transition_frame.running {
+            self.request_redraw();
         }
     }
 }

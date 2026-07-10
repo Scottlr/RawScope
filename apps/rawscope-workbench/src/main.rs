@@ -24,6 +24,7 @@ mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;
 mod app_visual_encoding;
+mod app_visual_transition;
 mod app_window;
 mod cli;
 mod demo;

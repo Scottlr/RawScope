@@ -130,6 +130,7 @@ impl TimelineDensityRenderer {
             &bind_group_layout,
             &shader,
             surface_format,
+            wgpu::BlendState::REPLACE,
         );
 
         Ok(Self {

@@ -149,6 +149,17 @@ impl ScatterPointRenderer {
         target_view: &wgpu::TextureView,
         plot_rect: PlotRectPx,
     ) {
+        self.render_with_transition_alpha(queue, encoder, target_view, plot_rect, 1.0);
+    }
+
+    pub fn render_with_transition_alpha(
+        &self,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+        transition_alpha: f32,
+    ) {
         if self.rendered_count == 0 || self.stats.blend <= 0.0 {
             return;
         }
@@ -157,7 +168,7 @@ impl ScatterPointRenderer {
             self.y_range,
             plot_rect,
             self.radius_px,
-            self.stats.blend,
+            self.stats.blend * transition_alpha.clamp(0.0, 1.0),
             self.emphasized_row_id,
         );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));

@@ -120,6 +120,7 @@ impl WorkbenchApp {
         self.invalidate_scatter_point_reveal();
         self.rebuild_scatter_aggregate_overview();
         self.recompute_density()?;
+        self.begin_visual_transition(rawscope_render::TransitionKind::ProjectionChange);
         Ok(())
     }
 }

@@ -23,6 +23,7 @@ impl WorkbenchApp {
             if let Err(err) = self.recompute_density() {
                 error!(error = %err, "failed to recompute density after relief change");
             }
+            self.begin_visual_transition(rawscope_render::TransitionKind::PresentationChange);
         } else {
             self.request_redraw();
         }
@@ -42,11 +43,12 @@ impl WorkbenchApp {
         if mode == ScatterDensityMode::FilteredDifference && !difference_is_available {
             return;
         }
+        let previous_mode = self.scatter.density_mode;
         self.scatter.density_mode = mode;
         if mode == ScatterDensityMode::FilteredDifference {
             self.invalidate_scatter_point_reveal();
         }
-        self.request_redraw();
+        self.begin_density_mode_transition(previous_mode, mode);
     }
 
     pub(crate) fn set_density_transform(&mut self, transform: DensityTransform) {
@@ -79,6 +81,8 @@ impl WorkbenchApp {
                 transform = transform.label(),
                 "failed to recompute density after transform change"
             );
+        } else if self.demo_mode.is_scatter() {
+            self.begin_visual_transition(rawscope_render::TransitionKind::DensityRefresh);
         }
     }
 
@@ -100,6 +104,8 @@ impl WorkbenchApp {
                 presentation = presentation.evidence_label(),
                 "failed to recompute scatter density after presentation change"
             );
+        } else {
+            self.begin_visual_transition(rawscope_render::TransitionKind::PresentationChange);
         }
     }
 }
