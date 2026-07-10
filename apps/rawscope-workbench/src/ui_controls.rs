@@ -2,7 +2,8 @@
 
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
-    DensityTransform, PointRevealMode, ScatterDensityMode, ScatterDensityPresentation,
+    DensityTransform, PointRevealMode, ReliefFieldConfig, ScatterDensityMode,
+    ScatterDensityPresentation,
 };
 
 use crate::{
@@ -29,6 +30,7 @@ pub(crate) struct UiActions {
     pub(crate) set_point_reveal_mode: Option<PointRevealMode>,
     pub(crate) set_scatter_projection: Option<ScatterProjection>,
     pub(crate) set_scatter_density_mode: Option<ScatterDensityMode>,
+    pub(crate) set_relief_config: Option<ReliefFieldConfig>,
     pub(crate) missingness_action: Option<MissingnessAction>,
     pub(crate) dataset_diff_action: Option<DatasetDiffAction>,
     pub(crate) filter_action: Option<FilterAction>,

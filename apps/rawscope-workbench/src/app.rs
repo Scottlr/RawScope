@@ -13,14 +13,14 @@ use rawscope_data::{
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
     scatter_marginal_summary, BrushScreenPoint, DatasetDiffSummary, DensityEncoding,
-    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityMode, ScatterDensityPresentation, ScatterDensityRenderStats,
-    ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDifferenceRenderStats,
-    ScatterDifferenceRenderer, ScatterMarginalSummary, ScatterSelectionEvidence, ScatterViewport,
-    SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag,
-    TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
-    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionEvidence,
-    TimelineSelectionSummary, TimelineViewport,
+    ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
+    ScatterBrushSelection, ScatterDensityMode, ScatterDensityPresentation,
+    ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
+    ScatterDifferenceRenderStats, ScatterDifferenceRenderer, ScatterMarginalSummary,
+    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
+    TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::info;
 use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
@@ -108,6 +108,7 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) density_mode: ScatterDensityMode,
     pub(crate) difference_stats: Option<ScatterDifferenceRenderStats>,
     pub(crate) difference_baseline_dirty: bool,
+    pub(crate) relief_config: ReliefFieldConfig,
     pub(crate) density_dataset_revision: u64,
     pub(crate) density_encoding: DensityEncoding,
     pub(crate) density_presentation: ScatterDensityPresentation,
@@ -154,6 +155,7 @@ impl Default for ScatterWorkbenchState {
             density_mode: ScatterDensityMode::AbsoluteDensity,
             difference_stats: None,
             difference_baseline_dirty: true,
+            relief_config: ReliefFieldConfig::default(),
             density_dataset_revision: 0,
             density_encoding: DensityEncoding::scatter_default(),
             density_presentation: ScatterDensityPresentation::TopographicField,
@@ -248,7 +250,8 @@ impl WorkbenchApp {
                 DEMO_GRID_HEIGHT,
             )
             .with_encoding(self.scatter.density_encoding)
-            .with_presentation(self.scatter.density_presentation);
+            .with_presentation(self.scatter.density_presentation)
+            .with_relief(self.scatter.relief_config);
             let scatter_density_renderer = ScatterDensityRenderer::new(
                 gpu.device(),
                 gpu.queue(),
@@ -317,7 +320,8 @@ impl WorkbenchApp {
             DEMO_GRID_HEIGHT,
         )
         .with_encoding(self.scatter.density_encoding)
-        .with_presentation(self.scatter.density_presentation);
+        .with_presentation(self.scatter.density_presentation)
+        .with_relief(self.scatter.relief_config);
         let scatter_density_renderer = ScatterDensityRenderer::new(
             gpu.device(),
             gpu.queue(),

@@ -350,6 +350,9 @@ impl WorkbenchApp {
         if let Some(mode) = actions.set_scatter_density_mode {
             self.set_scatter_density_mode(mode);
         }
+        if let Some(config) = actions.set_relief_config {
+            self.set_relief_config(config);
+        }
 
         if actions.export_requested {
             match self.demo_mode {

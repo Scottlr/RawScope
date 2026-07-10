@@ -1,11 +1,33 @@
 //! Workbench coordination for density encoding and scatter presentation controls.
 
-use rawscope_render::{DensityTransform, ScatterDensityMode, ScatterDensityPresentation};
+use rawscope_render::{
+    validate_relief_field_config, DensityTransform, ReliefFieldConfig, ScatterDensityMode,
+    ScatterDensityPresentation,
+};
 use tracing::error;
 
 use crate::{app::WorkbenchApp, demo::DemoMode, ui::WorkbenchSurface};
 
 impl WorkbenchApp {
+    pub(crate) fn set_relief_config(&mut self, config: ReliefFieldConfig) {
+        let Ok(config) = validate_relief_field_config(config) else {
+            return;
+        };
+        if self.scatter.relief_config == config {
+            return;
+        }
+        self.scatter.relief_config = config;
+        if self.scatter.density_presentation == ScatterDensityPresentation::ReliefField
+            && self.scatter.density_mode == ScatterDensityMode::AbsoluteDensity
+        {
+            if let Err(err) = self.recompute_density() {
+                error!(error = %err, "failed to recompute density after relief change");
+            }
+        } else {
+            self.request_redraw();
+        }
+    }
+
     pub(crate) fn set_scatter_density_mode(&mut self, mode: ScatterDensityMode) {
         if mode == self.scatter.density_mode || !self.demo_mode.is_scatter() {
             return;
