@@ -1,5 +1,6 @@
 //! Commands emitted by the egui workbench shell.
 
+use rawscope_data::ScatterProjection;
 use rawscope_render::{DensityTransform, PointRevealMode, ScatterDensityPresentation};
 
 use crate::{
@@ -24,6 +25,7 @@ pub(crate) struct UiActions {
     pub(crate) set_density_transform: Option<DensityTransform>,
     pub(crate) set_scatter_density_presentation: Option<ScatterDensityPresentation>,
     pub(crate) set_point_reveal_mode: Option<PointRevealMode>,
+    pub(crate) set_scatter_projection: Option<ScatterProjection>,
     pub(crate) missingness_action: Option<MissingnessAction>,
     pub(crate) dataset_diff_action: Option<DatasetDiffAction>,
     pub(crate) filter_action: Option<FilterAction>,

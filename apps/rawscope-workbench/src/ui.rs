@@ -342,6 +342,11 @@ impl WorkbenchApp {
         if let Some(mode) = actions.set_point_reveal_mode {
             self.set_point_reveal_mode(mode);
         }
+        if let Some(projection) = actions.set_scatter_projection {
+            if let Err(err) = self.set_scatter_projection(projection) {
+                tracing::error!(error = %err, "failed to switch scatter projection");
+            }
+        }
 
         if actions.export_requested {
             match self.demo_mode {

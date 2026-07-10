@@ -105,6 +105,17 @@ fn lichess_optional_hints_do_not_change_profile_validation() {
 }
 
 #[test]
+fn lichess_profile_recommends_but_does_not_default_projection() {
+    let profile = dataset_profile(DatasetProfileId::LichessGames);
+
+    assert!(profile.scatter_hints.supports_mean_difference);
+    assert_eq!(
+        rawscope_data::ScatterProjection::default(),
+        rawscope_data::ScatterProjection::RawXY
+    );
+}
+
+#[test]
 fn available_hints_skip_missing_columns() {
     let profile = dataset_profile(DatasetProfileId::LichessGames);
     let source = LoadedSourceTable {

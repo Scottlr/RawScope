@@ -1,6 +1,7 @@
 //! Visual encoding context for density surfaces.
 
 use egui::{Align, Color32, Layout, Rect, RichText, Sense, Ui};
+use rawscope_data::ScatterProjection;
 use rawscope_render::{
     DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
     ScatterDensityPresentation,
@@ -24,6 +25,7 @@ pub(crate) struct DensityEncodingUiState {
     pub(crate) max_label: String,
     pub(crate) point_reveal_mode: Option<PointRevealMode>,
     pub(crate) point_reveal_stats: Option<PointRevealStats>,
+    pub(crate) scatter_projection: Option<ScatterProjection>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -32,6 +34,7 @@ pub(crate) struct DensityEncodingResponse {
     pub(crate) set_transform: Option<DensityTransform>,
     pub(crate) set_scatter_presentation: Option<ScatterDensityPresentation>,
     pub(crate) set_point_reveal_mode: Option<PointRevealMode>,
+    pub(crate) set_scatter_projection: Option<ScatterProjection>,
 }
 
 impl DensityEncodingUiState {
@@ -44,6 +47,7 @@ impl DensityEncodingUiState {
         max_bin_count_is_current: bool,
         point_reveal_mode: PointRevealMode,
         point_reveal_stats: Option<PointRevealStats>,
+        scatter_projection: Option<ScatterProjection>,
     ) -> Self {
         Self::new(
             encoding,
@@ -57,6 +61,7 @@ impl DensityEncodingUiState {
             max_bin_count_is_current,
             Some(point_reveal_mode),
             point_reveal_stats,
+            scatter_projection,
         )
     }
 
@@ -78,6 +83,7 @@ impl DensityEncodingUiState {
             true,
             None,
             None,
+            None,
         )
     }
 
@@ -93,6 +99,7 @@ impl DensityEncodingUiState {
         max_bin_count_is_current: bool,
         point_reveal_mode: Option<PointRevealMode>,
         point_reveal_stats: Option<PointRevealStats>,
+        scatter_projection: Option<ScatterProjection>,
     ) -> Self {
         Self {
             encoding,
@@ -118,6 +125,7 @@ impl DensityEncodingUiState {
             max_label: format!("max {max_bin_count}"),
             point_reveal_mode,
             point_reveal_stats,
+            scatter_projection,
         }
     }
 }
@@ -139,6 +147,9 @@ pub(crate) fn density_encoding_ui_state(app: &WorkbenchApp) -> Option<DensityEnc
                 stats.max_bin_count_is_current,
                 app.point_reveal.config.mode,
                 app.point_reveal.stats,
+                app.scatter_projection
+                    .available
+                    .then_some(app.scatter_projection.active),
             ))
         }
         DemoMode::Timeline => {
@@ -171,6 +182,9 @@ pub(crate) fn show_density_encoding(
     let set_scatter_presentation = encoding
         .scatter_presentation
         .and_then(|presentation| presentation_selector(ui, presentation));
+    let set_scatter_projection = encoding
+        .scatter_projection
+        .and_then(|projection| projection_selector(ui, projection));
     let set_transform = transform_selector(ui, encoding.encoding.transform);
     let set_point_reveal_mode = encoding
         .point_reveal_mode
@@ -182,7 +196,31 @@ pub(crate) fn show_density_encoding(
         set_transform,
         set_scatter_presentation,
         set_point_reveal_mode,
+        set_scatter_projection,
     }
+}
+
+fn projection_selector(
+    ui: &mut Ui,
+    active_projection: ScatterProjection,
+) -> Option<ScatterProjection> {
+    let mut selected = None;
+    ui.horizontal(|ui| {
+        ui.label("Projection");
+        for projection in [ScatterProjection::RawXY, ScatterProjection::MeanDifference] {
+            if ui
+                .add(segmented_button(
+                    projection.label(),
+                    projection == active_projection,
+                ))
+                .clicked()
+                && projection != active_projection
+            {
+                selected = Some(projection);
+            }
+        }
+    });
+    selected
 }
 
 fn point_reveal_selector(
@@ -307,101 +345,5 @@ fn density_palette_colors(palette: DensityPalette) -> [Color32; 4] {
 }
 
 #[cfg(test)]
-mod tests {
-    use rawscope_render::{
-        DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
-        ScatterDensityPresentation,
-    };
-
-    use super::DensityEncodingUiState;
-
-    #[test]
-    fn scatter_encoding_makes_density_transform_and_range_visible() {
-        let encoding = DensityEncodingUiState::scatter(
-            DensityEncoding::scatter_default(),
-            ScatterDensityPresentation::TopographicField,
-            256,
-            256,
-            42,
-            true,
-            PointRevealMode::Auto,
-            None,
-        );
-
-        assert_eq!(encoding.surface_label, "Scatter density");
-        assert_eq!(encoding.bin_grid_label, "Grid 256x256 bins");
-        assert_eq!(
-            encoding.scale_label,
-            "Scale log1p(count), normalized to viewport max"
-        );
-        assert_eq!(encoding.palette_label, "Palette scatter sequential");
-        assert_eq!(encoding.range_label, "Range 0..42 rows/bin");
-        assert_eq!(encoding.max_label, "max 42");
-        assert_eq!(
-            encoding.scatter_presentation,
-            Some(ScatterDensityPresentation::TopographicField)
-        );
-        assert_eq!(encoding.encoding.palette, DensityPalette::ScatterSequential);
-    }
-
-    #[test]
-    fn timeline_encoding_uses_event_units() {
-        let encoding =
-            DensityEncodingUiState::timeline(DensityEncoding::timeline_default(), 256, 12, 7);
-
-        assert_eq!(encoding.surface_label, "Timeline density");
-        assert_eq!(encoding.measure_label, "Events per bin");
-        assert_eq!(encoding.bin_grid_label, "Grid 256x12 bins");
-        assert_eq!(encoding.range_label, "Range 0..7 events/bin");
-        assert_eq!(
-            encoding.encoding.palette,
-            DensityPalette::TimelineSequential
-        );
-    }
-
-    #[test]
-    fn encoding_state_reflects_active_transform() {
-        let active_encoding =
-            DensityEncoding::scatter_default().with_transform(DensityTransform::Linear);
-        let encoding = DensityEncodingUiState::scatter(
-            active_encoding,
-            ScatterDensityPresentation::ExactCells,
-            128,
-            128,
-            8,
-            true,
-            PointRevealMode::Off,
-            None,
-        );
-
-        assert_eq!(encoding.encoding.transform, DensityTransform::Linear);
-        assert_eq!(encoding.point_reveal_mode, Some(PointRevealMode::Off));
-        assert_eq!(
-            encoding.scale_label,
-            "Scale linear(count), normalized to viewport max"
-        );
-    }
-
-    #[test]
-    fn point_reveal_stats_are_projected_without_threshold_controls() {
-        let stats = PointRevealStats {
-            eligible_count: 94_499,
-            rendered_count: 50_000,
-            sampled: true,
-            blend: 0.27,
-        };
-        let encoding = DensityEncodingUiState::scatter(
-            DensityEncoding::scatter_default(),
-            ScatterDensityPresentation::TopographicField,
-            256,
-            256,
-            100,
-            true,
-            PointRevealMode::Auto,
-            Some(stats),
-        );
-
-        assert_eq!(encoding.point_reveal_mode, Some(PointRevealMode::Auto));
-        assert_eq!(encoding.point_reveal_stats, Some(stats));
-    }
-}
+#[path = "ui_visual_encoding_tests.rs"]
+mod tests;

@@ -4,6 +4,7 @@ mod dataset;
 mod dataset_filter;
 mod dataset_profile;
 mod local_dataset;
+mod scatter_projection;
 mod synthetic;
 mod visual_field_catalog;
 mod visual_record;
@@ -28,6 +29,10 @@ pub use local_dataset::{
     load_scatter_dataset, load_timeline_dataset, DatasetChunkId, DatasetLoadError,
     LoadedColumnKind, LoadedColumnSchema, LoadedColumnarChunk, LoadedColumnarDataset,
     LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable, LoadedTimelineDataset,
+};
+pub use scatter_projection::{
+    project_scatter_points, ProjectedScatterData, ScatterProjection, ScatterProjectionError,
+    ScatterProjectionLabels, ScatterProjectionSpec,
 };
 pub use synthetic::{
     generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,

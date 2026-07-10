@@ -1,7 +1,7 @@
 //! View-axis and summary context projection for density views.
 
 use egui::{vec2, Color32, Pos2, Rect, RichText, Sense, Ui};
-use rawscope_data::{DatasetFieldRole, DatasetIdentity};
+use rawscope_data::{DatasetFieldRole, DatasetIdentity, ScatterProjection};
 use rawscope_render::{
     scatter_axes_context_with_options, timeline_axes_context, AxisValueFormat, ScatterAxesOptions,
     ScatterMarginalSummary, ScatterReferenceGuide, ScatterReferenceGuideKind, SummaryBin,
@@ -39,28 +39,40 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
     match app.demo_mode {
         DemoMode::Scatter => {
             let viewport = app.scatter.viewport?;
-            let (x_label, y_label) = axis_field_labels(
-                app.dataset_identity.as_ref(),
-                (DatasetFieldRole::X, "x"),
-                (DatasetFieldRole::Y, "y"),
-            );
+            let (x_label, y_label) = if app.scatter_projection.available {
+                (
+                    app.scatter_projection.labels.x_label.clone(),
+                    app.scatter_projection.labels.y_label.clone(),
+                )
+            } else {
+                axis_field_labels(
+                    app.dataset_identity.as_ref(),
+                    (DatasetFieldRole::X, "x"),
+                    (DatasetFieldRole::Y, "y"),
+                )
+            };
 
             let use_rating_axes =
                 app.active_dataset_profile == Some(rawscope_data::DatasetProfileId::LichessGames);
-            let value_format = if use_rating_axes {
-                AxisValueFormat::Integer
-            } else {
-                AxisValueFormat::Decimal {
-                    max_fraction_digits: 1,
-                }
-            };
-            let guides = use_rating_axes
-                .then(|| ScatterReferenceGuide {
+            let value_format =
+                if use_rating_axes && app.scatter_projection.active == ScatterProjection::RawXY {
+                    AxisValueFormat::Integer
+                } else {
+                    AxisValueFormat::Decimal {
+                        max_fraction_digits: 1,
+                    }
+                };
+            let guides = match (use_rating_axes, app.scatter_projection.active) {
+                (true, ScatterProjection::RawXY) => vec![ScatterReferenceGuide {
                     kind: ScatterReferenceGuideKind::Equality,
                     label: "equal rating".to_string(),
-                })
-                .into_iter()
-                .collect();
+                }],
+                (_, ScatterProjection::MeanDifference) => vec![ScatterReferenceGuide {
+                    kind: ScatterReferenceGuideKind::Horizontal { y: 0.0 },
+                    label: "equal values".to_string(),
+                }],
+                _ => Vec::new(),
+            };
 
             Some(WorkbenchViewAxes::Scatter(
                 scatter_axes_context_with_options(
@@ -303,130 +315,5 @@ fn axis_field_label(
 }
 
 #[cfg(test)]
-mod tests {
-    use rawscope_core::{F32Range, U64Range};
-    use rawscope_render::{
-        ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary, TimelineOverviewSummary,
-    };
-
-    use super::{
-        view_axes_ui_state, view_context_ui_state, ActiveView, WorkbenchSurface, WorkbenchViewAxes,
-    };
-    use crate::{app::WorkbenchApp, demo::DemoMode};
-
-    fn scatter_context() -> ScatterMarginalSummary {
-        ScatterMarginalSummary {
-            x_bins: vec![SummaryBin { index: 0, count: 2 }],
-            y_bins: vec![SummaryBin { index: 0, count: 3 }],
-            max_x_count: 2,
-            max_y_count: 3,
-        }
-    }
-
-    fn timeline_context() -> (TimelineMarginalSummary, TimelineOverviewSummary) {
-        (
-            TimelineMarginalSummary {
-                time_bins: vec![SummaryBin { index: 0, count: 4 }],
-                lane_bins: vec![SummaryBin { index: 0, count: 1 }],
-                max_time_count: 4,
-                max_lane_count: 1,
-            },
-            TimelineOverviewSummary {
-                full_time_range: U64Range::new(100, 200),
-                current_time_range: U64Range::new(120, 180),
-                time_bins: vec![SummaryBin { index: 0, count: 4 }],
-                max_time_count: 4,
-            },
-        )
-    }
-
-    #[test]
-    fn scatter_context_projection_uses_scatter_summary() {
-        let app = WorkbenchApp {
-            visible_surface: WorkbenchSurface::Primary,
-            demo_mode: DemoMode::Scatter,
-            scatter: crate::app::ScatterWorkbenchState {
-                viewport: Some(rawscope_render::ScatterViewport::new(
-                    F32Range::new(0.0, 1.0),
-                    F32Range::new(0.0, 1.0),
-                )),
-                marginal_summary: Some(scatter_context()),
-                ..crate::app::ScatterWorkbenchState::default()
-            },
-            ..WorkbenchApp::default()
-        };
-
-        let context = view_context_ui_state(&app).expect("scatter context should project");
-
-        assert_eq!(context.active_view, ActiveView::Scatter);
-        assert!(context.scatter_marginals.is_some());
-        assert!(context.timeline_marginals.is_none());
-        assert!(context.timeline_overview.is_none());
-    }
-
-    #[test]
-    fn timeline_context_projection_uses_timeline_summaries() {
-        let (timeline_marginals, timeline_overview) = timeline_context();
-        let app = WorkbenchApp {
-            visible_surface: WorkbenchSurface::Primary,
-            demo_mode: DemoMode::Timeline,
-            timeline: crate::app::TimelineWorkbenchState {
-                viewport: Some(rawscope_render::TimelineViewport::new(
-                    U64Range::new(100, 200),
-                    4,
-                )),
-                marginal_summary: Some(timeline_marginals.clone()),
-                overview_summary: Some(timeline_overview.clone()),
-                ..crate::app::TimelineWorkbenchState::default()
-            },
-            ..WorkbenchApp::default()
-        };
-
-        let context = view_context_ui_state(&app).expect("timeline context should project");
-
-        assert_eq!(context.active_view, ActiveView::Timeline);
-        assert!(context.scatter_marginals.is_none());
-        assert_eq!(context.timeline_marginals, Some(timeline_marginals));
-        assert_eq!(context.timeline_overview, Some(timeline_overview));
-    }
-
-    #[test]
-    fn hidden_surface_does_not_project_view_context() {
-        let app = WorkbenchApp {
-            visible_surface: WorkbenchSurface::Missingness,
-            ..WorkbenchApp::default()
-        };
-
-        assert!(view_context_ui_state(&app).is_none());
-    }
-
-    #[test]
-    fn lichess_axes_use_integer_ticks_and_equality_guide() {
-        let app = WorkbenchApp {
-            visible_surface: WorkbenchSurface::Primary,
-            demo_mode: DemoMode::Scatter,
-            active_dataset_profile: Some(rawscope_data::DatasetProfileId::LichessGames),
-            scatter: crate::app::ScatterWorkbenchState {
-                viewport: Some(rawscope_render::ScatterViewport::new(
-                    F32Range::new(1_000.0, 2_000.0),
-                    F32Range::new(1_000.0, 2_000.0),
-                )),
-                ..crate::app::ScatterWorkbenchState::default()
-            },
-            ..WorkbenchApp::default()
-        };
-
-        let WorkbenchViewAxes::Scatter(axes) =
-            view_axes_ui_state(&app).expect("Lichess axes should project")
-        else {
-            panic!("expected scatter axes");
-        };
-
-        assert!(axes.x.ticks.iter().all(|tick| !tick.label.contains('.')));
-        assert_eq!(axes.guides.len(), 1);
-        assert_eq!(
-            axes.guides[0].kind,
-            rawscope_render::ScatterReferenceGuideKind::Equality
-        );
-    }
-}
+#[path = "ui_view_context_tests.rs"]
+mod tests;
