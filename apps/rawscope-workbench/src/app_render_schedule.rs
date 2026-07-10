@@ -178,6 +178,7 @@ impl RenderSchedule {
 
 impl WorkbenchApp {
     pub(crate) fn begin_interactive_density(&mut self) {
+        self.cancel_visual_transition();
         self.render_schedule.gesture_started();
     }
 
@@ -298,6 +299,7 @@ impl WorkbenchApp {
             self.rebuild_scatter_inspection_cache();
             self.invalidate_scatter_point_reveal();
             self.update_window_title();
+            self.begin_visual_transition(rawscope_render::TransitionKind::DensityRefresh);
         }
         Ok(())
     }

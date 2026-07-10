@@ -38,6 +38,7 @@ use crate::{
     app_scatter_point_reveal::ScatterPointRevealState,
     app_scatter_projection::ScatterProjectionState,
     app_selection::ActiveLinkedSelection,
+    app_visual_transition::WorkbenchVisualTransition,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
     ui::{ExportStatus, WorkbenchSurface},
@@ -95,6 +96,7 @@ pub struct WorkbenchApp {
     pub(crate) modifiers: ModifiersState,
     pub(crate) evidence_export_counter: u64,
     pub(crate) render_schedule: RenderSchedule,
+    pub(crate) visual_transition: WorkbenchVisualTransition,
     pub(crate) scatter_filters: ScatterFilterState,
     pub(crate) scatter_inspection: ScatterInspectionState,
     pub(crate) point_reveal: ScatterPointRevealState,
@@ -214,6 +216,7 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
+        self.cancel_visual_transition();
         self.clear_aggregate_overviews();
 
         if let Some(WorkbenchInput::Scatter {

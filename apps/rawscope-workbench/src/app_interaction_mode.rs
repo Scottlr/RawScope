@@ -96,6 +96,7 @@ impl WorkbenchApp {
             return;
         };
         if resolution.gesture != ActivePointerGesture::Inspect {
+            self.cancel_visual_transition();
             self.inspect_cursor_position = None;
             self.clear_scatter_inspection_hover();
         }

@@ -160,6 +160,12 @@ fn show_primary_toolbar(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiA
         show_interaction_modes(ui, state, actions);
 
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.menu_button("Settings", |ui| {
+                let mut reduced_motion = state.reduced_motion;
+                if ui.checkbox(&mut reduced_motion, "Reduce motion").changed() {
+                    actions.set_reduced_motion = Some(reduced_motion);
+                }
+            });
             if icon_command_button(ui, "download", "Export evidence", state.can_export).clicked() {
                 actions.export_requested = true;
             }

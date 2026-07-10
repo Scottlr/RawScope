@@ -61,6 +61,7 @@ pub(crate) fn create_density_render_pipeline(
     bind_group_layout: &wgpu::BindGroupLayout,
     shader: &wgpu::ShaderModule,
     surface_format: wgpu::TextureFormat,
+    blend: wgpu::BlendState,
 ) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some(pipeline_layout_label),
@@ -82,7 +83,7 @@ pub(crate) fn create_density_render_pipeline(
             entry_point: Some("fs_main"),
             targets: &[Some(wgpu::ColorTargetState {
                 format: surface_format,
-                blend: Some(wgpu::BlendState::REPLACE),
+                blend: Some(blend),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
             compilation_options: wgpu::PipelineCompilationOptions::default(),

@@ -121,6 +121,7 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) can_export: bool,
     pub(crate) can_clear_selection: bool,
     pub(crate) density_is_refining: bool,
+    pub(crate) reduced_motion: bool,
     pub(crate) scatter_filters: Option<ScatterFiltersUiState>,
     pub(crate) scatter_inspection: Option<ScatterInspectionUiState>,
 }
@@ -268,6 +269,7 @@ impl WorkbenchApp {
             can_export,
             can_clear_selection,
             density_is_refining: self.render_schedule.is_refining(),
+            reduced_motion: self.visual_transition.config.reduced_motion,
             scatter_filters: scatter_filters_ui_state(self),
             scatter_inspection,
         }
@@ -352,6 +354,9 @@ impl WorkbenchApp {
         }
         if let Some(config) = actions.set_relief_config {
             self.set_relief_config(config);
+        }
+        if let Some(reduced_motion) = actions.set_reduced_motion {
+            self.set_reduced_motion(reduced_motion);
         }
 
         if actions.export_requested {

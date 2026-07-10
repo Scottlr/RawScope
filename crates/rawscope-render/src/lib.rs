@@ -42,6 +42,7 @@ mod timeline_selection_export_v3;
 mod timeline_viewport;
 mod view_axes;
 mod view_summaries;
+mod visual_transition;
 
 pub use aggregate_cache::{
     scatter_aggregate_overview, timeline_aggregate_overview, AggregateBinSample,
@@ -172,4 +173,9 @@ pub use view_summaries::{
     scatter_marginal_summary, scatter_marginal_summary_masked, timeline_marginal_summary,
     timeline_overview_summary, ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineOverviewWindow,
+};
+pub use visual_transition::{
+    ease_out_cubic, semantic_color_crossfade, transition_progress, validate_transition_config,
+    TransitionKind, TransitionProgress, VisualTransitionConfig, VisualTransitionConfigError,
+    MAX_VISUAL_TRANSITION_DURATION_MS,
 };

@@ -192,6 +192,19 @@ impl ScatterDifferenceRenderer {
         target_view: &wgpu::TextureView,
         plot_rect: PlotRectPx,
     ) {
+        self.render_blended(device, queue, encoder, target_view, plot_rect, true, 1.0);
+    }
+
+    pub fn render_blended(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+        clear: bool,
+        opacity: f32,
+    ) {
         let params = self.params();
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
         let bind_group = difference_bind_group(
@@ -212,12 +225,16 @@ impl ScatterDifferenceRenderer {
                 resolve_target: None,
                 depth_slice: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.02,
-                        g: 0.024,
-                        b: 0.03,
-                        a: 1.0,
-                    }),
+                    load: if clear {
+                        wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.02,
+                            g: 0.024,
+                            b: 0.03,
+                            a: 1.0,
+                        })
+                    } else {
+                        wgpu::LoadOp::Load
+                    },
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -227,6 +244,13 @@ impl ScatterDifferenceRenderer {
             multiview_mask: None,
         });
         pass.set_pipeline(&self.render_pipeline);
+        let opacity = f64::from(opacity.clamp(0.0, 1.0));
+        pass.set_blend_constant(wgpu::Color {
+            r: opacity,
+            g: opacity,
+            b: opacity,
+            a: opacity,
+        });
         pass.set_bind_group(0, &bind_group, &[]);
         pass.set_viewport(
             plot_rect.x as f32,
