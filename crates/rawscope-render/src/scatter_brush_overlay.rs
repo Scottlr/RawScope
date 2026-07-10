@@ -8,6 +8,9 @@ const OVERLAY_SHADER_SOURCE: &str = include_str!("shaders/scatter_brush_overlay.
 const BRUSH_FILL_RGBA: [f32; 4] = [1.0, 0.72, 0.22, 0.18];
 const BRUSH_BORDER_RGBA: [f32; 4] = [1.0, 0.86, 0.36, 0.92];
 const BRUSH_BORDER_WIDTH_PX: f32 = 2.0;
+const PROBE_FILL_RGBA: [f32; 4] = [0.25, 0.95, 0.88, 0.08];
+const PROBE_BORDER_RGBA: [f32; 4] = [0.45, 1.0, 0.92, 0.98];
+const PROBE_BORDER_WIDTH_PX: f32 = 1.5;
 
 /// Renders the active scatter brush rectangle over the density view.
 ///
@@ -17,6 +20,8 @@ pub struct ScatterBrushOverlayRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     params_buffer: wgpu::Buffer,
+    probe_bind_group: wgpu::BindGroup,
+    probe_params_buffer: wgpu::Buffer,
 }
 
 impl ScatterBrushOverlayRenderer {
@@ -34,12 +39,22 @@ impl ScatterBrushOverlayRenderer {
         });
         let bind_group_layout = create_overlay_bind_group_layout(device);
         let bind_group = create_overlay_bind_group(device, &bind_group_layout, &params_buffer);
+        let probe_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("RawScope Scatter Probe Overlay Params Buffer"),
+            size: std::mem::size_of::<BrushOverlayParams>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let probe_bind_group =
+            create_overlay_bind_group(device, &bind_group_layout, &probe_params_buffer);
         let pipeline = create_overlay_pipeline(device, &bind_group_layout, &shader, surface_format);
 
         Self {
             pipeline,
             bind_group,
             params_buffer,
+            probe_bind_group,
+            probe_params_buffer,
         }
     }
 
@@ -55,12 +70,51 @@ impl ScatterBrushOverlayRenderer {
         let Some(screen_rect) = screen_rect else {
             return;
         };
-        let Some(params) = BrushOverlayParams::from_plot_rect(screen_rect, plot_rect) else {
+        let Some(params) = BrushOverlayParams::from_plot_rect(
+            screen_rect,
+            plot_rect,
+            BRUSH_BORDER_WIDTH_PX,
+            BRUSH_FILL_RGBA,
+            BRUSH_BORDER_RGBA,
+        ) else {
             return;
         };
 
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+        self.render_params(encoder, target_view, plot_rect, &self.bind_group);
+    }
 
+    pub fn render_probe(
+        &self,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        screen_rect: Option<BrushScreenRect>,
+        plot_rect: PlotRectPx,
+    ) {
+        let Some(screen_rect) = screen_rect else {
+            return;
+        };
+        let Some(params) = BrushOverlayParams::from_plot_rect(
+            screen_rect,
+            plot_rect,
+            PROBE_BORDER_WIDTH_PX,
+            PROBE_FILL_RGBA,
+            PROBE_BORDER_RGBA,
+        ) else {
+            return;
+        };
+        queue.write_buffer(&self.probe_params_buffer, 0, bytemuck::bytes_of(&params));
+        self.render_params(encoder, target_view, plot_rect, &self.probe_bind_group);
+    }
+
+    fn render_params(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+        bind_group: &wgpu::BindGroup,
+    ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("RawScope Scatter Brush Overlay Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -79,7 +133,7 @@ impl ScatterBrushOverlayRenderer {
         });
 
         render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.set_viewport(
             plot_rect.x as f32,
             plot_rect.y as f32,
@@ -109,7 +163,13 @@ struct BrushOverlayParams {
 }
 
 impl BrushOverlayParams {
-    fn from_plot_rect(screen_rect: BrushScreenRect, plot_rect: PlotRectPx) -> Option<Self> {
+    fn from_plot_rect(
+        screen_rect: BrushScreenRect,
+        plot_rect: PlotRectPx,
+        border_width_px: f32,
+        fill_rgba: [f32; 4],
+        border_rgba: [f32; 4],
+    ) -> Option<Self> {
         let screen_size = plot_rect.screen_size();
         let screen_has_area = screen_size.width > 0.0 && screen_size.height > 0.0;
         if !screen_has_area {
@@ -131,10 +191,10 @@ impl BrushOverlayParams {
             max_y_px: plot_origin_y + rect.max_y,
             screen_width_px: screen_size.width,
             screen_height_px: screen_size.height,
-            border_width_px: BRUSH_BORDER_WIDTH_PX,
+            border_width_px,
             _padding: 0.0,
-            fill_rgba: BRUSH_FILL_RGBA,
-            border_rgba: BRUSH_BORDER_RGBA,
+            fill_rgba,
+            border_rgba,
         })
     }
 }
@@ -232,7 +292,14 @@ mod tests {
         };
 
         let plot_rect = PlotRectPx::try_new(20, 30, 100, 60, 200, 120).unwrap();
-        let params = BrushOverlayParams::from_plot_rect(screen_rect, plot_rect).unwrap();
+        let params = BrushOverlayParams::from_plot_rect(
+            screen_rect,
+            plot_rect,
+            BRUSH_BORDER_WIDTH_PX,
+            BRUSH_FILL_RGBA,
+            BRUSH_BORDER_RGBA,
+        )
+        .unwrap();
 
         assert_eq!(params.min_x_px, 20.0);
         assert_eq!(params.min_y_px, 35.0);
@@ -251,7 +318,13 @@ mod tests {
         let plot_rect = PlotRectPx::try_new(0, 0, 100, 60, 100, 60).unwrap();
 
         assert_eq!(
-            BrushOverlayParams::from_plot_rect(screen_rect, plot_rect),
+            BrushOverlayParams::from_plot_rect(
+                screen_rect,
+                plot_rect,
+                BRUSH_BORDER_WIDTH_PX,
+                BRUSH_FILL_RGBA,
+                BRUSH_BORDER_RGBA,
+            ),
             None
         );
     }

@@ -166,6 +166,10 @@ impl RenderSchedule {
         self.dispatched_viewport_revision = None;
     }
 
+    pub(crate) fn settled_revision(&self) -> u64 {
+        self.source_viewport_revision
+    }
+
     fn preview_is_due(&self, now_ms: u64) -> bool {
         self.last_preview_dispatch_at_ms
             .is_none_or(|last| now_ms.saturating_sub(last) >= self.config.preview_rebin_interval_ms)
@@ -182,6 +186,7 @@ impl WorkbenchApp {
             return;
         };
         self.render_schedule.viewport_changed();
+        self.invalidate_scatter_inspection();
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
         {
@@ -265,6 +270,7 @@ impl WorkbenchApp {
         let settled = self.render_schedule.work_completed(work);
         if settled {
             self.refresh_scatter_marginal_summary();
+            self.rebuild_scatter_inspection_cache();
             self.update_window_title();
         }
         Ok(())

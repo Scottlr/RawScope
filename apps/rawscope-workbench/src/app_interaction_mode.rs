@@ -72,6 +72,7 @@ impl WorkbenchApp {
             return;
         }
         self.cancel_active_pointer_gesture();
+        self.clear_scatter_inspection_hover();
         self.interaction_mode = mode;
         if mode == WorkbenchInteractionMode::Inspect {
             self.refresh_inspect_cursor();
@@ -96,6 +97,7 @@ impl WorkbenchApp {
         };
         if resolution.gesture != ActivePointerGesture::Inspect {
             self.inspect_cursor_position = None;
+            self.clear_scatter_inspection_hover();
         }
 
         match resolution.gesture {
@@ -109,7 +111,10 @@ impl WorkbenchApp {
                 self.capture_selection_gesture_backup();
                 self.begin_timeline_brush();
             }
-            ActivePointerGesture::Inspect => self.refresh_inspect_cursor(),
+            ActivePointerGesture::Inspect => {
+                self.refresh_inspect_cursor();
+                self.pin_scatter_inspection();
+            }
         }
 
         self.active_pointer_gesture = Some(resolution.gesture);
@@ -139,13 +144,22 @@ impl WorkbenchApp {
             {
                 self.refresh_inspect_cursor()
             }
-            None => self.inspect_cursor_position = None,
+            None => {
+                self.inspect_cursor_position = None;
+                self.clear_scatter_inspection_hover();
+            }
         }
         self.update_pointer_cursor();
     }
 
     pub(crate) fn end_pointer_gesture(&mut self, button: MouseButton) {
         if self.active_pointer_button != Some(button) {
+            if self.interaction_mode == WorkbenchInteractionMode::Inspect
+                && button == MouseButton::Left
+                && self.cursor_fraction().is_some()
+            {
+                self.pin_scatter_inspection();
+            }
             return;
         }
         match self.active_pointer_gesture {
@@ -286,6 +300,9 @@ impl WorkbenchApp {
                     y: y_fraction * viewport.lane_count() as f32,
                 }),
         };
+        if self.demo_mode == DemoMode::Scatter {
+            self.refresh_scatter_inspection_hover();
+        }
         self.request_redraw();
     }
 }

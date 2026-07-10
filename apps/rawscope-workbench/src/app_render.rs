@@ -83,6 +83,18 @@ impl WorkbenchApp {
                             let selection = self.scatter.active_brush_selection?;
                             selection.project_to_screen(viewport, plot_rect.screen_size())
                         });
+                    let probe_screen_rect = self
+                        .scatter_inspection
+                        .hovered
+                        .as_ref()
+                        .zip(self.scatter_inspection.grid.as_ref())
+                        .and_then(|(hit, grid)| {
+                            hit.screen_rect(
+                                grid.grid_width,
+                                grid.grid_height,
+                                plot_rect.screen_size(),
+                            )
+                        });
 
                     gpu.render_frame(|device, queue, target_view, encoder| {
                         scatter_density_renderer.render(encoder, target_view, plot_rect);
@@ -91,6 +103,13 @@ impl WorkbenchApp {
                             encoder,
                             target_view,
                             brush_screen_rect,
+                            plot_rect,
+                        );
+                        scatter_brush_overlay_renderer.render_probe(
+                            queue,
+                            encoder,
+                            target_view,
+                            probe_screen_rect,
                             plot_rect,
                         );
 

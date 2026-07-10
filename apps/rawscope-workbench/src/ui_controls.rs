@@ -8,6 +8,7 @@ use crate::{
     ui_dataset_diff::DatasetDiffAction,
     ui_filters::FilterAction,
     ui_missingness::MissingnessAction,
+    ui_scatter_inspection::ScatterInspectionAction,
 };
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -25,4 +26,5 @@ pub(crate) struct UiActions {
     pub(crate) missingness_action: Option<MissingnessAction>,
     pub(crate) dataset_diff_action: Option<DatasetDiffAction>,
     pub(crate) filter_action: Option<FilterAction>,
+    pub(crate) scatter_inspection_action: Option<ScatterInspectionAction>,
 }
