@@ -11,6 +11,7 @@ use crate::density_render_pipeline::{
 use crate::gpu_timeline_density::{
     dispatch_timeline_density, GpuTimelineDensityError, TimelineDensityComputeConfig,
 };
+use crate::DensityEncoding;
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/timeline_density_render.wgsl");
 
@@ -31,6 +32,7 @@ pub struct TimelineDensityRendererConfig {
     pub lane_count: u32,
     pub grid_width: u32,
     pub grid_height: u32,
+    pub encoding: DensityEncoding,
 }
 
 impl TimelineDensityRendererConfig {
@@ -45,7 +47,14 @@ impl TimelineDensityRendererConfig {
             lane_count,
             grid_width,
             grid_height,
+            encoding: DensityEncoding::timeline_default(),
         }
+    }
+
+    /// Returns this config with an explicit density color encoding.
+    pub fn with_encoding(mut self, encoding: DensityEncoding) -> Self {
+        self.encoding = encoding;
+        self
     }
 }
 
@@ -87,7 +96,9 @@ impl TimelineDensityRenderer {
             grid_width: config.grid_width,
             grid_height: config.grid_height,
             max_bin_count,
-            _padding: 0,
+            transform_id: config.encoding.transform.shader_id(),
+            palette_id: config.encoding.palette.shader_id(),
+            _padding: [0; 3],
         };
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("RawScope Timeline Density Render Params Buffer"),
@@ -161,7 +172,9 @@ impl TimelineDensityRenderer {
             grid_width: config.grid_width,
             grid_height: config.grid_height,
             max_bin_count,
-            _padding: 0,
+            transform_id: config.encoding.transform.shader_id(),
+            palette_id: config.encoding.palette.shader_id(),
+            _padding: [0; 3],
         };
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&render_params));
         self.bind_group = create_density_render_bind_group(
@@ -223,5 +236,7 @@ struct TimelineDensityRenderParams {
     grid_width: u32,
     grid_height: u32,
     max_bin_count: u32,
-    _padding: u32,
+    transform_id: u32,
+    palette_id: u32,
+    _padding: [u32; 3],
 }

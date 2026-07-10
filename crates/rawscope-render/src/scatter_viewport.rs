@@ -5,8 +5,9 @@ use rawscope_core::F32Range;
 const MIN_VIEWPORT_FRACTION: f32 = 0.0001;
 const MIN_ZOOM_SCALE: f32 = 0.05;
 const MAX_ZOOM_SCALE: f32 = 20.0;
+const MAX_PAN_OVERSCROLL_FRACTION: f32 = 0.2;
 
-/// Current scatter-density data viewport constrained by full data ranges.
+/// Current scatter-density data viewport with bounded movement around full data ranges.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScatterViewport {
     full_x_range: F32Range,
@@ -88,7 +89,16 @@ fn zoom_range(current: F32Range, full: F32Range, anchor: f32, scale: f32) -> F32
 }
 
 fn translate_range(current: F32Range, full: F32Range, delta: f32) -> F32Range {
-    clamp_range_to_full(current.min + delta, current.span(), full)
+    clamp_range_to_pan_bounds(current.min + delta, current.span(), full)
+}
+
+fn clamp_range_to_pan_bounds(target_min: f32, target_span: f32, full: F32Range) -> F32Range {
+    let max_overscroll = target_span * MAX_PAN_OVERSCROLL_FRACTION;
+    let min_target = full.min - max_overscroll;
+    let max_target = full.max - target_span + max_overscroll;
+    let clamped_min = target_min.clamp(min_target, max_target);
+
+    F32Range::new(clamped_min, clamped_min + target_span)
 }
 
 fn clamp_range_to_full(target_min: f32, target_span: f32, full: F32Range) -> F32Range {
@@ -132,14 +142,24 @@ mod tests {
     }
 
     #[test]
-    fn pan_shifts_range_and_clamps_to_full_bounds() {
+    fn pan_shifts_range_with_bounded_overscroll() {
         let mut viewport = viewport();
         viewport.zoom_around(50.0, 100.0, 0.5);
 
         viewport.pan_by(80.0, -120.0);
 
-        assert_eq!(viewport.x_range(), F32Range::new(50.0, 100.0));
-        assert_eq!(viewport.y_range(), F32Range::new(0.0, 100.0));
+        assert_eq!(viewport.x_range(), F32Range::new(60.0, 110.0));
+        assert_eq!(viewport.y_range(), F32Range::new(-20.0, 80.0));
+    }
+
+    #[test]
+    fn pan_moves_a_full_extent_view_without_losing_the_dataset() {
+        let mut viewport = viewport();
+
+        viewport.pan_by(100.0, -200.0);
+
+        assert_eq!(viewport.x_range(), F32Range::new(20.0, 120.0));
+        assert_eq!(viewport.y_range(), F32Range::new(-40.0, 160.0));
     }
 
     #[test]

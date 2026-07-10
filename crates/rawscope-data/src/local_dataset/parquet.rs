@@ -125,6 +125,15 @@ pub fn load_parquet_scatter_dataset(
     })
 }
 
+/// Loads only the inferred Parquet schema needed for profile validation.
+pub fn load_dataset_schema(
+    path: impl AsRef<Path>,
+    _limit: Option<usize>,
+) -> Result<Vec<LoadedColumnSchema>, DatasetLoadError> {
+    let path = path.as_ref();
+    Ok(parquet_schema(&read_parquet_schema(path)?))
+}
+
 /// Loads a local timeline dataset from Parquet and binds explicit time/lane columns.
 pub fn load_parquet_timeline_dataset(
     path: impl AsRef<Path>,
@@ -229,6 +238,17 @@ pub fn load_parquet_timeline_dataset(
 struct LoadedParquetBatches {
     arrow_schema: Schema,
     batches: Vec<RecordBatch>,
+}
+
+fn read_parquet_schema(path: &Path) -> Result<Schema, DatasetLoadError> {
+    let file = File::open(path).map_err(|source| parquet_read_error(path, source.to_string()))?;
+    let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|source| {
+        DatasetLoadError::ParquetRead {
+            path: path.to_path_buf(),
+            source,
+        }
+    })?;
+    Ok(builder.schema().as_ref().clone())
 }
 
 fn read_parquet_batches(

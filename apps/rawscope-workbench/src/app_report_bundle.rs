@@ -7,13 +7,18 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rawscope_data::DatasetSource;
+use rawscope_data::{DatasetProfileId, DatasetSource};
 use rawscope_render::{
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
+    scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
     timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
-    ScatterSelectionEvidenceV2, TimelineSelectionEvidenceV2,
-    SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
-    TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+    timeline_selection_evidence_v3_json, timeline_selection_evidence_v3_markdown,
+    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, TimelineSelectionEvidenceV2,
+    TimelineSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
+    SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+    SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION, TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
+    TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION, TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+    TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 use serde::Serialize;
 
@@ -29,9 +34,12 @@ const EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION: u32 = 1;
 const SCATTER_REPORT_BUNDLE_ARTIFACT_KIND: &str = "scatter-evidence-report-bundle";
 const TIMELINE_REPORT_BUNDLE_ARTIFACT_KIND: &str = "timeline-evidence-report-bundle";
 const VISUAL_CONTEXT_KIND_PLACEHOLDER_TEXT: &str = "text-placeholder";
+const VISUAL_CONTEXT_KIND_SUMMARY_TEXT: &str = "text-visual-context";
 const VISUAL_CAPTURE_STATUS_DEFERRED: &str = "deferred";
 const VISUAL_CAPTURE_DEFERRED_REASON: &str =
     "image capture is deferred until WGPU readback ownership and a narrow PNG dependency are approved";
+const SCATTER_COMPARISON_BASELINE_LABEL: &str = "active_point_slice";
+const TIMELINE_COMPARISON_BASELINE_LABEL: &str = "active_event_slice";
 
 pub(crate) struct EvidenceReportBundlePaths {
     pub(crate) bundle_dir: PathBuf,
@@ -115,6 +123,7 @@ impl EvidenceReportBundlePaths {
             bundle_schema_version: EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION,
             evidence_artifact_kind: SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
             evidence_schema_version: SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+            active_dataset_profile: None,
             bundle_dir: &self.bundle_dir,
             evidence_json_path: &self.evidence_json_path,
             evidence_markdown_path: &self.evidence_markdown_path,
@@ -155,11 +164,98 @@ impl EvidenceReportBundlePaths {
             bundle_schema_version: EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION,
             evidence_artifact_kind: TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
             evidence_schema_version: TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+            active_dataset_profile: None,
             bundle_dir: &self.bundle_dir,
             evidence_json_path: &self.evidence_json_path,
             evidence_markdown_path: &self.evidence_markdown_path,
             visual_context_path: &self.visual_context_path,
             visual_context_kind: VISUAL_CONTEXT_KIND_PLACEHOLDER_TEXT,
+            visual_capture_status: VISUAL_CAPTURE_STATUS_DEFERRED,
+            selected_event_count: evidence.selected_event_count,
+            selected_percentage: evidence.selected_percentage,
+            dataset_row_count: evidence.dataset_identity.row_count,
+            export_timestamp_unix_ms: self.export_timestamp_unix_ms,
+            export_counter: self.export_counter,
+        };
+        self.write_manifest_record(&manifest_record)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn write_scatter_v3(
+        &self,
+        evidence: &ScatterSelectionEvidenceV3,
+    ) -> Result<(), Box<dyn Error>> {
+        fs::create_dir_all(&self.bundle_dir)?;
+        fs::write(
+            &self.evidence_json_path,
+            scatter_selection_evidence_v3_json(evidence)?,
+        )?;
+        fs::write(
+            &self.evidence_markdown_path,
+            scatter_selection_evidence_v3_markdown(evidence),
+        )?;
+        fs::write(
+            &self.visual_context_path,
+            scatter_visual_context_v3(evidence),
+        )?;
+
+        let manifest_record = ScatterEvidenceReportBundleManifestRecord {
+            artifact_kind: SCATTER_REPORT_BUNDLE_ARTIFACT_KIND,
+            bundle_schema_version: EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION,
+            evidence_artifact_kind: SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+            evidence_schema_version: SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
+            active_dataset_profile: evidence
+                .active_dataset_profile
+                .map(DatasetProfileId::as_str),
+            bundle_dir: &self.bundle_dir,
+            evidence_json_path: &self.evidence_json_path,
+            evidence_markdown_path: &self.evidence_markdown_path,
+            visual_context_path: &self.visual_context_path,
+            visual_context_kind: VISUAL_CONTEXT_KIND_SUMMARY_TEXT,
+            visual_capture_status: VISUAL_CAPTURE_STATUS_DEFERRED,
+            selected_row_count: evidence.selected_row_count,
+            selected_percentage: evidence.selected_percentage,
+            dataset_row_count: evidence.dataset_identity.row_count,
+            export_timestamp_unix_ms: self.export_timestamp_unix_ms,
+            export_counter: self.export_counter,
+        };
+        self.write_manifest_record(&manifest_record)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn write_timeline_v3(
+        &self,
+        evidence: &TimelineSelectionEvidenceV3,
+    ) -> Result<(), Box<dyn Error>> {
+        fs::create_dir_all(&self.bundle_dir)?;
+        fs::write(
+            &self.evidence_json_path,
+            timeline_selection_evidence_v3_json(evidence)?,
+        )?;
+        fs::write(
+            &self.evidence_markdown_path,
+            timeline_selection_evidence_v3_markdown(evidence),
+        )?;
+        fs::write(
+            &self.visual_context_path,
+            timeline_visual_context_v3(evidence),
+        )?;
+
+        let manifest_record = TimelineEvidenceReportBundleManifestRecord {
+            artifact_kind: TIMELINE_REPORT_BUNDLE_ARTIFACT_KIND,
+            bundle_schema_version: EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION,
+            evidence_artifact_kind: TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+            evidence_schema_version: TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
+            active_dataset_profile: evidence
+                .active_dataset_profile
+                .map(DatasetProfileId::as_str),
+            bundle_dir: &self.bundle_dir,
+            evidence_json_path: &self.evidence_json_path,
+            evidence_markdown_path: &self.evidence_markdown_path,
+            visual_context_path: &self.visual_context_path,
+            visual_context_kind: VISUAL_CONTEXT_KIND_SUMMARY_TEXT,
             visual_capture_status: VISUAL_CAPTURE_STATUS_DEFERRED,
             selected_event_count: evidence.selected_event_count,
             selected_percentage: evidence.selected_percentage,
@@ -188,6 +284,8 @@ struct ScatterEvidenceReportBundleManifestRecord<'a> {
     bundle_schema_version: u32,
     evidence_artifact_kind: &'static str,
     evidence_schema_version: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_dataset_profile: Option<&'static str>,
     bundle_dir: &'a Path,
     evidence_json_path: &'a Path,
     evidence_markdown_path: &'a Path,
@@ -207,6 +305,8 @@ struct TimelineEvidenceReportBundleManifestRecord<'a> {
     bundle_schema_version: u32,
     evidence_artifact_kind: &'static str,
     evidence_schema_version: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_dataset_profile: Option<&'static str>,
     bundle_dir: &'a Path,
     evidence_json_path: &'a Path,
     evidence_markdown_path: &'a Path,
@@ -290,6 +390,106 @@ capture_reason: {}\n",
     )
 }
 
+fn scatter_visual_context_v3(evidence: &ScatterSelectionEvidenceV3) -> String {
+    let dataset_profile = dataset_profile_context_line(evidence.active_dataset_profile);
+    format!(
+        "RawScope visual context\n\
+view_kind: scatter\n\
+dataset_source: {}\n\
+dataset_rows: {}\n\
+{}\
+grid_size: {}x{}\n\
+view_x_range: {:.6}..{:.6}\n\
+view_y_range: {:.6}..{:.6}\n\
+density_transform: {}\n\
+density_palette: {}\n\
+density_normalization: {}\n\
+density_presentation: {}\n\
+selected_row_count: {}\n\
+selected_percentage: {:.6}\n\
+comparison_baseline: {}\n\
+comparison_baseline_row_count: {}\n\
+aggregate_context_bin_count: {}\n\
+aggregate_context_bin_limit: {}\n\
+capture_status: {}\n\
+capture_reason: {}\n",
+        dataset_source_label(&evidence.dataset_identity.source),
+        evidence.dataset_identity.row_count,
+        dataset_profile,
+        evidence.view.grid_width,
+        evidence.view.grid_height,
+        evidence.view.x_range.min,
+        evidence.view.x_range.max,
+        evidence.view.y_range.min,
+        evidence.view.y_range.max,
+        evidence.view.density_encoding.transform.label(),
+        evidence.view.density_encoding.palette.label(),
+        evidence.view.density_encoding.normalization.label(),
+        evidence.view.density_presentation.evidence_label(),
+        evidence.selected_row_count,
+        evidence.selected_percentage,
+        SCATTER_COMPARISON_BASELINE_LABEL,
+        evidence.comparison.baseline_row_count,
+        evidence.aggregate_context.bins.len(),
+        evidence.aggregate_context.bin_limit,
+        VISUAL_CAPTURE_STATUS_DEFERRED,
+        VISUAL_CAPTURE_DEFERRED_REASON,
+    )
+}
+
+fn timeline_visual_context_v3(evidence: &TimelineSelectionEvidenceV3) -> String {
+    let dataset_profile = dataset_profile_context_line(evidence.active_dataset_profile);
+    format!(
+        "RawScope visual context\n\
+view_kind: timeline\n\
+dataset_source: {}\n\
+dataset_rows: {}\n\
+{}\
+grid_size: {}x{}\n\
+view_time_range: {}..{}\n\
+full_time_range: {}..{}\n\
+lane_count: {}\n\
+density_transform: {}\n\
+density_palette: {}\n\
+density_normalization: {}\n\
+selected_time_range: {}..{}\n\
+selected_lane_range: {}..{}\n\
+selected_event_count: {}\n\
+selected_percentage: {:.6}\n\
+comparison_baseline: {}\n\
+comparison_baseline_event_count: {}\n\
+aggregate_context_bin_count: {}\n\
+aggregate_context_bin_limit: {}\n\
+capture_status: {}\n\
+capture_reason: {}\n",
+        dataset_source_label(&evidence.dataset_identity.source),
+        evidence.dataset_identity.row_count,
+        dataset_profile,
+        evidence.view.grid_width,
+        evidence.view.grid_height,
+        evidence.view.time_range.min,
+        evidence.view.time_range.max,
+        evidence.view.full_time_range.min,
+        evidence.view.full_time_range.max,
+        evidence.view.lane_count,
+        evidence.view.density_encoding.transform.label(),
+        evidence.view.density_encoding.palette.label(),
+        evidence.view.density_encoding.normalization.label(),
+        evidence.selected_time_range.min,
+        evidence.selected_time_range.max,
+        evidence.selected_lane_range.start,
+        evidence.selected_lane_range.end_exclusive,
+        evidence.selected_event_count,
+        evidence.selected_percentage,
+        TIMELINE_COMPARISON_BASELINE_LABEL,
+        evidence.comparison.baseline_event_count,
+        evidence.aggregate_context.bins.len(),
+        evidence.aggregate_context.bin_limit,
+        VISUAL_CAPTURE_STATUS_DEFERRED,
+        VISUAL_CAPTURE_DEFERRED_REASON,
+    )
+}
+
 fn dataset_source_label(source: &DatasetSource) -> String {
     match source {
         DatasetSource::Synthetic { seed, generator } => {
@@ -310,6 +510,12 @@ fn dataset_source_label(source: &DatasetSource) -> String {
                 .unwrap_or_default()
         ),
     }
+}
+
+fn dataset_profile_context_line(profile_id: Option<DatasetProfileId>) -> String {
+    profile_id
+        .map(|profile_id| format!("dataset_profile: {}\n", profile_id.as_str()))
+        .unwrap_or_default()
 }
 
 pub(crate) fn current_unix_timestamp_ms() -> u128 {

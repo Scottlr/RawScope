@@ -38,6 +38,7 @@ impl WorkbenchApp {
         self.build_selection_evidence();
         self.build_selection_drilldown();
         self.publish_scatter_active_selection();
+        self.rebuild_active_comparison();
         self.log_selection_summary("finalized");
         self.log_selection_evidence();
         self.log_selection_drilldown();

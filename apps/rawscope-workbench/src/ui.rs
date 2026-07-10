@@ -5,13 +5,17 @@ use egui_wgpu::RendererOptions;
 use rawscope_core::VisualSelectionKind;
 use rawscope_data::{DatasetFieldRole, DatasetSource};
 use rawscope_render::{
-    MissingnessGrid, MissingnessSelection, MissingnessSelectionSummary, SelectionDrilldown,
+    DatasetDiffSummary, MissingnessGrid, MissingnessSelection, MissingnessSelectionSummary,
+    SelectionDrilldown,
 };
 
 use crate::{
     app::WorkbenchApp,
+    app_comparison::WorkbenchComparison,
     demo::DemoMode,
     ui_controls::{show_workbench_ui, UiActions},
+    ui_view_context::{view_axes_ui_state, view_context_ui_state, WorkbenchViewContextUiState},
+    ui_visual_encoding::{density_encoding_ui_state, DensityEncodingUiState},
 };
 
 /// Active visual workbench view shown in the shell.
@@ -21,12 +25,19 @@ pub(crate) enum ActiveView {
     Timeline,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum WorkbenchViewAxes {
+    Scatter(rawscope_render::ScatterAxesContext),
+    Timeline(rawscope_render::TimelineAxesContext),
+}
+
 /// Visible analyst surface shown above the current dataset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum WorkbenchSurface {
     #[default]
     Primary,
     Missingness,
+    DatasetDiff,
 }
 
 /// UI-ready projection of the current missingness slice.
@@ -37,6 +48,14 @@ pub(crate) struct MissingnessUiState {
     pub(crate) selection_summary: Option<MissingnessSelectionSummary>,
     pub(crate) column_names: Vec<String>,
     pub(crate) row_bucket_labels: Vec<String>,
+}
+
+/// UI-ready projection of the current bounded dataset diff.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct DatasetDiffUiState {
+    pub(crate) summary: DatasetDiffSummary,
+    pub(crate) before_label: String,
+    pub(crate) after_label: String,
 }
 
 /// User-visible export status for the current workbench session.
@@ -73,14 +92,20 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) view_label: String,
     pub(crate) selection_label: String,
     pub(crate) linked_selection_label: String,
+    pub(crate) comparison: Option<WorkbenchComparison>,
     pub(crate) axis_primary_label: String,
     pub(crate) axis_secondary_label: String,
+    pub(crate) view_axes: Option<WorkbenchViewAxes>,
+    pub(crate) density_encoding: Option<DensityEncodingUiState>,
+    pub(crate) view_context: Option<WorkbenchViewContextUiState>,
     pub(crate) export_status: ExportStatus,
     pub(crate) drilldown: Option<SelectionDrilldown>,
     pub(crate) missingness: Option<MissingnessUiState>,
+    pub(crate) dataset_diff: Option<DatasetDiffUiState>,
     pub(crate) can_switch_to_scatter: bool,
     pub(crate) can_switch_to_timeline: bool,
     pub(crate) can_show_missingness: bool,
+    pub(crate) can_show_dataset_diff: bool,
     pub(crate) can_reset: bool,
     pub(crate) can_export: bool,
     pub(crate) can_clear_selection: bool,
@@ -130,6 +155,7 @@ impl WorkbenchApp {
             return;
         };
 
+        crate::ui_theme::apply_theme(&self.egui_context);
         let max_texture_side = Some(gpu.device().limits().max_texture_dimension_2d as usize);
         self.egui_state = Some(egui_winit::State::new(
             self.egui_context.clone(),
@@ -153,12 +179,17 @@ impl WorkbenchApp {
         let view_label = view_label(self);
         let selection_label = selection_label(self);
         let linked_selection_label = linked_selection_label(self);
+        let comparison = self.active_comparison.clone();
         let (axis_primary_label, axis_secondary_label) = axis_labels(self);
+        let view_axes = view_axes_ui_state(self);
+        let density_encoding = density_encoding_ui_state(self);
+        let view_context = view_context_ui_state(self);
         let drilldown = match self.demo_mode {
             DemoMode::Scatter => self.scatter.selection_drilldown.clone(),
             DemoMode::Timeline => self.timeline.selection_drilldown.clone(),
         };
         let missingness = missingness_ui_state(self);
+        let dataset_diff = dataset_diff_ui_state(self);
         let can_switch_to_scatter = self
             .input
             .as_ref()
@@ -168,12 +199,14 @@ impl WorkbenchApp {
             .as_ref()
             .is_none_or(|input| matches!(input, crate::cli::WorkbenchInput::Timeline { .. }));
         let can_show_missingness = self.missingness_is_available();
+        let can_show_dataset_diff = self.dataset_diff_is_available();
         let can_reset = match self.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
                 DemoMode::Scatter => self.scatter.viewport.is_some(),
                 DemoMode::Timeline => self.timeline.viewport.is_some(),
             },
             WorkbenchSurface::Missingness => false,
+            WorkbenchSurface::DatasetDiff => false,
         };
         let can_export = match self.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
@@ -181,6 +214,7 @@ impl WorkbenchApp {
                 DemoMode::Timeline => self.timeline.selection_evidence.is_some(),
             },
             WorkbenchSurface::Missingness => false,
+            WorkbenchSurface::DatasetDiff => false,
         };
         let can_clear_selection = match self.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
@@ -200,6 +234,7 @@ impl WorkbenchApp {
                 }
             },
             WorkbenchSurface::Missingness => self.missingness.selection_summary.is_some(),
+            WorkbenchSurface::DatasetDiff => false,
         };
 
         WorkbenchUiState {
@@ -209,14 +244,20 @@ impl WorkbenchApp {
             view_label,
             selection_label,
             linked_selection_label,
+            comparison,
             axis_primary_label,
             axis_secondary_label,
+            view_axes,
+            density_encoding,
+            view_context,
             export_status: self.export_status.clone(),
             drilldown,
             missingness,
+            dataset_diff,
             can_switch_to_scatter,
             can_switch_to_timeline,
             can_show_missingness,
+            can_show_dataset_diff,
             can_reset,
             can_export,
             can_clear_selection,
@@ -240,6 +281,7 @@ impl WorkbenchApp {
             match next_surface {
                 WorkbenchSurface::Primary => self.show_primary_surface(),
                 WorkbenchSurface::Missingness => self.show_missingness_surface(),
+                WorkbenchSurface::DatasetDiff => self.show_dataset_diff_surface(),
             }
         }
 
@@ -248,6 +290,13 @@ impl WorkbenchApp {
                 DemoMode::Scatter => self.reset_viewport(),
                 DemoMode::Timeline => self.reset_timeline_viewport(),
             }
+        }
+
+        if let Some(transform) = actions.set_density_transform {
+            self.set_density_transform(transform);
+        }
+        if let Some(presentation) = actions.set_scatter_density_presentation {
+            self.set_scatter_density_presentation(presentation);
         }
 
         if actions.export_requested {
@@ -268,6 +317,7 @@ impl WorkbenchApp {
                     self.request_redraw();
                     self.update_window_title();
                 }
+                WorkbenchSurface::DatasetDiff => {}
             }
         }
 
@@ -277,6 +327,14 @@ impl WorkbenchApp {
                     row_bucket,
                     column_index,
                 } => self.select_missingness_cell(row_bucket, column_index),
+            }
+        }
+
+        if let Some(action) = actions.dataset_diff_action {
+            match action {
+                crate::ui_dataset_diff::DatasetDiffAction::InspectMissingnessColumn {
+                    column_name,
+                } => self.inspect_dataset_diff_missingness_column(&column_name),
             }
         }
     }
@@ -296,6 +354,8 @@ impl WorkbenchApp {
 
         let Some(gpu) = self.gpu.take() else {
             self.demo_mode = next_mode;
+            self.clear_dataset_diff_state();
+            self.visible_surface = WorkbenchSurface::Primary;
             return;
         };
 
@@ -366,6 +426,20 @@ fn dataset_label(app: &WorkbenchApp) -> String {
 }
 
 fn view_label(app: &WorkbenchApp) -> String {
+    if app.visible_surface == WorkbenchSurface::DatasetDiff {
+        let Some(summary) = app.dataset_diff_summary.as_ref() else {
+            return "Dataset diff unavailable".to_string();
+        };
+        return format!(
+            "dataset diff | rows {} -> {} ({:+}) | columns {} | missingness {}",
+            summary.before_row_count,
+            summary.after_row_count,
+            summary.row_count_delta,
+            summary.columns.len(),
+            summary.missingness.len()
+        );
+    }
+
     if app.visible_surface == WorkbenchSurface::Missingness {
         let Some(grid) = app.missingness.grid.as_ref() else {
             return "Missingness unavailable".to_string();
@@ -425,6 +499,16 @@ fn view_label(app: &WorkbenchApp) -> String {
 }
 
 fn selection_label(app: &WorkbenchApp) -> String {
+    if app.visible_surface == WorkbenchSurface::DatasetDiff {
+        let Some(summary) = app.dataset_diff_summary.as_ref() else {
+            return "Dataset diff unavailable".to_string();
+        };
+        return format!(
+            "Rows {} -> {} ({:+})",
+            summary.before_row_count, summary.after_row_count, summary.row_count_delta
+        );
+    }
+
     if app.visible_surface == WorkbenchSurface::Missingness {
         let Some(summary) = app.missingness.selection_summary.as_ref() else {
             return "No missingness selection".to_string();
@@ -478,6 +562,26 @@ fn selection_label(app: &WorkbenchApp) -> String {
 }
 
 fn axis_labels(app: &WorkbenchApp) -> (String, String) {
+    if app.visible_surface == WorkbenchSurface::DatasetDiff {
+        let Some(summary) = app.dataset_diff_summary.as_ref() else {
+            return (
+                "dataset diff unavailable".to_string(),
+                "dataset diff unavailable".to_string(),
+            );
+        };
+        return (
+            format!(
+                "rows {} -> {} ({:+})",
+                summary.before_row_count, summary.after_row_count, summary.row_count_delta
+            ),
+            format!(
+                "schema {} | missingness {}",
+                summary.columns.len(),
+                summary.missingness.len()
+            ),
+        );
+    }
+
     if app.visible_surface == WorkbenchSurface::Missingness {
         let Some(grid) = app.missingness.grid.as_ref() else {
             return (
@@ -574,6 +678,33 @@ fn missingness_ui_state(app: &WorkbenchApp) -> Option<MissingnessUiState> {
     })
 }
 
+fn dataset_diff_ui_state(app: &WorkbenchApp) -> Option<DatasetDiffUiState> {
+    let summary = app.dataset_diff_summary.clone()?;
+    let before_label = app
+        .input
+        .as_ref()
+        .map(workbench_input_path_label)
+        .unwrap_or_else(|| "active dataset".to_string());
+    let after_label = app
+        .compare_input
+        .as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| "comparison dataset".to_string());
+
+    Some(DatasetDiffUiState {
+        summary,
+        before_label,
+        after_label,
+    })
+}
+
+fn workbench_input_path_label(input: &crate::cli::WorkbenchInput) -> String {
+    match input {
+        crate::cli::WorkbenchInput::Scatter { path, .. }
+        | crate::cli::WorkbenchInput::Timeline { path, .. } => path.display().to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{ActiveView, ExportStatus, WorkbenchSurface, WorkbenchUiState};
@@ -597,14 +728,20 @@ mod tests {
             view_label: "grid 256x256 | x 0.0..100.0 | y 0.0..100.0".to_string(),
             selection_label: "Selection 42 rows (0.21%)".to_string(),
             linked_selection_label: "Linked 42 rows from scatter".to_string(),
+            comparison: None,
             axis_primary_label: "x 0.0..100.0".to_string(),
             axis_secondary_label: "y 0.0..100.0".to_string(),
+            view_axes: None,
+            density_encoding: None,
+            view_context: None,
             export_status: ExportStatus::Idle,
             drilldown: None,
             missingness: None,
+            dataset_diff: None,
             can_switch_to_scatter: true,
             can_switch_to_timeline: true,
             can_show_missingness: false,
+            can_show_dataset_diff: false,
             can_reset: true,
             can_export: true,
             can_clear_selection: true,
@@ -626,14 +763,20 @@ mod tests {
             view_label: "grid 256x256 | pts 20000 (20k) | max 32".to_string(),
             selection_label: "Selection 42 rows (0.21%)".to_string(),
             linked_selection_label: "Linked 42 rows from scatter".to_string(),
+            comparison: None,
             axis_primary_label: "x 0.0..100.0".to_string(),
             axis_secondary_label: "y 0.0..100.0".to_string(),
+            view_axes: None,
+            density_encoding: None,
+            view_context: None,
             export_status: ExportStatus::Idle,
             drilldown: None,
             missingness: None,
+            dataset_diff: None,
             can_switch_to_scatter: true,
             can_switch_to_timeline: true,
             can_show_missingness: false,
+            can_show_dataset_diff: false,
             can_reset: true,
             can_export: true,
             can_clear_selection: true,

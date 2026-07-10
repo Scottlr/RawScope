@@ -49,9 +49,6 @@ impl ApplicationHandler for WorkbenchApp {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = Some(position);
-                if event_consumed {
-                    return;
-                }
                 if self.demo_mode.is_scatter() && self.brush_is_active() {
                     self.update_brush_to_cursor(position);
                 } else if self.demo_mode.is_timeline() && self.timeline_brush_is_active() {
@@ -72,65 +69,57 @@ impl ApplicationHandler for WorkbenchApp {
             {
                 self.zoom_timeline_at_cursor(delta);
             }
-            WindowEvent::MouseInput { state, button, .. } if !event_consumed => {
-                match (state, button) {
-                    (ElementState::Pressed, MouseButton::Right) if self.demo_mode.is_scatter() => {
-                        self.begin_brush();
-                    }
-                    (ElementState::Pressed, MouseButton::Right) if self.demo_mode.is_timeline() => {
-                        self.begin_timeline_brush();
-                    }
-                    (ElementState::Pressed, MouseButton::Left)
-                        if self.demo_mode.is_scatter() && self.modifiers.shift_key() =>
-                    {
-                        self.begin_brush();
-                    }
-                    (ElementState::Pressed, MouseButton::Left)
-                        if self.demo_mode.is_timeline() && self.modifiers.shift_key() =>
-                    {
-                        self.begin_timeline_brush();
-                    }
-                    (ElementState::Pressed, MouseButton::Left | MouseButton::Middle)
-                        if self.demo_mode.is_scatter() =>
-                    {
-                        self.begin_pan();
-                    }
-                    (ElementState::Pressed, MouseButton::Left | MouseButton::Middle)
-                        if self.demo_mode.is_timeline() && !self.modifiers.shift_key() =>
-                    {
-                        self.begin_timeline_pan();
-                    }
-                    (ElementState::Released, MouseButton::Right) if self.demo_mode.is_scatter() => {
-                        self.end_brush();
-                    }
-                    (ElementState::Released, MouseButton::Right)
-                        if self.demo_mode.is_timeline() =>
-                    {
-                        self.end_timeline_brush();
-                    }
-                    (ElementState::Released, MouseButton::Left)
-                        if self.demo_mode.is_scatter() && self.brush_is_active() =>
-                    {
-                        self.end_brush();
-                    }
-                    (ElementState::Released, MouseButton::Left)
-                        if self.demo_mode.is_timeline() && self.timeline_brush_is_active() =>
-                    {
-                        self.end_timeline_brush();
-                    }
-                    (ElementState::Released, MouseButton::Left | MouseButton::Middle)
-                        if self.demo_mode.is_scatter() =>
-                    {
-                        self.end_pan();
-                    }
-                    (ElementState::Released, MouseButton::Left | MouseButton::Middle)
-                        if self.demo_mode.is_timeline() =>
-                    {
-                        self.end_pan();
-                    }
-                    _ => {}
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button,
+                ..
+            } => match button {
+                MouseButton::Right if self.demo_mode.is_scatter() && self.brush_is_active() => {
+                    self.end_brush();
                 }
-            }
+                MouseButton::Right
+                    if self.demo_mode.is_timeline() && self.timeline_brush_is_active() =>
+                {
+                    self.end_timeline_brush();
+                }
+                MouseButton::Left if self.demo_mode.is_scatter() && self.brush_is_active() => {
+                    self.end_brush();
+                }
+                MouseButton::Left
+                    if self.demo_mode.is_timeline() && self.timeline_brush_is_active() =>
+                {
+                    self.end_timeline_brush();
+                }
+                MouseButton::Left | MouseButton::Middle => self.end_pan(),
+                _ => {}
+            },
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button,
+                ..
+            } if !event_consumed => match button {
+                MouseButton::Right if self.demo_mode.is_scatter() => {
+                    self.begin_brush();
+                }
+                MouseButton::Right if self.demo_mode.is_timeline() => {
+                    self.begin_timeline_brush();
+                }
+                MouseButton::Left if self.demo_mode.is_scatter() && self.modifiers.shift_key() => {
+                    self.begin_brush();
+                }
+                MouseButton::Left if self.demo_mode.is_timeline() && self.modifiers.shift_key() => {
+                    self.begin_timeline_brush();
+                }
+                MouseButton::Left | MouseButton::Middle if self.demo_mode.is_scatter() => {
+                    self.begin_pan();
+                }
+                MouseButton::Left | MouseButton::Middle
+                    if self.demo_mode.is_timeline() && !self.modifiers.shift_key() =>
+                {
+                    self.begin_timeline_pan();
+                }
+                _ => {}
+            },
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.modifiers = modifiers.state();
             }

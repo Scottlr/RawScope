@@ -38,6 +38,7 @@ impl WorkbenchApp {
         self.build_timeline_selection_evidence();
         self.build_timeline_selection_drilldown();
         self.publish_timeline_active_selection();
+        self.rebuild_active_comparison();
         self.log_timeline_selection_summary("finalized");
         self.log_timeline_selection_evidence();
         self.log_timeline_selection_drilldown();

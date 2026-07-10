@@ -2,10 +2,12 @@ use std::{fs, path::Path};
 
 use rawscope_core::{F32Range, RowId, U64Range};
 use rawscope_data::{
-    DatasetIdentity, ScatterPointKind, SyntheticEventType, SyntheticPointCategory,
+    DatasetIdentity, DatasetProfileId, ScatterPointKind, SyntheticEventType, SyntheticPointCategory,
 };
 use rawscope_render::{
-    ScatterEvidenceView, ScatterSelectionEvidenceV2, SelectedCategoryCounts,
+    AggregateEvidenceBin, ComparisonRatio, DensityEncoding, ScatterAggregateEvidenceContext,
+    ScatterEvidenceView, ScatterKindComparison, ScatterSelectionComparison,
+    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, SelectedCategoryCounts,
     SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
 };
 
@@ -137,6 +139,69 @@ fn write_timeline_bundle_creates_expected_files() {
     fs::remove_dir_all(&test_dir).unwrap();
 }
 
+#[test]
+fn write_scatter_bundle_v3_uses_enriched_visual_context() {
+    let test_dir = unique_test_dir("scatter-write-v3");
+    let bundle_paths = EvidenceReportBundlePaths::next_available(
+        &test_dir,
+        SCATTER_REPORT_BUNDLE_DIR_PREFIX,
+        1234,
+        1,
+    );
+
+    bundle_paths
+        .write_scatter_v3(&sample_scatter_evidence_v3())
+        .unwrap();
+
+    let manifest = fs::read_to_string(&bundle_paths.manifest_path).unwrap();
+    assert!(manifest.contains("\"evidence_schema_version\": 3"));
+    assert!(manifest.contains("\"visual_context_kind\": \"text-visual-context\""));
+
+    let evidence_json = fs::read_to_string(&bundle_paths.evidence_json_path).unwrap();
+    assert!(evidence_json.contains("\"schema_version\": 3"));
+    assert!(evidence_json.contains("\"density_encoding\""));
+
+    let visual_context = fs::read_to_string(&bundle_paths.visual_context_path).unwrap();
+    assert!(visual_context.contains("density_transform: log1p(count)"));
+    assert!(visual_context.contains("density_palette: scatter sequential"));
+    assert!(visual_context.contains("density_normalization: viewport max"));
+    assert!(visual_context.contains("density_presentation: exact cells"));
+    assert!(visual_context.contains("dataset_profile: lichess-games"));
+    assert!(visual_context.contains("comparison_baseline: active_point_slice"));
+    assert!(visual_context.contains("aggregate_context_bin_limit: 16"));
+    assert!(visual_context.contains("capture_status: deferred"));
+
+    fs::remove_dir_all(&test_dir).unwrap();
+}
+
+#[test]
+fn write_timeline_bundle_v3_includes_dataset_profile_metadata() {
+    let test_dir = unique_test_dir("timeline-write-v3");
+    let bundle_paths = EvidenceReportBundlePaths::next_available(
+        &test_dir,
+        TIMELINE_REPORT_BUNDLE_DIR_PREFIX,
+        1234,
+        1,
+    );
+
+    bundle_paths
+        .write_timeline_v3(&sample_timeline_evidence_v3())
+        .unwrap();
+
+    let manifest = fs::read_to_string(&bundle_paths.manifest_path).unwrap();
+    assert!(manifest.contains("\"evidence_schema_version\": 3"));
+    assert!(manifest.contains("\"active_dataset_profile\": \"lichess-games\""));
+
+    let evidence_json = fs::read_to_string(&bundle_paths.evidence_json_path).unwrap();
+    assert!(evidence_json.contains("\"active_dataset_profile\": \"lichess-games\""));
+
+    let visual_context = fs::read_to_string(&bundle_paths.visual_context_path).unwrap();
+    assert!(visual_context.contains("dataset_profile: lichess-games"));
+    assert!(visual_context.contains("comparison_baseline: active_event_slice"));
+
+    fs::remove_dir_all(&test_dir).unwrap();
+}
+
 fn unique_test_dir(name: &str) -> std::path::PathBuf {
     let mut test_dir = std::env::temp_dir();
     test_dir.push(format!("rawscope-{name}-{}", std::process::id()));
@@ -206,5 +271,104 @@ fn sample_timeline_evidence() -> TimelineSelectionEvidenceV2 {
         )),
         selected_timestamp_range: Some(U64Range::new(1_100, 1_350)),
         selected_value_range: Some((2.0, 8.0)),
+    }
+}
+
+fn sample_scatter_evidence_v3() -> ScatterSelectionEvidenceV3 {
+    let evidence_v2 = sample_scatter_evidence();
+
+    ScatterSelectionEvidenceV3::from_v2(
+        &evidence_v2,
+        DensityEncoding::scatter_default(),
+        ScatterSelectionComparison {
+            selected_row_count: 2,
+            baseline_row_count: evidence_v2.dataset_identity.row_count,
+            selected_percentage: evidence_v2.selected_percentage,
+            point_kind_ratios: ScatterKindComparison {
+                cluster: ComparisonRatio {
+                    selected_count: 2,
+                    baseline_count: 4,
+                    selected_percentage: 100.0,
+                    baseline_percentage: 20.0,
+                    delta_percentage_points: 80.0,
+                },
+                background: ComparisonRatio {
+                    selected_count: 0,
+                    baseline_count: 10,
+                    selected_percentage: 0.0,
+                    baseline_percentage: 50.0,
+                    delta_percentage_points: -50.0,
+                },
+                outlier: ComparisonRatio {
+                    selected_count: 0,
+                    baseline_count: 2,
+                    selected_percentage: 0.0,
+                    baseline_percentage: 10.0,
+                    delta_percentage_points: -10.0,
+                },
+                unclassified: ComparisonRatio {
+                    selected_count: 0,
+                    baseline_count: 4,
+                    selected_percentage: 0.0,
+                    baseline_percentage: 20.0,
+                    delta_percentage_points: -20.0,
+                },
+            },
+        },
+        ScatterAggregateEvidenceContext {
+            bin_limit: 16,
+            bins: vec![
+                AggregateEvidenceBin {
+                    bin_x: 4,
+                    bin_y: 5,
+                    count: 11,
+                    row_id_sample: vec![3, 7],
+                },
+                AggregateEvidenceBin {
+                    bin_x: 6,
+                    bin_y: 2,
+                    count: 9,
+                    row_id_sample: vec![9, 13],
+                },
+            ],
+        },
+        Some(DatasetProfileId::LichessGames),
+    )
+}
+
+fn sample_timeline_evidence_v3() -> rawscope_render::TimelineSelectionEvidenceV3 {
+    let evidence_v2 = sample_timeline_evidence();
+
+    rawscope_render::TimelineSelectionEvidenceV3::from_v2(
+        &evidence_v2,
+        DensityEncoding::timeline_default(),
+        rawscope_render::TimelineSelectionComparison {
+            selected_event_count: evidence_v2.selected_event_count,
+            baseline_event_count: evidence_v2.dataset_identity.row_count,
+            selected_percentage: evidence_v2.selected_percentage,
+            event_kind_ratios: rawscope_render::TimelineKindComparison {
+                background: zero_ratio(),
+                spike: zero_ratio(),
+                stale_lane: zero_ratio(),
+                high_value_band: zero_ratio(),
+                unclassified: zero_ratio(),
+            },
+            lane_ratios: vec![],
+        },
+        rawscope_render::TimelineAggregateEvidenceContext {
+            bin_limit: 16,
+            bins: vec![],
+        },
+        Some(DatasetProfileId::LichessGames),
+    )
+}
+
+fn zero_ratio() -> ComparisonRatio {
+    ComparisonRatio {
+        selected_count: 0,
+        baseline_count: 0,
+        selected_percentage: 0.0,
+        baseline_percentage: 0.0,
+        delta_percentage_points: 0.0,
     }
 }

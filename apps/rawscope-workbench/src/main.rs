@@ -1,5 +1,9 @@
 mod app;
+mod app_aggregate;
 mod app_brush;
+mod app_comparison;
+mod app_dataset_diff;
+mod app_dataset_profile;
 mod app_events;
 mod app_export;
 mod app_missingness;
@@ -10,13 +14,19 @@ mod app_report_bundle_tests;
 mod app_selection;
 mod app_timeline;
 mod app_timeline_brush;
+mod app_visual_encoding;
 mod app_window;
 mod cli;
 mod demo;
 mod ui;
+mod ui_comparison;
 mod ui_controls;
+mod ui_dataset_diff;
 mod ui_drilldown;
 mod ui_missingness;
+mod ui_theme;
+mod ui_view_context;
+mod ui_visual_encoding;
 
 use std::{error::Error, io};
 

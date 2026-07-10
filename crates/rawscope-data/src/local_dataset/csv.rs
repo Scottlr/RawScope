@@ -82,6 +82,16 @@ pub fn load_scatter_dataset(
     })
 }
 
+/// Loads only the inferred CSV schema needed for profile validation.
+pub fn load_dataset_schema(
+    path: impl AsRef<Path>,
+    limit: Option<usize>,
+) -> Result<Vec<LoadedColumnSchema>, DatasetLoadError> {
+    let path = path.as_ref();
+    ensure_supported_csv(path)?;
+    Ok(read_csv_table(path, limit)?.schema)
+}
+
 /// Loads a local timeline dataset from CSV and binds explicit time/lane columns.
 pub fn load_timeline_dataset(
     path: impl AsRef<Path>,
