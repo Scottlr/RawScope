@@ -1,6 +1,7 @@
 //! Synthetic and local datasets for RawScope.
 
 mod dataset;
+mod dataset_filter;
 mod dataset_profile;
 mod local_dataset;
 mod synthetic;
@@ -10,6 +11,10 @@ mod visual_record;
 pub use dataset::{
     DatasetFieldBinding, DatasetFieldRole, DatasetIdentity, DatasetSource,
     SyntheticDatasetMetadata, VisualDatasetKind,
+};
+pub use dataset_filter::{
+    evaluate_filters, DatasetFilter, FilterError, FilterEvaluation, FilterMask, FilterRevision,
+    FilterSet,
 };
 pub use dataset_profile::{
     available_profile_filter_hints, dataset_profile, parse_dataset_profile_id,
