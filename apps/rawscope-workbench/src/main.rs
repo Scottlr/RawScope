@@ -19,6 +19,7 @@ mod app_scatter_density;
 mod app_scatter_difference;
 mod app_scatter_filter;
 mod app_scatter_inspection;
+mod app_scatter_overlays;
 mod app_scatter_point_reveal;
 mod app_scatter_projection;
 mod app_selection;

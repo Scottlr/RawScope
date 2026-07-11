@@ -8,9 +8,6 @@ const OVERLAY_SHADER_SOURCE: &str = include_str!("shaders/scatter_brush_overlay.
 const BRUSH_FILL_RGBA: [f32; 4] = [1.0, 0.72, 0.22, 0.18];
 const BRUSH_BORDER_RGBA: [f32; 4] = [1.0, 0.86, 0.36, 0.92];
 const BRUSH_BORDER_WIDTH_PX: f32 = 2.0;
-const PROBE_FILL_RGBA: [f32; 4] = [0.25, 0.95, 0.88, 0.08];
-const PROBE_BORDER_RGBA: [f32; 4] = [0.45, 1.0, 0.92, 0.98];
-const PROBE_BORDER_WIDTH_PX: f32 = 1.5;
 
 /// Renders the active scatter brush rectangle over the density view.
 ///
@@ -20,8 +17,6 @@ pub struct ScatterBrushOverlayRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     params_buffer: wgpu::Buffer,
-    probe_bind_group: wgpu::BindGroup,
-    probe_params_buffer: wgpu::Buffer,
 }
 
 impl ScatterBrushOverlayRenderer {
@@ -39,22 +34,12 @@ impl ScatterBrushOverlayRenderer {
         });
         let bind_group_layout = create_overlay_bind_group_layout(device);
         let bind_group = create_overlay_bind_group(device, &bind_group_layout, &params_buffer);
-        let probe_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("RawScope Scatter Probe Overlay Params Buffer"),
-            size: std::mem::size_of::<BrushOverlayParams>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let probe_bind_group =
-            create_overlay_bind_group(device, &bind_group_layout, &probe_params_buffer);
         let pipeline = create_overlay_pipeline(device, &bind_group_layout, &shader, surface_format);
 
         Self {
             pipeline,
             bind_group,
             params_buffer,
-            probe_bind_group,
-            probe_params_buffer,
         }
     }
 
@@ -82,30 +67,6 @@ impl ScatterBrushOverlayRenderer {
 
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
         self.render_params(encoder, target_view, plot_rect, &self.bind_group);
-    }
-
-    pub fn render_probe(
-        &self,
-        queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        target_view: &wgpu::TextureView,
-        screen_rect: Option<BrushScreenRect>,
-        plot_rect: PlotRectPx,
-    ) {
-        let Some(screen_rect) = screen_rect else {
-            return;
-        };
-        let Some(params) = BrushOverlayParams::from_plot_rect(
-            screen_rect,
-            plot_rect,
-            PROBE_BORDER_WIDTH_PX,
-            PROBE_FILL_RGBA,
-            PROBE_BORDER_RGBA,
-        ) else {
-            return;
-        };
-        queue.write_buffer(&self.probe_params_buffer, 0, bytemuck::bytes_of(&params));
-        self.render_params(encoder, target_view, plot_rect, &self.probe_bind_group);
     }
 
     fn render_params(

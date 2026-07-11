@@ -16,9 +16,9 @@ use rawscope_render::{
     ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
     ScatterBrushSelection, ScatterDensityMode, ScatterDensityPresentation,
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
-    ScatterDifferenceRenderStats, ScatterDifferenceRenderer, ScatterMarginalSummary,
-    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
-    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    ScatterDifferenceRenderStats, ScatterDifferenceRenderer, ScatterInspectionOverlayRenderer,
+    ScatterMarginalSummary, ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
+    SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
@@ -70,6 +70,7 @@ pub struct WorkbenchApp {
     pub(crate) egui_state: Option<EguiWinitState>,
     pub(crate) egui_renderer: Option<EguiRenderer>,
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
+    pub(crate) scatter_inspection_overlay_renderer: Option<ScatterInspectionOverlayRenderer>,
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
     pub(crate) active_dataset_profile: Option<rawscope_data::DatasetProfileId>,
@@ -318,6 +319,10 @@ impl WorkbenchApp {
             self.rebuild_scatter_inspection_cache();
             self.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+            self.scatter_inspection_overlay_renderer = Some(ScatterInspectionOverlayRenderer::new(
+                gpu.device(),
+                gpu.surface_format(),
+            ));
             self.initialize_scatter_point_reveal(gpu);
             self.rebuild_missingness_state();
 
@@ -381,6 +386,10 @@ impl WorkbenchApp {
         self.scatter.density_renderer = Some(scatter_density_renderer);
         self.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
+        self.scatter_inspection_overlay_renderer = Some(ScatterInspectionOverlayRenderer::new(
+            gpu.device(),
+            gpu.surface_format(),
+        ));
         self.initialize_scatter_point_reveal(gpu);
         self.rebuild_missingness_state();
 
