@@ -240,7 +240,7 @@ fn u64_axis_ticks(
         .collect()
 }
 
-fn format_axis_value(value: f32, format: AxisValueFormat) -> String {
+pub fn format_axis_value(value: f32, format: AxisValueFormat) -> String {
     match format {
         AxisValueFormat::Integer => format!("{value:.0}"),
         AxisValueFormat::Decimal {

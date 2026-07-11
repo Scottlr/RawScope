@@ -1,8 +1,8 @@
 //! Workbench projection of settled scatter inspection focus inputs.
 
 use rawscope_render::{
-    project_scatter_inspection_overlay, BrushScreenSize, InspectionFocusKind,
-    ScatterInspectionOverlay,
+    project_scatter_inspection_overlay, BrushScreenSize, InspectionFocusKind, ScatterDensityMode,
+    ScatterInspectionHit, ScatterInspectionOverlay,
 };
 
 use crate::app_scatter_inspection::{PinnedScatterInspection, ScatterInspectionState};
@@ -15,13 +15,29 @@ pub(crate) struct ScatterInspectionOverlayInputs {
 
 pub(crate) fn scatter_inspection_overlay_inputs(
     state: &ScatterInspectionState,
+    density_mode: ScatterDensityMode,
+    hovered_alpha: f32,
+    retained_hover: Option<&ScatterInspectionHit>,
     screen_size: BrushScreenSize,
 ) -> ScatterInspectionOverlayInputs {
     let pinned = state
         .pinned
         .as_ref()
         .and_then(|pinned| project_pinned(pinned, state, screen_size));
-    let hovered = state.hovered.as_ref().and_then(|hit| {
+    let hovered_hit = state.hovered.as_ref().or(retained_hover);
+    let hovered = hovered_hit.and_then(|hit| {
+        let baseline_count = state
+            .baseline_grid
+            .as_ref()
+            .and_then(|grid| grid.inspect_bin(hit.bin_x, hit.bin_y))
+            .map_or(0, |baseline| baseline.count);
+        let meaningful = match density_mode {
+            ScatterDensityMode::AbsoluteDensity => hit.count > 0,
+            ScatterDensityMode::FilteredDifference => hit.count > 0 || baseline_count > 0,
+        };
+        if !meaningful || hovered_alpha <= 0.0 {
+            return None;
+        }
         let grid = state.grid.as_ref()?;
         project_scatter_inspection_overlay(
             hit,
@@ -29,7 +45,7 @@ pub(crate) fn scatter_inspection_overlay_inputs(
             grid.grid_height,
             screen_size,
             InspectionFocusKind::Hover,
-            1.0,
+            hovered_alpha,
         )
     });
     ScatterInspectionOverlayInputs { pinned, hovered }
@@ -112,7 +128,13 @@ mod tests {
             ..Default::default()
         };
 
-        let inputs = scatter_inspection_overlay_inputs(&state, BrushScreenSize::new(100.0, 100.0));
+        let inputs = scatter_inspection_overlay_inputs(
+            &state,
+            ScatterDensityMode::AbsoluteDensity,
+            1.0,
+            None,
+            BrushScreenSize::new(100.0, 100.0),
+        );
 
         assert_eq!(
             inputs.hovered.unwrap().focus_kind,
@@ -171,9 +193,15 @@ mod tests {
             ..Default::default()
         };
 
-        let overlay = scatter_inspection_overlay_inputs(&state, BrushScreenSize::new(80.0, 40.0))
-            .hovered
-            .unwrap();
+        let overlay = scatter_inspection_overlay_inputs(
+            &state,
+            ScatterDensityMode::AbsoluteDensity,
+            1.0,
+            None,
+            BrushScreenSize::new(80.0, 40.0),
+        )
+        .hovered
+        .unwrap();
 
         assert_eq!(overlay.exact_rect.min_x, 0.0);
         assert_eq!(overlay.exact_rect.max_y, 20.0);

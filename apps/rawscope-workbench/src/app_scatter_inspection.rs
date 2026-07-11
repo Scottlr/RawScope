@@ -110,6 +110,7 @@ impl WorkbenchApp {
 
     pub(crate) fn invalidate_scatter_inspection(&mut self) {
         self.scatter_inspection = ScatterInspectionState::default();
+        self.clear_inspection_presentation();
     }
 
     pub(crate) fn clear_scatter_inspection_hover(&mut self) {
@@ -166,6 +167,9 @@ impl WorkbenchApp {
         let Some(hit) = self.scatter_inspection.hovered.clone() else {
             return;
         };
+        if !crate::ui_scatter_inspection::inspection_hit_is_meaningful(self, &hit) {
+            return;
+        }
         let source_rows = self
             .scatter
             .source_rows

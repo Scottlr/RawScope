@@ -16,6 +16,7 @@ use crate::{
     ui_controls::UiActions,
     ui_dataset_identity::DatasetDisplayIdentity,
     ui_filters::{scatter_filters_ui_state, ScatterFiltersUiState},
+    ui_inspection_tooltip::InspectionPresentationFrame,
     ui_scatter_inspection::{scatter_inspection_ui_state, ScatterInspectionUiState},
     ui_shell::{show_workbench_ui, WorkbenchShellState, WorkbenchUiOutput},
     ui_view_context::{view_axes_ui_state, view_context_ui_state, WorkbenchViewContextUiState},
@@ -121,6 +122,8 @@ pub(crate) struct WorkbenchUiState {
     pub(crate) scatter_filters: Option<ScatterFiltersUiState>,
     pub(crate) active_cohort_row_count: usize,
     pub(crate) scatter_inspection: Option<ScatterInspectionUiState>,
+    pub(crate) inspection_presentation: Option<ScatterInspectionUiState>,
+    pub(crate) inspection_presentation_frame: InspectionPresentationFrame,
 }
 
 impl WorkbenchUiState {
@@ -186,6 +189,7 @@ impl WorkbenchApp {
         let comparison = self.active_comparison.clone();
         let (axis_primary_label, axis_secondary_label) = axis_labels(self);
         let scatter_inspection = scatter_inspection_ui_state(self);
+        let inspection_presentation = self.inspection_presentation.retained_content().cloned();
         let scatter_filters = scatter_filters_ui_state(self);
         let active_cohort_row_count = if self.demo_mode.is_scatter() {
             scatter_filters.as_ref().map_or(
@@ -287,6 +291,8 @@ impl WorkbenchApp {
             scatter_filters,
             active_cohort_row_count,
             scatter_inspection,
+            inspection_presentation,
+            inspection_presentation_frame: self.inspection_presentation.frame(),
         }
     }
 
@@ -297,6 +303,7 @@ impl WorkbenchApp {
         surface_width_px: u32,
         surface_height_px: u32,
     ) -> WorkbenchUiOutput {
+        self.update_inspection_presentation();
         let ui_state = self.ui_state();
         show_workbench_ui(
             ui,

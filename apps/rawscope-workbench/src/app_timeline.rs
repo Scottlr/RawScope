@@ -26,6 +26,7 @@ const TIMELINE_DEMO_GRID_WIDTH: u32 = 256;
 
 impl WorkbenchApp {
     pub(crate) fn prepare_timeline_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
+        self.clear_inspection_presentation();
         self.clear_aggregate_overviews();
         self.active_session = None;
 

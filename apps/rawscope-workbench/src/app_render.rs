@@ -99,6 +99,12 @@ impl WorkbenchApp {
                     let inspection_overlay_inputs =
                         crate::app_scatter_overlays::scatter_inspection_overlay_inputs(
                             &self.scatter_inspection,
+                            density_mode,
+                            self.inspection_presentation.frame().opacity,
+                            self.inspection_presentation
+                                .retained_content()
+                                .and_then(|content| content.hovered.clone())
+                                .as_ref(),
                             plot_rect.screen_size(),
                         );
 

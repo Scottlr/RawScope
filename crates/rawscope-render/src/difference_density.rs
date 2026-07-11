@@ -4,7 +4,7 @@ use std::{error::Error, fmt};
 
 pub const DIFFERENCE_FIXED_POINT_SCALE: u32 = 1_000_000_000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ScatterDensityMode {
     #[default]
     AbsoluteDensity,

@@ -27,6 +27,7 @@ use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
 
 use crate::{
     app_dataset_profile::resolve_scatter_input_binding,
+    app_inspection_presentation::InspectionPresentationState,
     app_interaction_mode::{
         ActivePointerGesture, InspectCursorPosition, InteractionOverride, SelectionGestureBackup,
         WorkbenchInteractionMode,
@@ -103,6 +104,7 @@ pub struct WorkbenchApp {
     pub(crate) visual_transition: WorkbenchVisualTransition,
     pub(crate) scatter_filters: ScatterFilterState,
     pub(crate) scatter_inspection: ScatterInspectionState,
+    pub(crate) inspection_presentation: InspectionPresentationState,
     pub(crate) point_reveal: ScatterPointRevealState,
     pub(crate) scatter_projection: ScatterProjectionState,
 }
@@ -223,6 +225,7 @@ impl WorkbenchApp {
 
     pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         self.cancel_visual_transition();
+        self.clear_inspection_presentation();
         self.clear_aggregate_overviews();
         self.active_session = None;
         let active_profile = self.input.as_ref().and_then(|input| match input {
