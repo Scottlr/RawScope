@@ -2511,6 +2511,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rawscope-session"
+version = "0.1.0"
+dependencies = [
+ "rawscope-data",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rawscope-workbench"
 version = "0.1.0"
 dependencies = [
