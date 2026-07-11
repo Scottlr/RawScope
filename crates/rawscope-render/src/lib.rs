@@ -95,7 +95,8 @@ pub use scatter_density_reprojection::{
 pub use scatter_difference_renderer::{ScatterDifferenceRenderStats, ScatterDifferenceRenderer};
 pub use scatter_inspection::{
     build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
-    ScatterInspectionError, ScatterInspectionGrid, ScatterInspectionHit,
+    ScatterInspectionDistribution, ScatterInspectionError, ScatterInspectionGrid,
+    ScatterInspectionHit, ScatterInspectionSummary, INSPECTION_NEIGHBORHOOD_RADIUS_BINS,
 };
 pub use scatter_point_renderer::ScatterPointRenderer;
 pub use scatter_point_reveal::{
