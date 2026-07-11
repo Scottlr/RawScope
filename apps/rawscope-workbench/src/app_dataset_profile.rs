@@ -187,6 +187,7 @@ mod tests {
     use super::*;
     use crate::{
         app::WorkbenchApp,
+        app_session::resolve_workbench_startup,
         cli::{WorkbenchArgs, WorkbenchInput},
         demo::DemoMode,
     };
@@ -259,8 +260,9 @@ mod tests {
                 profile: Some(DatasetProfileId::LichessGames),
             }),
             compare_input: Some(compare_path.clone()),
+            session_path: None,
         };
-        let mut app = WorkbenchApp::new(args);
+        let mut app = WorkbenchApp::new(resolve_workbench_startup(args).unwrap());
 
         let WorkbenchInput::Scatter {
             path,

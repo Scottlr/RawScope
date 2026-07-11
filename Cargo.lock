@@ -2533,6 +2533,7 @@ dependencies = [
  "rawscope-data",
  "rawscope-gpu",
  "rawscope-render",
+ "rawscope-session",
  "serde",
  "serde_json",
  "tracing",

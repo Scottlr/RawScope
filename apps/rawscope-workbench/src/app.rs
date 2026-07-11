@@ -38,8 +38,9 @@ use crate::{
     app_scatter_point_reveal::ScatterPointRevealState,
     app_scatter_projection::ScatterProjectionState,
     app_selection::ActiveLinkedSelection,
+    app_session::{ActiveSessionContext, PendingSessionContext, WorkbenchStartup},
     app_visual_transition::WorkbenchVisualTransition,
-    cli::{WorkbenchArgs, WorkbenchInput},
+    cli::WorkbenchInput,
     demo::{DemoMode, PointCountPreset},
     ui::{ExportStatus, WorkbenchSurface},
     ui_plot_surface::PlotSurfaceLayout,
@@ -72,6 +73,8 @@ pub struct WorkbenchApp {
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
     pub(crate) active_dataset_profile: Option<rawscope_data::DatasetProfileId>,
+    pub(crate) pending_session: Option<PendingSessionContext>,
+    pub(crate) active_session: Option<ActiveSessionContext>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
@@ -202,11 +205,13 @@ impl Default for TimelineWorkbenchState {
 }
 
 impl WorkbenchApp {
-    pub(crate) fn new(args: WorkbenchArgs) -> Self {
+    pub(crate) fn new(startup: WorkbenchStartup) -> Self {
         Self {
-            demo_mode: args.demo_mode,
-            input: args.input,
-            compare_input: args.compare_input,
+            demo_mode: startup.demo_mode,
+            input: startup.input,
+            compare_input: startup.compare_input,
+            pending_session: startup.session,
+            active_session: None,
             scatter: ScatterWorkbenchState {
                 point_count_label: PointCountPreset::default().row_count_label().to_string(),
                 ..ScatterWorkbenchState::default()
@@ -218,6 +223,7 @@ impl WorkbenchApp {
     pub(crate) fn prepare_scatter_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         self.cancel_visual_transition();
         self.clear_aggregate_overviews();
+        self.active_session = None;
         let active_profile = self.input.as_ref().and_then(|input| match input {
             WorkbenchInput::Scatter { profile, .. } => *profile,
             WorkbenchInput::Timeline { .. } => None,
@@ -232,25 +238,26 @@ impl WorkbenchApp {
             y_column,
             limit,
             profile,
-        }) = self.input.as_ref()
+        }) = self.input.clone()
         {
             let resolved_binding = resolve_scatter_input_binding(
-                path,
+                &path,
                 x_column.as_deref(),
                 y_column.as_deref(),
-                *limit,
-                *profile,
+                limit,
+                profile,
             )?;
             let dataset = load_scatter_dataset(
-                path,
+                &path,
                 &resolved_binding.x_column,
                 &resolved_binding.y_column,
-                *limit,
+                limit,
             )?;
+            self.activate_session_context(&dataset.source_rows)?;
             let comparison_source_rows = self.load_scatter_comparison_source_rows(
                 &resolved_binding.x_column,
                 &resolved_binding.y_column,
-                *limit,
+                limit,
             )?;
             let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
             let renderer_config = ScatterDensityRendererConfig::new(

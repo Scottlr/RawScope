@@ -22,6 +22,7 @@ mod app_scatter_inspection;
 mod app_scatter_point_reveal;
 mod app_scatter_projection;
 mod app_selection;
+mod app_session;
 mod app_timeline;
 mod app_timeline_brush;
 mod app_visual_encoding;
@@ -50,6 +51,7 @@ mod ui_visual_encoding;
 use std::{error::Error, io};
 
 use app::WorkbenchApp;
+use app_session::resolve_workbench_startup;
 use cli::WorkbenchArgs;
 use winit::event_loop::EventLoop;
 
@@ -58,8 +60,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let args = WorkbenchArgs::parse(std::env::args().skip(1))
         .map_err(|message| io::Error::new(io::ErrorKind::InvalidInput, message))?;
+    let startup = resolve_workbench_startup(args)?;
     let event_loop = EventLoop::new()?;
-    let mut app = WorkbenchApp::new(args);
+    let mut app = WorkbenchApp::new(startup);
     event_loop.run_app(&mut app)?;
 
     Ok(())

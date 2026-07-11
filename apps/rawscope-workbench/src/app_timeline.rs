@@ -27,6 +27,7 @@ const TIMELINE_DEMO_GRID_WIDTH: u32 = 256;
 impl WorkbenchApp {
     pub(crate) fn prepare_timeline_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         self.clear_aggregate_overviews();
+        self.active_session = None;
 
         if let Some(WorkbenchInput::Timeline {
             path,
@@ -34,25 +35,26 @@ impl WorkbenchApp {
             lane_column,
             limit,
             profile,
-        }) = self.input.as_ref()
+        }) = self.input.clone()
         {
             let resolved_binding = resolve_timeline_input_binding(
-                path,
+                &path,
                 time_column.as_deref(),
                 lane_column.as_deref(),
-                *limit,
-                *profile,
+                limit,
+                profile,
             )?;
             let dataset = load_timeline_dataset(
-                path,
+                &path,
                 &resolved_binding.time_column,
                 &resolved_binding.lane_column,
-                *limit,
+                limit,
             )?;
+            self.activate_session_context(&dataset.source_rows)?;
             let comparison_source_rows = self.load_timeline_comparison_source_rows(
                 &resolved_binding.time_column,
                 &resolved_binding.lane_column,
-                *limit,
+                limit,
             )?;
             let viewport = TimelineViewport::new(dataset.time_range, dataset.lane_count);
             let renderer_config =
