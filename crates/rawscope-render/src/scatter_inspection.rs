@@ -1,11 +1,13 @@
 //! Settled scatter-density inspection cache with bounded row evidence.
 
-use std::{error::Error, fmt, sync::Arc};
+use std::{collections::BTreeMap, error::Error, fmt, sync::Arc};
 
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
 
 use crate::{BrushScreenRect, BrushScreenSize, MaskAlignmentError};
+
+pub const INSPECTION_NEIGHBORHOOD_RADIUS_BINS: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScatterInspectionConfig {
@@ -38,6 +40,24 @@ pub struct ScatterInspectionGrid {
     pub grid_height: u32,
     pub filter_revision: FilterRevision,
     pub bins: Vec<ScatterInspectionBin>,
+    pub distribution: ScatterInspectionDistribution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScatterInspectionDistribution {
+    pub included_row_count: usize,
+    pub occupied_bin_count: u32,
+    count_histogram: Vec<(u32, u32)>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterInspectionSummary {
+    pub hit: ScatterInspectionHit,
+    pub active_share: f64,
+    pub occupied_density_percentile: Option<f64>,
+    pub neighborhood_radius_bins: u32,
+    pub neighborhood_count: u64,
+    pub neighborhood_share: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -132,13 +152,19 @@ pub fn build_scatter_inspection_grid(
         let bin_index = bin_y as usize * config.grid_width as usize + bin_x as usize;
         bins[bin_index].record(point.row_id, config.max_row_ids_per_bin);
     }
+    let bins = bins
+        .into_iter()
+        .map(ScatterInspectionBin::from)
+        .collect::<Vec<_>>();
+    let distribution = inspection_distribution(&bins, mask.included_count());
     Ok(ScatterInspectionGrid {
         x_range,
         y_range,
         grid_width: config.grid_width,
         grid_height: config.grid_height,
         filter_revision,
-        bins: bins.into_iter().map(ScatterInspectionBin::from).collect(),
+        bins,
+        distribution,
     })
 }
 
@@ -173,6 +199,78 @@ impl ScatterInspectionGrid {
         let bin_x = bin_f32(data_x, self.x_range, self.grid_width)?;
         let bin_y = bin_f32(data_y, self.y_range, self.grid_height)?;
         self.inspect_bin(bin_x, bin_y)
+    }
+
+    pub fn summarize_hit(&self, hit: ScatterInspectionHit) -> ScatterInspectionSummary {
+        let active_share = if self.distribution.included_row_count == 0 {
+            0.0
+        } else {
+            f64::from(hit.count) / self.distribution.included_row_count as f64
+        };
+        let neighborhood_count = self.neighborhood_count(hit.bin_x, hit.bin_y);
+        let neighborhood_share = if self.distribution.included_row_count == 0 {
+            0.0
+        } else {
+            neighborhood_count as f64 / self.distribution.included_row_count as f64
+        };
+        ScatterInspectionSummary {
+            occupied_density_percentile: self.density_percentile(hit.count),
+            hit,
+            active_share,
+            neighborhood_radius_bins: INSPECTION_NEIGHBORHOOD_RADIUS_BINS,
+            neighborhood_count,
+            neighborhood_share,
+        }
+    }
+
+    fn density_percentile(&self, count: u32) -> Option<f64> {
+        if count == 0 || self.distribution.occupied_bin_count == 0 {
+            return None;
+        }
+        let at_or_below_count = self
+            .distribution
+            .count_histogram
+            .iter()
+            .take_while(|(bin_count, _)| *bin_count <= count)
+            .map(|(_, bin_frequency)| u64::from(*bin_frequency))
+            .sum::<u64>();
+        Some(at_or_below_count as f64 / self.distribution.occupied_bin_count as f64)
+    }
+
+    fn neighborhood_count(&self, bin_x: u32, bin_y: u32) -> u64 {
+        let first_x = bin_x.saturating_sub(INSPECTION_NEIGHBORHOOD_RADIUS_BINS);
+        let last_x = bin_x
+            .saturating_add(INSPECTION_NEIGHBORHOOD_RADIUS_BINS)
+            .min(self.grid_width - 1);
+        let first_y = bin_y.saturating_sub(INSPECTION_NEIGHBORHOOD_RADIUS_BINS);
+        let last_y = bin_y
+            .saturating_add(INSPECTION_NEIGHBORHOOD_RADIUS_BINS)
+            .min(self.grid_height - 1);
+        let mut count = 0_u64;
+        for neighbor_y in first_y..=last_y {
+            for neighbor_x in first_x..=last_x {
+                let index = neighbor_y as usize * self.grid_width as usize + neighbor_x as usize;
+                count += u64::from(self.bins[index].count);
+            }
+        }
+        count
+    }
+}
+
+fn inspection_distribution(
+    bins: &[ScatterInspectionBin],
+    included_row_count: usize,
+) -> ScatterInspectionDistribution {
+    let mut histogram = BTreeMap::<u32, u32>::new();
+    for bin in bins {
+        if bin.count > 0 {
+            *histogram.entry(bin.count).or_default() += 1;
+        }
+    }
+    ScatterInspectionDistribution {
+        included_row_count,
+        occupied_bin_count: histogram.values().copied().sum(),
+        count_histogram: histogram.into_iter().collect(),
     }
 }
 
@@ -284,6 +382,67 @@ mod tests {
         assert_eq!((hit.bin_x, hit.bin_y), (1, 9));
         assert_eq!(hit.count, 1);
         assert_eq!(hit.y_range, F32Range::new(9.0, 10.0));
+    }
+
+    #[test]
+    fn inspection_summary_reports_exact_active_share() {
+        let points = points(&[(0, 1.0, 1.0), (1, 1.0, 1.0), (2, 9.0, 9.0)]);
+        let evaluation = evaluation(&["keep", "keep", "keep"], None);
+        let grid = build(&points, &evaluation, 2, 2, 16);
+
+        let summary = grid.summarize_hit(grid.inspect_bin(0, 0).unwrap());
+
+        assert!((summary.active_share - 2.0 / 3.0).abs() < f64::EPSILON * 4.0);
+        assert_eq!(summary.hit.count, 2);
+    }
+
+    #[test]
+    fn density_percentile_is_tie_inclusive_over_occupied_cells() {
+        let points = points(&[(0, 1.0, 1.0), (1, 1.0, 1.0), (2, 9.0, 9.0), (3, 1.0, 9.0)]);
+        let evaluation = evaluation(&["keep", "keep", "keep", "keep"], None);
+        let grid = build(&points, &evaluation, 2, 2, 16);
+
+        let summary = grid.summarize_hit(grid.inspect_bin(1, 1).unwrap());
+
+        assert_eq!(grid.distribution.occupied_bin_count, 3);
+        assert_eq!(summary.occupied_density_percentile, Some(2.0 / 3.0));
+    }
+
+    #[test]
+    fn empty_cell_has_no_density_percentile() {
+        let points = points(&[(0, 1.0, 1.0)]);
+        let evaluation = evaluation(&["keep"], None);
+        let grid = build(&points, &evaluation, 2, 2, 16);
+
+        let summary = grid.summarize_hit(grid.inspect_bin(1, 0).unwrap());
+
+        assert_eq!(summary.hit.count, 0);
+        assert_eq!(summary.occupied_density_percentile, None);
+    }
+
+    #[test]
+    fn neighborhood_clips_at_grid_edges_without_double_counting() {
+        let points = points(&[(0, 1.0, 1.0), (1, 4.0, 1.0), (2, 1.0, 4.0), (3, 4.0, 4.0)]);
+        let evaluation = evaluation(&["keep", "keep", "keep", "keep"], None);
+        let grid = build(&points, &evaluation, 3, 3, 16);
+
+        let summary = grid.summarize_hit(grid.inspect_bin(0, 0).unwrap());
+
+        assert_eq!(summary.neighborhood_radius_bins, 1);
+        assert_eq!(summary.neighborhood_count, 4);
+        assert_eq!(summary.neighborhood_share, 1.0);
+    }
+
+    #[test]
+    fn summary_reuses_bounded_row_sample() {
+        let points = points(&[(9, 1.0, 1.0), (2, 1.0, 1.0), (7, 1.0, 1.0)]);
+        let evaluation = evaluation(&["keep", "keep", "keep"], None);
+        let grid = build(&points, &evaluation, 1, 1, 1);
+
+        let summary = grid.summarize_hit(grid.inspect_bin(0, 0).unwrap());
+
+        assert_eq!(summary.hit.count, 3);
+        assert_eq!(&*summary.hit.row_ids, &[RowId(2)]);
     }
 
     fn build(

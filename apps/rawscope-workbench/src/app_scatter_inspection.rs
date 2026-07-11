@@ -8,7 +8,7 @@ use rawscope_data::{
 };
 use rawscope_render::{
     build_scatter_inspection_grid, ScatterInspectionConfig, ScatterInspectionGrid,
-    ScatterInspectionHit,
+    ScatterInspectionHit, ScatterInspectionSummary,
 };
 
 use crate::{
@@ -25,6 +25,7 @@ pub(crate) struct ScatterInspectionState {
     pub(crate) grid: Option<ScatterInspectionGrid>,
     pub(crate) baseline_grid: Option<ScatterInspectionGrid>,
     pub(crate) hovered: Option<ScatterInspectionHit>,
+    pub(crate) hovered_summary: Option<ScatterInspectionSummary>,
     pub(crate) pinned: Option<PinnedScatterInspection>,
     pub(crate) cache_viewport_revision: u64,
     pub(crate) cache_filter_revision: FilterRevision,
@@ -80,6 +81,7 @@ impl WorkbenchApp {
                 .ok();
                 self.scatter_inspection.grid = Some(grid);
                 self.scatter_inspection.hovered = None;
+                self.scatter_inspection.hovered_summary = None;
                 self.scatter_inspection.cache_viewport_revision = viewport_revision;
                 self.scatter_inspection.cache_filter_revision = evaluation.revision;
             }
@@ -93,6 +95,7 @@ impl WorkbenchApp {
 
     pub(crate) fn clear_scatter_inspection_hover(&mut self) {
         self.scatter_inspection.hovered = None;
+        self.scatter_inspection.hovered_summary = None;
     }
 
     pub(crate) fn refresh_scatter_inspection_hover(&mut self) {
@@ -108,15 +111,15 @@ impl WorkbenchApp {
                 )
             )
         {
-            self.scatter_inspection.hovered = None;
+            self.clear_scatter_inspection_hover();
             return;
         }
         let Some((x_fraction, y_fraction)) = self.cursor_fraction() else {
-            self.scatter_inspection.hovered = None;
+            self.clear_scatter_inspection_hover();
             return;
         };
         let Some(evaluation) = self.scatter_filters.evaluation.as_ref() else {
-            self.scatter_inspection.hovered = None;
+            self.clear_scatter_inspection_hover();
             return;
         };
         let cache_is_current = self.scatter_inspection.cache_viewport_revision
@@ -130,6 +133,13 @@ impl WorkbenchApp {
                     .inspect_fraction(x_fraction, y_fraction)
             })
             .flatten();
+        self.scatter_inspection.hovered_summary =
+            self.scatter_inspection.hovered.as_ref().and_then(|hit| {
+                self.scatter_inspection
+                    .grid
+                    .as_ref()
+                    .map(|grid| grid.summarize_hit(hit.clone()))
+            });
     }
 
     pub(crate) fn pin_scatter_inspection(&mut self) {
@@ -224,6 +234,22 @@ mod tests {
         app.refresh_scatter_inspection_hover();
 
         assert!(app.scatter_inspection.hovered.is_none());
+        assert!(app.scatter_inspection.hovered_summary.is_none());
+    }
+
+    #[test]
+    fn settled_hover_consumes_cached_inspection_summary() {
+        let mut app = inspection_app();
+
+        app.refresh_scatter_inspection_hover();
+
+        let summary = app
+            .scatter_inspection
+            .hovered_summary
+            .as_ref()
+            .expect("current hover should project its settled summary");
+        assert_eq!(summary.hit.count, 1);
+        assert_eq!(summary.neighborhood_count, 1);
     }
 
     fn inspection_app() -> WorkbenchApp {
