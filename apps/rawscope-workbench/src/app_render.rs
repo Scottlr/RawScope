@@ -96,18 +96,11 @@ impl WorkbenchApp {
                             let selection = self.scatter.active_brush_selection?;
                             selection.project_to_screen(viewport, plot_rect.screen_size())
                         });
-                    let probe_screen_rect = self
-                        .scatter_inspection
-                        .hovered
-                        .as_ref()
-                        .zip(self.scatter_inspection.grid.as_ref())
-                        .and_then(|(hit, grid)| {
-                            hit.screen_rect(
-                                grid.grid_width,
-                                grid.grid_height,
-                                plot_rect.screen_size(),
-                            )
-                        });
+                    let inspection_overlay_inputs =
+                        crate::app_scatter_overlays::scatter_inspection_overlay_inputs(
+                            &self.scatter_inspection,
+                            plot_rect.screen_size(),
+                        );
 
                     gpu.render_frame(|device, queue, target_view, encoder| {
                         if let Some((from, to)) = semantic_modes {
@@ -190,13 +183,16 @@ impl WorkbenchApp {
                             brush_screen_rect,
                             plot_rect,
                         );
-                        scatter_brush_overlay_renderer.render_probe(
-                            queue,
-                            encoder,
-                            target_view,
-                            probe_screen_rect,
-                            plot_rect,
-                        );
+                        if let Some(renderer) = self.scatter_inspection_overlay_renderer.as_ref() {
+                            renderer.render(
+                                queue,
+                                encoder,
+                                target_view,
+                                plot_rect,
+                                inspection_overlay_inputs.pinned,
+                                inspection_overlay_inputs.hovered,
+                            );
+                        }
 
                         for (texture_id, delta) in &textures_delta.set {
                             egui_renderer.update_texture(device, queue, *texture_id, delta);

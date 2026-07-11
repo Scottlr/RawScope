@@ -24,6 +24,7 @@ mod scatter_density_renderer;
 mod scatter_density_reprojection;
 mod scatter_difference_renderer;
 mod scatter_inspection;
+mod scatter_inspection_overlay;
 mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
@@ -102,6 +103,10 @@ pub use scatter_inspection::{
     build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
     ScatterInspectionDistribution, ScatterInspectionError, ScatterInspectionGrid,
     ScatterInspectionHit, ScatterInspectionSummary, INSPECTION_NEIGHBORHOOD_RADIUS_BINS,
+};
+pub use scatter_inspection_overlay::{
+    project_scatter_inspection_overlay, InspectionFocusKind, ScatterInspectionOverlay,
+    ScatterInspectionOverlayRenderer,
 };
 pub use scatter_point_renderer::ScatterPointRenderer;
 pub use scatter_point_reveal::{
