@@ -187,10 +187,10 @@ pub use timeline_selection_export_v3::{
 };
 pub use timeline_viewport::TimelineViewport;
 pub use view_axes::{
-    scatter_axes_context, scatter_axes_context_with_options, timeline_axes_context, AxisTick,
-    AxisValueFormat, NumericAxisContext, ScatterAxesContext, ScatterAxesOptions,
-    ScatterReferenceGuide, ScatterReferenceGuideKind, ScatterReferenceGuideSegment,
-    TimelineAxesContext, TimelineLaneLabel,
+    format_axis_value, scatter_axes_context, scatter_axes_context_with_options,
+    timeline_axes_context, AxisTick, AxisValueFormat, NumericAxisContext, ScatterAxesContext,
+    ScatterAxesOptions, ScatterReferenceGuide, ScatterReferenceGuideKind,
+    ScatterReferenceGuideSegment, TimelineAxesContext, TimelineLaneLabel,
 };
 pub use view_summaries::{
     scatter_marginal_summary, scatter_marginal_summary_masked, timeline_marginal_summary,
