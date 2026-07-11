@@ -15,6 +15,18 @@ class InvalidSession(RawScopeError):
     """Raised when a session value cannot be represented by schema v1."""
 
 
+class UnsupportedDataSource(RawScopeError):
+    """Raised when an object has no supported dataframe adapter."""
+
+
+class MissingOptionalDependency(RawScopeError):
+    """Raised when a selected dataframe ecosystem is not installed."""
+
+
+class DataframeSchemaError(RawScopeError):
+    """Raised when a dataframe cannot map to the flat RawScope table contract."""
+
+
 def require_text(value: str, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise InvalidSession(f"{field} must be a non-blank string")

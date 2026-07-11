@@ -10,6 +10,12 @@ requires-python = ">=3.10"
 license = { text = "MIT OR Apache-2.0" }
 dependencies = []
 
+[project.optional-dependencies]
+pandas = ["pandas>=2.2", "pyarrow>=15"]
+polars = ["polars>=0.20"]
+arrow = ["pyarrow>=15"]
+test = ["pandas>=2.2", "polars>=0.20", "pyarrow>=15"]
+
 [tool.setuptools]
 package-dir = { "" = "src" }
 
