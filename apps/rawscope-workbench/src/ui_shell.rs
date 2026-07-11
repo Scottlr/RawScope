@@ -23,8 +23,8 @@ use crate::{
     ui_visual_encoding::show_density_encoding,
 };
 
-const INSPECTOR_EXPANDED_WIDTH: f32 = 350.0;
-const INSPECTOR_MINIMUM_WIDTH: f32 = 310.0;
+const INSPECTOR_EXPANDED_WIDTH: f32 = 380.0;
+const INSPECTOR_MINIMUM_WIDTH: f32 = 340.0;
 const INSPECTOR_COLLAPSED_WIDTH: f32 = 60.0;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

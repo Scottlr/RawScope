@@ -22,7 +22,9 @@ const PANEL_HOVERED: Color32 = Color32::from_rgb(35, 42, 44);
 const BORDER: Color32 = Color32::from_rgb(53, 63, 65);
 const BORDER_SUBTLE: Color32 = Color32::from_rgb(38, 46, 48);
 const SELECTION_BACKGROUND: Color32 = Color32::from_rgb(30, 102, 99);
+const FILTER_ACTIVE_BACKGROUND: Color32 = Color32::from_rgb(23, 39, 39);
 const ERROR: Color32 = Color32::from_rgb(232, 96, 101);
+const ERROR_BACKGROUND: Color32 = Color32::from_rgb(49, 27, 30);
 const SUCCESS: Color32 = Color32::from_rgb(102, 194, 132);
 
 const CONTROL_CORNER_RADIUS_PX: u8 = 4;
@@ -106,6 +108,37 @@ pub(crate) fn status_bar_frame() -> Frame {
         .stroke(Stroke::new(1.0, BORDER_SUBTLE))
 }
 
+pub(crate) fn filter_card_frame(active: bool) -> Frame {
+    Frame::new()
+        .fill(if active {
+            FILTER_ACTIVE_BACKGROUND
+        } else {
+            PANEL_RAISED
+        })
+        .corner_radius(CONTROL_CORNER_RADIUS_PX)
+        .inner_margin(Margin::symmetric(10, 8))
+        .stroke(Stroke::new(
+            1.0,
+            if active { ACCENT } else { BORDER_SUBTLE },
+        ))
+}
+
+pub(crate) fn filter_chip_frame() -> Frame {
+    Frame::new()
+        .fill(FILTER_ACTIVE_BACKGROUND)
+        .corner_radius(CONTROL_CORNER_RADIUS_PX)
+        .inner_margin(Margin::symmetric(7, 2))
+        .stroke(Stroke::new(1.0, Color32::from_rgb(39, 79, 77)))
+}
+
+pub(crate) fn error_callout_frame() -> Frame {
+    Frame::new()
+        .fill(ERROR_BACKGROUND)
+        .corner_radius(CONTROL_CORNER_RADIUS_PX)
+        .inner_margin(Margin::symmetric(8, 6))
+        .stroke(Stroke::new(1.0, ERROR))
+}
+
 pub(crate) fn navigation_button(label: &str, selected: bool) -> Button<'_> {
     Button::new(RichText::new(label).strong())
         .selected(selected)
@@ -119,15 +152,19 @@ pub(crate) fn icon_command_button(
     tooltip: &str,
     enabled: bool,
 ) -> Response {
-    let icon = iconflow::try_icon(Pack::Lucide, icon_name, IconStyle::Regular, Size::Regular)
-        .expect("workbench command icons are compile-time constants");
-    let glyph = char::from_u32(icon.codepoint).expect("iconflow returns valid Unicode codepoints");
-    let text = RichText::new(glyph.to_string())
-        .font(FontId::new(16.0, FontFamily::Name(icon.family.into())));
     ui.add_enabled(
         enabled,
-        Button::new(text)
+        Button::new(icon_text(icon_name, 16.0))
             .min_size(vec2(30.0, 30.0))
+            .corner_radius(CONTROL_CORNER_RADIUS_PX),
+    )
+    .on_hover_text(tooltip)
+}
+
+pub(crate) fn compact_icon_button(ui: &mut Ui, icon_name: &str, tooltip: &str) -> Response {
+    ui.add(
+        Button::new(icon_text(icon_name, 13.0))
+            .min_size(vec2(22.0, 22.0))
             .corner_radius(CONTROL_CORNER_RADIUS_PX),
     )
     .on_hover_text(tooltip)
@@ -139,18 +176,21 @@ pub(crate) fn icon_segment_button(
     tooltip: &str,
     selected: bool,
 ) -> Response {
-    let icon = iconflow::try_icon(Pack::Lucide, icon_name, IconStyle::Regular, Size::Regular)
-        .expect("workbench mode icons are compile-time constants");
-    let glyph = char::from_u32(icon.codepoint).expect("iconflow returns valid Unicode codepoints");
-    let text = RichText::new(glyph.to_string())
-        .font(FontId::new(16.0, FontFamily::Name(icon.family.into())));
     ui.add(
-        Button::new(text)
+        Button::new(icon_text(icon_name, 16.0))
             .selected(selected)
             .min_size(vec2(32.0, 30.0))
             .corner_radius(CONTROL_CORNER_RADIUS_PX),
     )
     .on_hover_text(tooltip)
+}
+
+fn icon_text(icon_name: &str, size_px: f32) -> RichText {
+    let icon = iconflow::try_icon(Pack::Lucide, icon_name, IconStyle::Regular, Size::Regular)
+        .expect("workbench icons are compile-time constants");
+    let glyph = char::from_u32(icon.codepoint).expect("iconflow returns valid Unicode codepoints");
+    RichText::new(glyph.to_string())
+        .font(FontId::new(size_px, FontFamily::Name(icon.family.into())))
 }
 
 pub(crate) fn segmented_button(label: &str, selected: bool) -> Button<'_> {

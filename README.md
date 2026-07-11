@@ -4,7 +4,27 @@ See the shape before writing the query.
 
 RawScope is a GPU-scale visual analytics engine for large raw datasets. It helps analysts, researchers, data scientists, and big data engineers visually inspect the shape of data before they know exactly what SQL query, notebook analysis, dashboard, or model they need.
 
-Current status: early native workbench with deterministic synthetic data, CPU reference density outputs, WGPU scatter/timeline density rendering, a small egui control shell, a CPU-backed local missingness slice, local CSV and Parquet loading, and local evidence report-bundle export.
+Current status: native visual-analysis workbench with deterministic synthetic data, local CSV and Parquet loading, GPU scatter/timeline density rendering, cohort filters and comparisons, row-level visual evidence, a local missingness slice, and versioned evidence report-bundle export.
+
+## Workbench Tour
+
+### See the full dataset shape
+
+![RawScope topographic density view of 200,000 Lichess games](docs/assets/screenshots/lichess-density-overview.png)
+
+*Topographic GPU density over 200,000 games. Each game contributes a White-rating/Black-rating point; the equality guide and contours make matchmaking structure visible without drawing 200,000 overlapping markers.*
+
+### Compare a cohort with its baseline
+
+![RawScope filtered difference view for games won by White](docs/assets/screenshots/lichess-filtered-difference.png)
+
+*Filtered difference for the 100,351 games won by White versus the full 200,000-game baseline. Coral regions are proportionally over-represented in the active cohort; teal regions are under-represented.*
+
+### Trace aggregate structure back to rows
+
+![RawScope sparse draw cohort with individual row markers](docs/assets/screenshots/lichess-sparse-row-evidence.png)
+
+*A sparse 5,145-game draw cohort with deterministic individual-row markers over the density field. Filters, active-cohort counts, exact bins, inspection, and exported evidence preserve the path from visible structure back to source rows.*
 
 ## Target Users
 
@@ -35,6 +55,10 @@ RawScope currently supports:
 - WGPU bootstrap for native window rendering, surface resize handling, adapter metadata logging, and headless compute tests.
 - GPU scatter-density count binning and simple fullscreen log-scaled scatter density rendering.
 - GPU timeline-density count binning and simple fullscreen log-scaled timeline density rendering.
+- Exact-cell, topographic, and relief presentations over the same explainable scatter-density counts.
+- Deterministic categorical and numeric cohort filters with active-row counts and GPU mask updates.
+- Filtered-versus-baseline normalized-share difference density.
+- Bounded automatic point reveal, density-bin inspection, pinned row samples, and selected-row drilldown.
 - Mouse-wheel zoom, drag pan, reset, and viewport re-binning for scatter and timeline modes.
 - Deterministic scatter point-count presets from 20,000 to 5,000,000 synthetic points.
 - Data-anchored rectangular brush selections for scatter and timeline views.
@@ -45,10 +69,10 @@ RawScope currently supports:
 - Local CSV and Parquet loading for scatter density with explicit numeric `--x`/`--y` columns.
 - Local CSV and Parquet loading for timeline density with explicit integer `--time` and string or integer `--lane` columns.
 - Optional `--limit <rows>` for local CSV and Parquet loading.
-- A small egui workbench shell with visible view controls, selection status, axis labels, export status, and selected-row drilldown.
+- A production-oriented egui workbench shell with explicit interaction modes, profile-aware filters, visual encoding controls, concise dataset identity, comparison context, and selected-row drilldown.
 - A CPU-backed missingness heatmap slice for local datasets with retained source rows, including cell selection and row-id summaries for missing values.
 
-These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, screenshot/report capture, or production report workflows.
+These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, in-app screenshot capture, or production report workflows.
 
 Benchmark commands, benchmark input sizes, GPU opt-in rules, and claim guidance live in `docs/BENCHMARKS.md`.
 
@@ -70,6 +94,12 @@ Run a local scatter-density view with explicit numeric columns from `.csv` or `.
 
 ```powershell
 cargo run -p rawscope-workbench -- --demo scatter --input data.parquet --x latency_ms --y payload_size
+```
+
+Run a profile-aware Lichess view when the compatible dataset is available locally:
+
+```powershell
+cargo run --release -p rawscope-workbench -- --demo scatter --input games_profile.csv --profile lichess-games
 ```
 
 Run a local timeline-density view with an integer timestamp and string or integer lane column from `.csv` or `.parquet` input:
