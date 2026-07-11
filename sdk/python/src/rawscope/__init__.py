@@ -8,23 +8,29 @@ from .launcher import (
 )
 from .manifest import prepare, view
 from .models import (
+    DataframeSchemaError,
     DatasetSource,
     InvalidSession,
+    MissingOptionalDependency,
     PreparedSession,
     RawScopeError,
     ScatterView,
     TimelineView,
+    UnsupportedDataSource,
 )
 
 __all__ = [
     "DatasetSource",
+    "DataframeSchemaError",
     "InvalidSession",
+    "MissingOptionalDependency",
     "PreparedSession",
     "RawScopeError",
     "RawScopeExecutableNotFound",
     "RawScopeProcess",
     "ScatterView",
     "TimelineView",
+    "UnsupportedDataSource",
     "launch",
     "prepare",
     "resolve_workbench_executable",

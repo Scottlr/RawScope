@@ -23,7 +23,7 @@ MANIFEST_NAME = "analysis.rawscope.json"
 
 
 def prepare(
-    source: str | os.PathLike[str],
+    source: object,
     *,
     view: ScatterView | TimelineView,
     destination: str | os.PathLike[str],
@@ -31,9 +31,21 @@ def prepare(
     evidence_key: str | None = None,
     limit: int | None = None,
 ) -> PreparedSession:
-    """Write a local session manifest referencing an existing CSV or Parquet file."""
+    """Prepare either a file-backed or dataframe-backed local session."""
 
-    dataset = DatasetSource.from_path(source)
+    if not _is_file_source(source):
+        from .bundle import prepare_dataframe
+
+        return prepare_dataframe(
+            source,
+            view=view,
+            destination=destination,
+            display_name=display_name,
+            evidence_key=evidence_key,
+            limit=limit,
+        )
+
+    dataset = source if isinstance(source, DatasetSource) else DatasetSource.from_path(source)
     if not isinstance(view, (ScatterView, TimelineView)):
         raise InvalidSession("view must be ScatterView or TimelineView")
     if display_name is not None:
@@ -64,28 +76,46 @@ def prepare(
 
 
 def view(
-    source: str | os.PathLike[str],
+    source: object,
     *,
     view: ScatterView | TimelineView,
-    destination: str | os.PathLike[str],
+    destination: str | os.PathLike[str] | None = None,
     executable: str | os.PathLike[str] | None = None,
     display_name: str | None = None,
     evidence_key: str | None = None,
     limit: int | None = None,
 ):
-    """Prepare a file-backed session and launch the native workbench."""
+    """Prepare a file or dataframe-backed session and launch the native workbench."""
 
     from .launcher import launch
 
-    session = prepare(
-        source,
-        view=view,
-        destination=destination,
-        display_name=display_name,
-        evidence_key=evidence_key,
-        limit=limit,
-    )
+    if _is_file_source(source):
+        if destination is None:
+            raise InvalidSession("destination is required when source is an existing file")
+        session = prepare(
+            source,
+            view=view,
+            destination=destination,
+            display_name=display_name,
+            evidence_key=evidence_key,
+            limit=limit,
+        )
+    else:
+        from .bundle import prepare_dataframe
+
+        session = prepare_dataframe(
+            source,
+            view=view,
+            destination=destination,
+            display_name=display_name,
+            evidence_key=evidence_key,
+            limit=limit,
+        )
     return launch(session, executable=executable)
+
+
+def _is_file_source(source: object) -> bool:
+    return isinstance(source, (str, os.PathLike, DatasetSource))
 
 
 def _destination_paths(

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from .models import PreparedSession, RawScopeError
@@ -106,8 +107,12 @@ class RawScopeProcess:
         # deletes a caller-provided destination.
         if not self.session.bundle_dir.name.startswith("rawscope-session-"):
             return
-        if self.session.bundle_dir.is_dir():
-            shutil.rmtree(self.session.bundle_dir)
+        bundle_dir = self.session.bundle_dir.resolve()
+        temp_root = Path(tempfile.gettempdir()).resolve()
+        if temp_root not in bundle_dir.parents:
+            return
+        if bundle_dir.is_dir():
+            shutil.rmtree(bundle_dir)
 
 
 def _coerce_session(
