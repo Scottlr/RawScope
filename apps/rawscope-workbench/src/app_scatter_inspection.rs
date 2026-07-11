@@ -8,8 +8,8 @@ use rawscope_data::{
 };
 use rawscope_render::{
     build_difference_inspection_distribution, build_scatter_inspection_grid,
-    DifferenceInspectionDistribution, ScatterInspectionConfig, ScatterInspectionGrid,
-    ScatterInspectionHit, ScatterInspectionSummary,
+    DifferenceInspectionDistribution, DifferenceInspectionSummary, ScatterDensityMode,
+    ScatterInspectionConfig, ScatterInspectionGrid, ScatterInspectionHit, ScatterInspectionSummary,
 };
 
 use crate::{
@@ -35,15 +35,27 @@ pub(crate) struct ScatterInspectionState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PinnedScatterInspection {
-    pub(crate) hit: ScatterInspectionHit,
+    pub(crate) summary: ScatterInspectionSummary,
+    pub(crate) difference: Option<DifferenceInspectionSummary>,
     pub(crate) category_summaries: Vec<PinnedCategorySummary>,
     pub(crate) source_rows: Vec<LoadedSourceRow>,
+    pub(crate) evidence_keys: Vec<PinnedEvidenceKeyValue>,
+    pub(crate) cache_viewport_revision: u64,
+    pub(crate) cache_filter_revision: FilterRevision,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PinnedCategorySummary {
     pub(crate) column_name: String,
+    pub(crate) sample_row_count: usize,
+    pub(crate) bin_row_count: u32,
     pub(crate) value_counts: Vec<(String, usize)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PinnedEvidenceKeyValue {
+    pub(crate) column_name: String,
+    pub(crate) value: String,
 }
 
 impl WorkbenchApp {
@@ -170,6 +182,14 @@ impl WorkbenchApp {
         if !crate::ui_scatter_inspection::inspection_hit_is_meaningful(self, &hit) {
             return;
         }
+        let Some(summary) = self
+            .scatter_inspection
+            .hovered_summary
+            .clone()
+            .filter(|summary| summary.hit.bin_x == hit.bin_x && summary.hit.bin_y == hit.bin_y)
+        else {
+            return;
+        };
         let source_rows = self
             .scatter
             .source_rows
@@ -181,11 +201,17 @@ impl WorkbenchApp {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        let category_summaries = self.pinned_category_summaries(&source_rows);
+        let category_summaries = self.pinned_category_summaries(&source_rows, hit.count);
+        let evidence_keys = self.pinned_evidence_key_values(&source_rows);
+        let difference = difference_summary_for_hit(self, &hit);
         self.scatter_inspection.pinned = Some(PinnedScatterInspection {
-            hit,
+            summary,
+            difference,
             category_summaries,
             source_rows,
+            evidence_keys,
+            cache_viewport_revision: self.scatter_inspection.cache_viewport_revision,
+            cache_filter_revision: self.scatter_inspection.cache_filter_revision,
         });
         self.request_redraw();
     }
@@ -195,7 +221,11 @@ impl WorkbenchApp {
         self.request_redraw();
     }
 
-    fn pinned_category_summaries(&self, rows: &[LoadedSourceRow]) -> Vec<PinnedCategorySummary> {
+    fn pinned_category_summaries(
+        &self,
+        rows: &[LoadedSourceRow],
+        bin_row_count: u32,
+    ) -> Vec<PinnedCategorySummary> {
         let (Some(profile_id), Some(catalog), Some(source)) = (
             self.active_dataset_profile,
             self.scatter_filters.catalog.as_ref(),
@@ -224,120 +254,52 @@ impl WorkbenchApp {
                 value_counts.truncate(MAX_PINNED_CATEGORY_VALUES);
                 Some(PinnedCategorySummary {
                     column_name: hint.column_name.to_string(),
+                    sample_row_count: rows.len(),
+                    bin_row_count,
                     value_counts,
+                })
+            })
+            .collect()
+    }
+
+    fn pinned_evidence_key_values(&self, rows: &[LoadedSourceRow]) -> Vec<PinnedEvidenceKeyValue> {
+        let Some(key) = self
+            .active_session
+            .as_ref()
+            .and_then(|session| session.evidence_key.as_ref())
+        else {
+            return Vec::new();
+        };
+        rows.iter()
+            .filter_map(|row| {
+                Some(PinnedEvidenceKeyValue {
+                    column_name: key.column_name.clone(),
+                    value: key.value(row)?.to_string(),
                 })
             })
             .collect()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use egui::{pos2, Rect};
-    use rawscope_core::{F32Range, RowId};
-    use rawscope_data::{
-        build_visual_field_catalog, evaluate_filters, FilterSet, LoadedColumnKind,
-        LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable, ScatterPointKind,
-        ScatterPointRecord, VisualFieldCatalogConfig,
-    };
-    use rawscope_render::{
-        build_scatter_inspection_grid, PlotRectPx, ScatterInspectionConfig, ScatterViewport,
-    };
-    use winit::dpi::PhysicalPosition;
-
-    use super::*;
-
-    #[test]
-    fn stale_revision_disables_hover_hit() {
-        let mut app = inspection_app();
-        app.refresh_scatter_inspection_hover();
-        assert!(app.scatter_inspection.hovered.is_some());
-        app.scatter_inspection.cache_filter_revision = FilterRevision(99);
-
-        app.refresh_scatter_inspection_hover();
-
-        assert!(app.scatter_inspection.hovered.is_none());
-        assert!(app.scatter_inspection.hovered_summary.is_none());
+pub(crate) fn difference_summary_for_hit(
+    app: &WorkbenchApp,
+    hit: &ScatterInspectionHit,
+) -> Option<DifferenceInspectionSummary> {
+    if app.scatter.density_mode != ScatterDensityMode::FilteredDifference {
+        return None;
     }
-
-    #[test]
-    fn settled_hover_consumes_cached_inspection_summary() {
-        let mut app = inspection_app();
-
-        app.refresh_scatter_inspection_hover();
-
-        let summary = app
-            .scatter_inspection
-            .hovered_summary
-            .as_ref()
-            .expect("current hover should project its settled summary");
-        assert_eq!(summary.hit.count, 1);
-        assert_eq!(summary.neighborhood_count, 1);
-    }
-
-    fn inspection_app() -> WorkbenchApp {
-        let source = LoadedSourceTable {
-            columns: vec![LoadedColumnSchema {
-                name: "winner".into(),
-                kind: LoadedColumnKind::String,
-            }],
-            rows: vec![LoadedSourceRow {
-                row_id: RowId(0),
-                values: vec!["white".into()],
-            }],
-        };
-        let catalog = build_visual_field_catalog(&source, VisualFieldCatalogConfig::default());
-        let evaluation = evaluate_filters(&source, &catalog, &FilterSet::default()).unwrap();
-        let points = vec![ScatterPointRecord {
-            row_id: RowId(0),
-            x: 5.0,
-            y: 5.0,
-            kind: ScatterPointKind::Unclassified,
-        }];
-        let grid = build_scatter_inspection_grid(
-            &points,
-            &evaluation.mask,
-            F32Range::new(0.0, 10.0),
-            F32Range::new(0.0, 10.0),
-            evaluation.revision,
-            ScatterInspectionConfig {
-                grid_width: 10,
-                grid_height: 10,
-                max_row_ids_per_bin: 16,
-            },
-        )
-        .unwrap();
-        WorkbenchApp {
-            demo_mode: DemoMode::Scatter,
-            interaction_mode: WorkbenchInteractionMode::Inspect,
-            cursor_position: Some(PhysicalPosition::new(50.0, 50.0)),
-            plot_surface: Some(crate::ui_plot_surface::PlotSurfaceLayout {
-                logical_rect: Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 100.0)),
-                physical_rect: PlotRectPx::try_new(0, 0, 100, 100, 100, 100).unwrap(),
-                axis_layout: crate::ui_plot_surface::PlotAxisLayout {
-                    outer_rect: Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 100.0)),
-                    plot_rect: Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 100.0)),
-                },
-            }),
-            scatter: crate::app::ScatterWorkbenchState {
-                points,
-                source_rows: Some(source),
-                viewport: Some(ScatterViewport::new(
-                    F32Range::new(0.0, 10.0),
-                    F32Range::new(0.0, 10.0),
-                )),
-                ..Default::default()
-            },
-            scatter_filters: crate::app_scatter_filter::ScatterFilterState {
-                catalog: Some(catalog),
-                evaluation: Some(evaluation),
-                ..Default::default()
-            },
-            scatter_inspection: ScatterInspectionState {
-                grid: Some(grid),
-                ..Default::default()
-            },
-            ..Default::default()
-        }
-    }
+    let baseline_count = app
+        .scatter_inspection
+        .baseline_grid
+        .as_ref()?
+        .inspect_bin(hit.bin_x, hit.bin_y)?
+        .count;
+    app.scatter_inspection
+        .difference_distribution
+        .as_ref()
+        .map(|distribution| distribution.summarize_counts(baseline_count, hit.count))
 }
+
+#[cfg(test)]
+#[path = "app_scatter_inspection_tests.rs"]
+mod tests;
