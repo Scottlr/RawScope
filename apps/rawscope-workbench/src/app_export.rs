@@ -36,6 +36,9 @@ impl WorkbenchApp {
         let evidence_v4 = evidence_v3
             .as_ref()
             .and_then(|evidence| self.scatter_selection_evidence_v4(evidence));
+        let evidence_v5 = evidence_v4
+            .as_ref()
+            .and_then(|evidence| self.scatter_selection_evidence_v5(evidence));
 
         let export_counter = self.next_evidence_export_counter();
         let export_timestamp_unix_ms = current_unix_timestamp_ms();
@@ -45,10 +48,15 @@ impl WorkbenchApp {
             export_timestamp_unix_ms,
             export_counter,
         );
-        let write_result = match (evidence_v4.as_ref(), evidence_v3.as_ref()) {
-            (Some(evidence), _) => export_paths.write_scatter_v4(evidence),
-            (None, Some(evidence)) => export_paths.write_scatter_v3(evidence),
-            (None, None) => export_paths.write_scatter(&evidence_v2),
+        let write_result = match (
+            evidence_v5.as_ref(),
+            evidence_v4.as_ref(),
+            evidence_v3.as_ref(),
+        ) {
+            (Some(evidence), _, _) => export_paths.write_scatter_v5(evidence),
+            (None, Some(evidence), _) => export_paths.write_scatter_v4(evidence),
+            (None, None, Some(evidence)) => export_paths.write_scatter_v3(evidence),
+            (None, None, None) => export_paths.write_scatter(&evidence_v2),
         };
         if let Err(err) = write_result {
             self.export_status = ExportStatus::Failed {
@@ -65,9 +73,14 @@ impl WorkbenchApp {
             );
             return;
         }
-        let (selected_row_count, evidence_schema_version) = evidence_v4
+        let (selected_row_count, evidence_schema_version) = evidence_v5
             .as_ref()
             .map(|evidence| (evidence.selected_row_count, evidence.schema_version))
+            .or_else(|| {
+                evidence_v4
+                    .as_ref()
+                    .map(|evidence| (evidence.selected_row_count, evidence.schema_version))
+            })
             .or_else(|| {
                 evidence_v3
                     .as_ref()

@@ -6,6 +6,7 @@ mod app_dataset_diff;
 mod app_dataset_profile;
 mod app_events;
 mod app_export;
+mod app_export_v5;
 mod app_inspection_presentation;
 mod app_interaction_mode;
 mod app_missingness;
@@ -16,6 +17,7 @@ mod app_report_bundle;
 #[cfg(test)]
 mod app_report_bundle_tests;
 mod app_report_bundle_v4;
+mod app_report_bundle_v5;
 mod app_scatter_density;
 mod app_scatter_difference;
 mod app_scatter_filter;

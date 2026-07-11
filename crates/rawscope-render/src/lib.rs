@@ -31,9 +31,11 @@ mod scatter_relief;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_evidence_v4;
+mod scatter_selection_evidence_v5;
 mod scatter_selection_export;
 mod scatter_selection_export_v3;
 mod scatter_selection_export_v4;
+mod scatter_selection_export_v5;
 mod scatter_viewport;
 mod selection_comparison;
 mod selection_drilldown;
@@ -133,6 +135,12 @@ pub use scatter_selection_evidence_v4::{
     ScatterVisualQueryV4, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
     SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
 };
+pub use scatter_selection_evidence_v5::{
+    DifferenceDirectionEvidenceV5, PinnedDifferenceInspectionEvidenceV5,
+    PinnedScatterInspectionEvidenceV5, ScatterSelectionEvidenceV5, ScatterSelectionEvidenceV5Error,
+    SessionDataFormatEvidenceV5, SessionEvidenceContextV5,
+    SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION,
+};
 pub use scatter_selection_export::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown,
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
@@ -147,6 +155,10 @@ pub use scatter_selection_export_v3::{
 pub use scatter_selection_export_v4::{
     scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown,
     SCATTER_SELECTION_EVIDENCE_V4_ARTIFACT_KIND,
+};
+pub use scatter_selection_export_v5::{
+    scatter_selection_evidence_v5_json, scatter_selection_evidence_v5_markdown,
+    SCATTER_SELECTION_EVIDENCE_V5_ARTIFACT_KIND,
 };
 pub use scatter_viewport::ScatterViewport;
 pub use selection_comparison::{

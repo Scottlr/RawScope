@@ -10,8 +10,9 @@ use rawscope_render::{
     PointRevealEvidence, PointRevealMode, ScatterAggregateEvidenceContext, ScatterCohortEvidence,
     ScatterDensityMode, ScatterDensityPresentation, ScatterEvidenceView, ScatterKindComparison,
     ScatterSelectionComparison, ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3,
-    ScatterSelectionEvidenceV4, ScatterVisualQueryV4, SelectedCategoryCounts,
-    SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
+    ScatterSelectionEvidenceV4, ScatterSelectionEvidenceV5, ScatterVisualQueryV4,
+    SelectedCategoryCounts, SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange,
+    TimelineSelectionEvidenceV2,
 };
 
 use crate::app_report_bundle::{
@@ -199,6 +200,31 @@ fn write_scatter_bundle_v4_creates_manifest_and_evidence() {
     let context = fs::read_to_string(&bundle_paths.visual_context_path).unwrap();
     assert!(context.contains("schema_version: 4"));
     assert!(context.contains("projection: Raw"));
+    fs::remove_dir_all(&test_dir).unwrap();
+}
+
+#[test]
+fn write_scatter_bundle_v5_creates_manifest_and_evidence() {
+    let test_dir = unique_test_dir("scatter-write-v5");
+    let bundle_paths = EvidenceReportBundlePaths::next_available(
+        &test_dir,
+        SCATTER_REPORT_BUNDLE_DIR_PREFIX,
+        1234,
+        1,
+    );
+    let evidence =
+        ScatterSelectionEvidenceV5::from_v4(&sample_scatter_evidence_v4(), None, None).unwrap();
+    bundle_paths.write_scatter_v5(&evidence).unwrap();
+
+    let manifest = fs::read_to_string(&bundle_paths.manifest_path).unwrap();
+    assert!(manifest.contains("\"evidence_schema_version\": 5"));
+    assert!(manifest.contains("rawscope.scatter-selection-evidence.v5"));
+    let evidence_json = fs::read_to_string(&bundle_paths.evidence_json_path).unwrap();
+    assert!(evidence_json.contains("\"schema_version\": 5"));
+    assert!(!evidence_json.contains("\"session_context\""));
+    let context = fs::read_to_string(&bundle_paths.visual_context_path).unwrap();
+    assert!(context.contains("schema_version: 5"));
+    assert!(context.contains("session_context: false"));
     fs::remove_dir_all(&test_dir).unwrap();
 }
 
