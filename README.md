@@ -65,11 +65,12 @@ RawScope currently supports:
 - CPU-side selected-region summaries for scatter brushes, including selected count, percentage, data extents, category counts, and top category.
 - CPU-side selected-event summaries for timeline brushes, including selected count, percentage, lane counts, event-type counts, top lane/type, timestamp extent, and value extent.
 - Deterministic CPU-side evidence objects for finalized scatter and timeline selections, including lowest-row-id samples.
-- Local report-bundle export for scatter and timeline selections, including `evidence.json`, `evidence.md`, `manifest.json`, and a deterministic `visual-context.txt` placeholder.
+- Local report-bundle export for scatter and timeline selections, including `evidence.json`, `evidence.md`, `manifest.json`, and a deterministic `visual-context.txt` placeholder; new scatter exports use additive evidence v5 while explicit v1-v4 formats remain available.
 - Local CSV and Parquet loading for scatter density with explicit numeric `--x`/`--y` columns.
 - Local CSV and Parquet loading for timeline density with explicit integer `--time` and string or integer `--lane` columns.
 - Optional `--limit <rows>` for local CSV and Parquet loading.
 - A production-oriented egui workbench shell with explicit interaction modes, profile-aware filters, visual encoding controls, concise dataset identity, comparison context, and selected-row drilldown.
+- A local Python bridge for file paths plus pandas, Polars, and PyArrow inputs; dataframe inputs are materialized into temporary or persistent Parquet session bundles.
 - A CPU-backed missingness heatmap slice for local datasets with retained source rows, including cell selection and row-id summaries for missing values.
 
 These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, in-app screenshot capture, or production report workflows.
@@ -135,7 +136,39 @@ Brush overlay note: the current rectangle overlay is intentionally simple: a fai
 
 Selection evidence note: finalized brushes also build a small CPU-side evidence object from active records. Scatter evidence includes selected counts, category counts, min/max x/y, brush range, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus point records. Timeline evidence includes selected counts, lane and event-type counts, selected timestamp/value ranges, brush time/lane ranges, dataset seed/row count, and a deterministic sample of the lowest selected row ids plus event records. This is logged once when the brush finalizes and remains a CPU evidence path rather than GPU row-id preservation.
 
-Evidence export note: pressing `E` writes the active demo's cached selection evidence into a collision-safe bundle directory under `target/rawscope-exports/`. Scatter exports use `report-scatter-<unix-ms>-<counter>/`; timeline exports use `report-timeline-<unix-ms>-<counter>/`. Each bundle currently contains `evidence.json`, `evidence.md`, `manifest.json`, and `visual-context.txt`. The visual-context file is a deterministic placeholder that records the exact view configuration while native image capture remains deferred. If no finalized brush evidence exists in the active demo, the app logs a warning and does not write files. These bundles are local-first CPU-side evidence artifacts, not cloud publishing or a final screenshot pipeline.
+Evidence export note: pressing `E` writes the active demo's cached selection evidence into a collision-safe bundle directory under `target/rawscope-exports/`. Scatter exports use `report-scatter-<unix-ms>-<counter>/`; timeline exports use `report-timeline-<unix-ms>-<counter>/`. Each bundle contains `evidence.json`, `evidence.md`, `manifest.json`, and `visual-context.txt`. Legacy bundles use the deterministic placeholder context; new scatter v5 bundles record the visual-query, session, and pinned-inspection context while native image capture remains deferred. If no finalized brush evidence exists in the active demo, the app logs a warning and does not write files. These bundles are local-first CPU-side evidence artifacts, not cloud publishing or a final screenshot pipeline.
+
+## Python Bridge
+
+The optional source-installable SDK opens the same native workbench from a
+local file or an in-memory dataframe:
+
+```python
+import rawscope
+
+rawscope.view(
+    games,
+    view=rawscope.ScatterView("white_rating", "black_rating"),
+    evidence_key="game_id",
+)
+```
+
+Install an ecosystem extra with `pip install -e "sdk/python[pandas]"`,
+`"sdk/python[polars]"`, or `"sdk/python[arrow]"`. File-backed sessions require
+an explicit destination; dataframe sessions default to an owned temporary
+Parquet bundle that lives until the launched process is waited on or
+terminated. Set `RAWSCOPE_WORKBENCH` when the native executable is not on
+`PATH`. The bridge is local-only, materializes data rather than streaming it,
+and supports the session v1 contract documented in
+[`docs/schemas/session-v1.md`](docs/schemas/session-v1.md) and the additive
+scatter evidence v5 contract in
+[`docs/schemas/scatter-selection-evidence-v5.md`](docs/schemas/scatter-selection-evidence-v5.md).
+
+Inspection facts are exact for the selected density cell and active cohort;
+row ids, natural keys, and category values are bounded samples when the cell
+contains more rows than the configured sample limit. The v5 report labels
+those samples and preserves the session identity without copying the full
+dataset into the artifact.
 
 Screenshot capture note: in-app screenshot capture is intentionally deferred because native surface readback and image encoding would add a dedicated capture path or extra dependencies. For Milestone 3D, OS-level screenshots are the recommended path.
 

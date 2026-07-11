@@ -5,7 +5,7 @@ use crate::{
     ui_inspection_tooltip::{
         InspectionPresentationFrame, InspectionPresentationKey, InspectionPresentationMotion,
     },
-    ui_scatter_inspection::ScatterInspectionUiState,
+    ui_scatter_inspection::{scatter_inspection_tooltip_state, ScatterInspectionUiState},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -57,7 +57,7 @@ impl InspectionPresentationState {
 
 impl WorkbenchApp {
     pub(crate) fn update_inspection_presentation(&mut self) {
-        let content = crate::ui_scatter_inspection::scatter_inspection_ui_state(self);
+        let content = scatter_inspection_tooltip_state(self);
         let key = content.as_ref().and_then(|state| {
             let hit = state.hovered.as_ref()?;
             Some(InspectionPresentationKey {

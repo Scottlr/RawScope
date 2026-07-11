@@ -28,6 +28,13 @@ file. It does not upload or copy the source. Set `RAWSCOPE_WORKBENCH` or pass
 list rather than a shell command string and accepts only local CSV/Parquet paths
 in session schema v1.
 
+Set `RAWSCOPE_WORKBENCH` to the native executable path when
+`rawscope-workbench` is not on `PATH`. The session manifest contract is
+[`session-v1.md`](../../docs/schemas/session-v1.md); new scatter selection
+reports use the additive
+[`scatter-selection-evidence-v5.md`](../../docs/schemas/scatter-selection-evidence-v5.md)
+contract while v1-v4 exports remain available for compatibility.
+
 Dataframe inputs use optional adapters and materialize a flat Parquet bundle:
 
 ```python
@@ -42,4 +49,6 @@ Install the relevant local extra with `pip install -e "sdk/python[pandas]"`,
 `"sdk/python[polars]"`, or `"sdk/python[arrow]"`. Temporary dataframe bundles live until
 `process.wait()` or `process.terminate()` and are cleaned only under the SDK's
 owned OS-temp prefix. A dataframe is materialized; it is not streamed or
-zero-copy.
+zero-copy. Inspection reports distinguish exact cell/cohort counts from bounded
+row-id, natural-key, and category samples; a sample is not a complete row
+listing.

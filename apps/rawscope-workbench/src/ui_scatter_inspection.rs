@@ -30,6 +30,19 @@ pub(crate) enum ScatterInspectionAction {
 }
 
 pub(crate) fn scatter_inspection_ui_state(app: &WorkbenchApp) -> Option<ScatterInspectionUiState> {
+    scatter_inspection_ui_state_with_pin(app, true)
+}
+
+pub(crate) fn scatter_inspection_tooltip_state(
+    app: &WorkbenchApp,
+) -> Option<ScatterInspectionUiState> {
+    scatter_inspection_ui_state_with_pin(app, false)
+}
+
+fn scatter_inspection_ui_state_with_pin(
+    app: &WorkbenchApp,
+    include_pinned: bool,
+) -> Option<ScatterInspectionUiState> {
     let (x_label, y_label) = app
         .active_dataset_profile
         .and_then(|profile_id| dataset_profile(profile_id).scatter_binding)
@@ -53,7 +66,9 @@ pub(crate) fn scatter_inspection_ui_state(app: &WorkbenchApp) -> Option<ScatterI
     .then(|| ScatterInspectionUiState {
         hovered_bin_rect: hovered.as_ref().and_then(|hit| logical_bin_rect(app, hit)),
         hovered,
-        pinned: app.scatter_inspection.pinned.clone(),
+        pinned: include_pinned
+            .then(|| app.scatter_inspection.pinned.clone())
+            .flatten(),
         x_label,
         y_label,
         hovered_summary,
