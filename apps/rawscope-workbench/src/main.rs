@@ -42,6 +42,7 @@ mod ui_drilldown;
 mod ui_filters;
 mod ui_inspection_tooltip;
 mod ui_missingness;
+mod ui_pinned_inspection;
 mod ui_plot_axes;
 mod ui_plot_surface;
 mod ui_relief;

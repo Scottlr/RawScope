@@ -13,9 +13,9 @@ use crate::{
     ui_filters::show_filters,
     ui_inspection_tooltip::show_inspection_tooltip,
     ui_missingness::{show_missingness_summary, show_missingness_view},
+    ui_pinned_inspection::show_pinned_scatter_inspection,
     ui_plot_axes::show_plot_axes,
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
-    ui_scatter_inspection::show_pinned_scatter_inspection,
     ui_theme::{
         export_status_color, icon_command_button, icon_segment_button, navigation_button,
         right_rail_frame, status_badge, status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,

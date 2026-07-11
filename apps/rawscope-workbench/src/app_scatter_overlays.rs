@@ -58,7 +58,7 @@ fn project_pinned(
 ) -> Option<ScatterInspectionOverlay> {
     let grid = state.grid.as_ref()?;
     project_scatter_inspection_overlay(
-        &pinned.hit,
+        &pinned.summary.hit,
         grid.grid_width,
         grid.grid_height,
         screen_size,
@@ -116,14 +116,31 @@ mod tests {
             },
         )
         .unwrap();
-        let hit = grid.inspect_bin(0, 0).unwrap();
-        let state = ScatterInspectionState {
+        let hit = grid.inspect_bin(1, 1).unwrap();
+        let mut state = ScatterInspectionState {
             grid: Some(grid),
             hovered: Some(hit.clone()),
             pinned: Some(PinnedScatterInspection {
-                hit,
+                summary: build_scatter_inspection_grid(
+                    &points,
+                    &evaluation.mask,
+                    F32Range::new(0.0, 2.0),
+                    F32Range::new(0.0, 2.0),
+                    evaluation.revision,
+                    ScatterInspectionConfig {
+                        grid_width: 2,
+                        grid_height: 2,
+                        max_row_ids_per_bin: 4,
+                    },
+                )
+                .unwrap()
+                .summarize_hit(hit.clone()),
+                difference: None,
                 category_summaries: Vec::new(),
                 source_rows: Vec::new(),
+                evidence_keys: Vec::new(),
+                cache_viewport_revision: 0,
+                cache_filter_revision: evaluation.revision,
             }),
             ..Default::default()
         };
@@ -144,6 +161,17 @@ mod tests {
             inputs.pinned.unwrap().focus_kind,
             InspectionFocusKind::Pinned
         );
+
+        state.hovered = None;
+        let pinned_only = scatter_inspection_overlay_inputs(
+            &state,
+            ScatterDensityMode::AbsoluteDensity,
+            1.0,
+            None,
+            BrushScreenSize::new(100.0, 100.0),
+        );
+        assert!(pinned_only.pinned.is_some());
+        assert!(pinned_only.hovered.is_none());
     }
 
     #[test]

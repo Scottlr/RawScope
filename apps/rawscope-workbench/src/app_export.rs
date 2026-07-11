@@ -259,12 +259,12 @@ impl WorkbenchApp {
                 .pinned
                 .as_ref()
                 .map(|pinned| PinnedScatterInspectionEvidence {
-                    bin_x: pinned.hit.bin_x,
-                    bin_y: pinned.hit.bin_y,
-                    x_range: pinned.hit.x_range,
-                    y_range: pinned.hit.y_range,
-                    row_count: pinned.hit.count,
-                    row_id_sample: pinned.hit.row_ids.iter().copied().collect(),
+                    bin_x: pinned.summary.hit.bin_x,
+                    bin_y: pinned.summary.hit.bin_y,
+                    x_range: pinned.summary.hit.x_range,
+                    y_range: pinned.summary.hit.y_range,
+                    row_count: pinned.summary.hit.count,
+                    row_id_sample: pinned.summary.hit.row_ids.iter().copied().collect(),
                     sample_limit: ScatterInspectionConfig::default().max_row_ids_per_bin,
                 });
         ScatterSelectionEvidenceV4::from_v3(

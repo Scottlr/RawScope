@@ -132,7 +132,7 @@ impl WorkbenchApp {
                 self.scatter_inspection
                     .pinned
                     .as_ref()
-                    .and_then(|pinned| first_row_id(&pinned.hit))
+                    .and_then(|pinned| first_row_id(&pinned.summary.hit))
             });
         if let Some(renderer) = self.point_reveal.renderer.as_mut() {
             renderer.set_emphasized_row(emphasized);
