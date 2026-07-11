@@ -12,6 +12,7 @@ pub(crate) struct WorkbenchArgs {
     pub(crate) demo_mode: DemoMode,
     pub(crate) input: Option<WorkbenchInput>,
     pub(crate) compare_input: Option<PathBuf>,
+    pub(crate) session_path: Option<PathBuf>,
 }
 
 /// Explicit local dataset binding for a workbench density demo.
@@ -45,84 +46,132 @@ impl WorkbenchArgs {
         let mut limit = None;
         let mut compare_input = None;
         let mut profile = None;
+        let mut session_path = None;
+        let mut saw_direct_startup_flag = false;
         let mut args = args.into_iter();
 
         while let Some(arg) = args.next() {
             if let Some(value) = arg.strip_prefix("--demo=") {
+                saw_direct_startup_flag = true;
                 demo_mode = DemoMode::from_name(value)?;
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--input=") {
+                saw_direct_startup_flag = true;
                 input_path = Some(PathBuf::from(value));
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--x=") {
+                saw_direct_startup_flag = true;
                 x_column = Some(value.to_string());
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--y=") {
+                saw_direct_startup_flag = true;
                 y_column = Some(value.to_string());
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--time=") {
+                saw_direct_startup_flag = true;
                 time_column = Some(value.to_string());
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--lane=") {
+                saw_direct_startup_flag = true;
                 lane_column = Some(value.to_string());
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--limit=") {
+                saw_direct_startup_flag = true;
                 limit = Some(parse_limit(value)?);
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--compare-input=") {
+                saw_direct_startup_flag = true;
                 compare_input = Some(PathBuf::from(value));
                 continue;
             }
             if let Some(value) = arg.strip_prefix("--profile=") {
+                saw_direct_startup_flag = true;
                 profile = Some(parse_dataset_profile_id(value).map_err(|err| err.to_string())?);
+                continue;
+            }
+            if let Some(value) = arg.strip_prefix("--session=") {
+                if session_path.is_some() {
+                    return Err("--session may only be supplied once".to_string());
+                }
+                session_path = Some(PathBuf::from(value));
                 continue;
             }
 
             match arg.as_str() {
                 "--demo" => {
+                    saw_direct_startup_flag = true;
                     let value = next_value(&mut args, "--demo")?;
                     demo_mode = DemoMode::from_name(&value)?;
                 }
                 "--input" => {
+                    saw_direct_startup_flag = true;
                     input_path = Some(PathBuf::from(next_value(&mut args, "--input")?));
                 }
                 "--x" => {
+                    saw_direct_startup_flag = true;
                     x_column = Some(next_value(&mut args, "--x")?);
                 }
                 "--y" => {
+                    saw_direct_startup_flag = true;
                     y_column = Some(next_value(&mut args, "--y")?);
                 }
                 "--time" => {
+                    saw_direct_startup_flag = true;
                     time_column = Some(next_value(&mut args, "--time")?);
                 }
                 "--lane" => {
+                    saw_direct_startup_flag = true;
                     lane_column = Some(next_value(&mut args, "--lane")?);
                 }
                 "--limit" => {
+                    saw_direct_startup_flag = true;
                     let value = next_value(&mut args, "--limit")?;
                     limit = Some(parse_limit(&value)?);
                 }
                 "--compare-input" => {
+                    saw_direct_startup_flag = true;
                     compare_input = Some(PathBuf::from(next_value(&mut args, "--compare-input")?));
                 }
                 "--profile" => {
+                    saw_direct_startup_flag = true;
                     let value = next_value(&mut args, "--profile")?;
                     profile =
                         Some(parse_dataset_profile_id(&value).map_err(|err| err.to_string())?);
                 }
+                "--session" => {
+                    if session_path.is_some() {
+                        return Err("--session may only be supplied once".to_string());
+                    }
+                    session_path = Some(PathBuf::from(next_value(&mut args, "--session")?));
+                }
                 _ => {
                     return Err(format!(
-                        "unsupported argument '{arg}'; use --demo scatter|timeline, --input, --compare-input, --profile, and explicit column bindings"
+                        "unsupported argument '{arg}'; use --demo scatter|timeline, --session, --input, --compare-input, --profile, and explicit column bindings"
                     ));
                 }
             }
+        }
+
+        if session_path.is_some() {
+            if saw_direct_startup_flag {
+                return Err(
+                    "--session cannot be combined with --demo, --input, --compare-input, --profile, --limit, or explicit column bindings"
+                        .to_string(),
+                );
+            }
+            return Ok(Self {
+                demo_mode,
+                input: None,
+                compare_input: None,
+                session_path,
+            });
         }
 
         let input = match input_path {
@@ -168,6 +217,7 @@ impl WorkbenchArgs {
             demo_mode,
             input,
             compare_input,
+            session_path: None,
         })
     }
 }
@@ -294,158 +344,5 @@ fn require_complete_timeline_override(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn defaults_to_synthetic_scatter() {
-        let args = WorkbenchArgs::parse(Vec::new()).unwrap();
-
-        assert_eq!(args.demo_mode, DemoMode::Scatter);
-        assert_eq!(args.input, None);
-        assert_eq!(args.compare_input, None);
-    }
-
-    #[test]
-    fn parses_scatter_input_binding() {
-        let args = WorkbenchArgs::parse([
-            "--demo".to_string(),
-            "scatter".to_string(),
-            "--input".to_string(),
-            "data.csv".to_string(),
-            "--x".to_string(),
-            "latency_ms".to_string(),
-            "--y".to_string(),
-            "payload_size".to_string(),
-            "--limit".to_string(),
-            "100".to_string(),
-        ])
-        .unwrap();
-
-        assert_eq!(
-            args.input,
-            Some(WorkbenchInput::Scatter {
-                path: PathBuf::from("data.csv"),
-                x_column: Some("latency_ms".to_string()),
-                y_column: Some("payload_size".to_string()),
-                limit: Some(100),
-                profile: None,
-            })
-        );
-        assert_eq!(args.compare_input, None);
-    }
-
-    #[test]
-    fn parses_timeline_input_binding() {
-        let args = WorkbenchArgs::parse([
-            "--demo=timeline".to_string(),
-            "--input=events.csv".to_string(),
-            "--time=timestamp".to_string(),
-            "--lane=provider".to_string(),
-        ])
-        .unwrap();
-
-        assert_eq!(args.demo_mode, DemoMode::Timeline);
-        assert_eq!(
-            args.input,
-            Some(WorkbenchInput::Timeline {
-                path: PathBuf::from("events.csv"),
-                time_column: Some("timestamp".to_string()),
-                lane_column: Some("provider".to_string()),
-                limit: None,
-                profile: None,
-            })
-        );
-        assert_eq!(args.compare_input, None);
-    }
-
-    #[test]
-    fn input_requires_demo_specific_columns() {
-        let err = WorkbenchArgs::parse([
-            "--demo".to_string(),
-            "scatter".to_string(),
-            "--input".to_string(),
-            "data.csv".to_string(),
-            "--x".to_string(),
-            "latency_ms".to_string(),
-        ])
-        .expect_err("scatter input should require y column");
-
-        assert!(err.contains("--y"));
-    }
-
-    #[test]
-    fn parses_compare_input_in_split_and_equals_forms() {
-        let split_args = WorkbenchArgs::parse([
-            "--demo".to_string(),
-            "scatter".to_string(),
-            "--input".to_string(),
-            "baseline.csv".to_string(),
-            "--compare-input".to_string(),
-            "candidate.csv".to_string(),
-            "--x".to_string(),
-            "latency_ms".to_string(),
-            "--y".to_string(),
-            "payload_size".to_string(),
-        ])
-        .unwrap();
-        let equals_args = WorkbenchArgs::parse([
-            "--demo=timeline".to_string(),
-            "--input=baseline.csv".to_string(),
-            "--compare-input=candidate.csv".to_string(),
-            "--time=timestamp".to_string(),
-            "--lane=provider".to_string(),
-        ])
-        .unwrap();
-
-        assert_eq!(
-            split_args.compare_input,
-            Some(PathBuf::from("candidate.csv"))
-        );
-        assert_eq!(
-            equals_args.compare_input,
-            Some(PathBuf::from("candidate.csv"))
-        );
-    }
-
-    #[test]
-    fn compare_input_requires_primary_input() {
-        let err = WorkbenchArgs::parse(["--compare-input=data.csv".to_string()])
-            .expect_err("comparison input should require primary input");
-
-        assert!(err.contains("--compare-input requires --input"));
-    }
-
-    #[test]
-    fn parses_profile_without_explicit_scatter_columns() {
-        let args = WorkbenchArgs::parse([
-            "--demo=scatter".to_string(),
-            "--input=games.csv".to_string(),
-            "--profile=lichess-games".to_string(),
-        ])
-        .unwrap();
-
-        assert_eq!(
-            args.input,
-            Some(WorkbenchInput::Scatter {
-                path: PathBuf::from("games.csv"),
-                x_column: None,
-                y_column: None,
-                limit: None,
-                profile: Some(DatasetProfileId::LichessGames),
-            })
-        );
-    }
-
-    #[test]
-    fn rejects_unknown_profile_id() {
-        let err = WorkbenchArgs::parse([
-            "--input=games.csv".to_string(),
-            "--profile=unknown-profile".to_string(),
-        ])
-        .expect_err("unknown profile should fail");
-
-        assert!(err.contains("unknown dataset profile 'unknown-profile'"));
-        assert!(err.contains("lichess-games"));
-    }
-}
+#[path = "cli_tests.rs"]
+mod tests;

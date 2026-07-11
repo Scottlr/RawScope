@@ -171,7 +171,13 @@ impl WorkbenchApp {
             .dataset_identity
             .as_ref()
             .map(|identity| {
-                DatasetDisplayIdentity::from_dataset(identity, self.active_dataset_profile)
+                DatasetDisplayIdentity::from_dataset_with_display_name(
+                    identity,
+                    self.active_dataset_profile,
+                    self.active_session
+                        .as_ref()
+                        .and_then(|session| session.display_name.as_deref()),
+                )
             })
             .unwrap_or_else(DatasetDisplayIdentity::unavailable);
         let view_label = view_label(self);

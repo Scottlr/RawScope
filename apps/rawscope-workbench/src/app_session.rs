@@ -1,0 +1,328 @@
+//! Workbench startup projection for versioned local session manifests.
+
+use std::{io, path::PathBuf};
+
+use rawscope_data::{validate_evidence_key, DatasetEvidenceKey, LoadedSourceTable};
+use rawscope_session::{
+    load_session_manifest, ResolvedRawScopeSession, ResolvedSessionView, SessionDataFormat,
+};
+
+use crate::{
+    app::WorkbenchApp,
+    cli::{WorkbenchArgs, WorkbenchInput},
+    demo::DemoMode,
+};
+
+/// Startup values shared by `main` and the workbench application state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WorkbenchStartup {
+    pub(crate) demo_mode: DemoMode,
+    pub(crate) input: Option<WorkbenchInput>,
+    pub(crate) compare_input: Option<PathBuf>,
+    pub(crate) session: Option<PendingSessionContext>,
+}
+
+/// Session metadata retained until its loaded source table can validate the key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PendingSessionContext {
+    pub(crate) manifest_path: PathBuf,
+    pub(crate) display_name: Option<String>,
+    pub(crate) data_format: SessionDataFormat,
+    pub(crate) evidence_key: Option<String>,
+}
+
+/// Session metadata that is safe to use after the source table has loaded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ActiveSessionContext {
+    pub(crate) manifest_path: PathBuf,
+    pub(crate) display_name: Option<String>,
+    pub(crate) data_format: SessionDataFormat,
+    pub(crate) evidence_key: Option<DatasetEvidenceKey>,
+}
+
+/// Resolves direct CLI arguments or one validated session manifest into startup state.
+pub(crate) fn resolve_workbench_startup(
+    args: WorkbenchArgs,
+) -> Result<WorkbenchStartup, io::Error> {
+    let Some(session_path) = args.session_path else {
+        return Ok(WorkbenchStartup {
+            demo_mode: args.demo_mode,
+            input: args.input,
+            compare_input: args.compare_input,
+            session: None,
+        });
+    };
+
+    let session = load_session_manifest(&session_path).map_err(|source| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "failed to load RawScope session manifest '{}': {source}",
+                session_path.display()
+            ),
+        )
+    })?;
+    startup_from_session(session)
+}
+
+fn startup_from_session(session: ResolvedRawScopeSession) -> Result<WorkbenchStartup, io::Error> {
+    let ResolvedRawScopeSession {
+        manifest_path,
+        dataset,
+        view,
+    } = session;
+    let pending_session = PendingSessionContext {
+        manifest_path,
+        display_name: dataset.display_name,
+        data_format: dataset.format,
+        evidence_key: dataset.evidence_key,
+    };
+
+    let (demo_mode, input) = match view {
+        ResolvedSessionView::Scatter { x, y, profile } => (
+            DemoMode::Scatter,
+            WorkbenchInput::Scatter {
+                path: dataset.path,
+                x_column: Some(x),
+                y_column: Some(y),
+                limit: dataset.limit,
+                profile,
+            },
+        ),
+        ResolvedSessionView::Timeline {
+            time,
+            lane,
+            profile,
+        } => (
+            DemoMode::Timeline,
+            WorkbenchInput::Timeline {
+                path: dataset.path,
+                time_column: Some(time),
+                lane_column: Some(lane),
+                limit: dataset.limit,
+                profile,
+            },
+        ),
+    };
+
+    Ok(WorkbenchStartup {
+        demo_mode,
+        input: Some(input),
+        compare_input: None,
+        session: Some(pending_session),
+    })
+}
+
+impl WorkbenchApp {
+    pub(crate) fn activate_session_context(
+        &mut self,
+        source: &LoadedSourceTable,
+    ) -> Result<(), io::Error> {
+        let Some(pending) = self.pending_session.as_ref() else {
+            self.active_session = None;
+            return Ok(());
+        };
+        let evidence_key = pending
+            .evidence_key
+            .as_deref()
+            .map(|column_name| validate_evidence_key(source, column_name))
+            .transpose()
+            .map_err(|source| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "failed to validate session evidence key for '{}': {source}",
+                        pending.manifest_path.display()
+                    ),
+                )
+            })?;
+        self.active_session = Some(ActiveSessionContext {
+            manifest_path: pending.manifest_path.clone(),
+            display_name: pending.display_name.clone(),
+            data_format: pending.data_format,
+            evidence_key,
+        });
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::{fs, path::PathBuf};
+
+    use rawscope_core::RowId;
+    use rawscope_data::{DatasetProfileId, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow};
+    use rawscope_session::{
+        session_manifest_json, RawScopeSessionManifestV1, SessionDataFormat, SessionDatasetV1,
+        SessionViewV1, RAWSCOPE_SESSION_ARTIFACT_KIND, RAWSCOPE_SESSION_SCHEMA_VERSION,
+    };
+
+    use super::*;
+
+    static NEXT_FIXTURE_ID: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn session_scatter_maps_to_existing_workbench_input() {
+        let fixture = write_session(
+            SessionViewV1::Scatter {
+                x: "white_rating".to_string(),
+                y: "black_rating".to_string(),
+                profile: Some("lichess-games".to_string()),
+            },
+            Some("Matchmaking"),
+        );
+        let args = WorkbenchArgs::parse([
+            "--session".to_string(),
+            fixture.manifest.to_string_lossy().to_string(),
+        ])
+        .unwrap();
+
+        let startup = resolve_workbench_startup(args).unwrap();
+
+        assert_eq!(startup.demo_mode, DemoMode::Scatter);
+        assert_eq!(
+            startup.input,
+            Some(WorkbenchInput::Scatter {
+                path: fs::canonicalize(&fixture.data).unwrap(),
+                x_column: Some("white_rating".to_string()),
+                y_column: Some("black_rating".to_string()),
+                limit: None,
+                profile: Some(DatasetProfileId::LichessGames),
+            })
+        );
+        assert_eq!(
+            startup.session.as_ref().unwrap().display_name.as_deref(),
+            Some("Matchmaking")
+        );
+    }
+
+    #[test]
+    fn session_timeline_maps_to_existing_workbench_input() {
+        let fixture = write_session(
+            SessionViewV1::Timeline {
+                time: "created_at".to_string(),
+                lane: "winner".to_string(),
+                profile: Some("lichess-games".to_string()),
+            },
+            None,
+        );
+        let args = WorkbenchArgs::parse([
+            "--session".to_string(),
+            fixture.manifest.to_string_lossy().to_string(),
+        ])
+        .unwrap();
+
+        let startup = resolve_workbench_startup(args).unwrap();
+
+        assert_eq!(startup.demo_mode, DemoMode::Timeline);
+        assert!(matches!(
+            startup.input,
+            Some(WorkbenchInput::Timeline {
+                time_column: Some(time),
+                lane_column: Some(lane),
+                ..
+            }) if time == "created_at" && lane == "winner"
+        ));
+    }
+
+    #[test]
+    fn session_evidence_key_is_validated_after_load() {
+        let fixture = write_session_with_key("game_id");
+        let args = WorkbenchArgs::parse([
+            "--session".to_string(),
+            fixture.manifest.to_string_lossy().to_string(),
+        ])
+        .unwrap();
+        let startup = resolve_workbench_startup(args).unwrap();
+        let mut app = WorkbenchApp::new(startup);
+        let source = rawscope_data::LoadedSourceTable {
+            columns: vec![LoadedColumnSchema {
+                name: "game_id".to_string(),
+                kind: LoadedColumnKind::String,
+            }],
+            rows: vec![LoadedSourceRow {
+                row_id: RowId(0),
+                values: vec!["g-1".to_string()],
+            }],
+        };
+
+        app.activate_session_context(&source).unwrap();
+
+        assert_eq!(
+            app.active_session
+                .as_ref()
+                .and_then(|session| session.evidence_key.as_ref())
+                .and_then(|key| key.value(&source.rows[0])),
+            Some("g-1")
+        );
+    }
+
+    struct Fixture {
+        root: PathBuf,
+        data: PathBuf,
+        manifest: PathBuf,
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.root).unwrap();
+        }
+    }
+
+    fn write_session(view: SessionViewV1, display_name: Option<&str>) -> Fixture {
+        write_session_with_options(view, display_name, None)
+    }
+
+    fn write_session_with_key(column: &str) -> Fixture {
+        write_session_with_options(
+            SessionViewV1::Scatter {
+                x: "white_rating".to_string(),
+                y: "black_rating".to_string(),
+                profile: Some("lichess-games".to_string()),
+            },
+            None,
+            Some(column),
+        )
+    }
+
+    fn write_session_with_options(
+        view: SessionViewV1,
+        display_name: Option<&str>,
+        evidence_key: Option<&str>,
+    ) -> Fixture {
+        let root = std::env::temp_dir().join(format!(
+            "rawscope-workbench-session-test-{}-{}-{}",
+            std::process::id(),
+            display_name.unwrap_or("default"),
+            NEXT_FIXTURE_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let data = root.join("games.csv");
+        fs::write(
+            &data,
+            "created_at,white_rating,black_rating,winner,game_id\n1,1500,1600,white,g-1\n",
+        )
+        .unwrap();
+        let manifest = root.join("analysis.rawscope.json");
+        let manifest_value = RawScopeSessionManifestV1 {
+            artifact_kind: RAWSCOPE_SESSION_ARTIFACT_KIND.to_string(),
+            schema_version: RAWSCOPE_SESSION_SCHEMA_VERSION,
+            dataset: SessionDatasetV1 {
+                path: PathBuf::from("games.csv"),
+                format: SessionDataFormat::Csv,
+                display_name: display_name.map(str::to_string),
+                limit: None,
+                evidence_key: evidence_key.map(str::to_string),
+            },
+            view,
+        };
+        fs::write(&manifest, session_manifest_json(&manifest_value).unwrap()).unwrap();
+        Fixture {
+            root,
+            data,
+            manifest,
+        }
+    }
+}

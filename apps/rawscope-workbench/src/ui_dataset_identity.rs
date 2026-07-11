@@ -24,9 +24,10 @@ impl DatasetDisplayIdentity {
         }
     }
 
-    pub(crate) fn from_dataset(
+    pub(crate) fn from_dataset_with_display_name(
         identity: &DatasetIdentity,
         profile_id: Option<DatasetProfileId>,
+        display_name: Option<&str>,
     ) -> Self {
         let (short_name, source_label, full_path) = match &identity.source {
             DatasetSource::Synthetic { generator, .. } => (
@@ -45,6 +46,10 @@ impl DatasetDisplayIdentity {
                 Some(path.clone()),
             ),
         };
+        let short_name = display_name
+            .filter(|name| !name.trim().is_empty())
+            .map(str::to_string)
+            .unwrap_or(short_name);
 
         Self {
             short_name,
@@ -125,7 +130,7 @@ mod tests {
             lane_labels: Vec::new(),
         };
 
-        let display = DatasetDisplayIdentity::from_dataset(&identity, None);
+        let display = DatasetDisplayIdentity::from_dataset_with_display_name(&identity, None, None);
 
         assert_eq!(display.visible_label(), "games.csv - 343,000 rows");
         assert!(!display.visible_label().contains("datasets"));
@@ -136,7 +141,7 @@ mod tests {
     fn synthetic_dataset_identity_has_no_path_action() {
         let identity = DatasetIdentity::synthetic_scatter(42, 20_000);
 
-        let display = DatasetDisplayIdentity::from_dataset(&identity, None);
+        let display = DatasetDisplayIdentity::from_dataset_with_display_name(&identity, None, None);
 
         assert_eq!(display.full_path, None);
     }
@@ -154,7 +159,8 @@ mod tests {
             lane_labels: Vec::new(),
         };
 
-        let title = DatasetDisplayIdentity::from_dataset(&identity, None).window_title();
+        let title = DatasetDisplayIdentity::from_dataset_with_display_name(&identity, None, None)
+            .window_title();
 
         assert_eq!(title, "RawScope - games.parquet");
         assert!(!title.contains("private"));
@@ -173,9 +179,10 @@ mod tests {
             field_bindings: Vec::new(),
             lane_labels: Vec::new(),
         };
-        let display = DatasetDisplayIdentity::from_dataset(
+        let display = DatasetDisplayIdentity::from_dataset_with_display_name(
             &identity,
             Some(rawscope_data::DatasetProfileId::LichessGames),
+            None,
         );
 
         assert_eq!(
@@ -186,5 +193,27 @@ mod tests {
         assert!(display
             .details_label()
             .contains(&path.display().to_string()));
+    }
+
+    #[test]
+    fn session_display_name_replaces_filename_without_exposing_path() {
+        let path = PathBuf::from(r"C:\private\lichess\games.csv");
+        let identity = DatasetIdentity {
+            visual_kind: VisualDatasetKind::Scatter,
+            source: DatasetSource::LocalCsv { path, limit: None },
+            row_count: 12,
+            field_bindings: Vec::new(),
+            lane_labels: Vec::new(),
+        };
+
+        let display = DatasetDisplayIdentity::from_dataset_with_display_name(
+            &identity,
+            None,
+            Some("Matchmaking games"),
+        );
+
+        assert_eq!(display.visible_label(), "Matchmaking games - 12 rows");
+        assert_eq!(display.window_title(), "RawScope - Matchmaking games");
+        assert!(!display.visible_label().contains("private"));
     }
 }
