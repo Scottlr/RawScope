@@ -1,11 +1,13 @@
 //! Bounded UI projection and controls for the active scatter cohort.
 
-use egui::{CollapsingHeader, RichText, ScrollArea, Slider, Ui};
+mod category_control;
+mod controls;
+
 use rawscope_data::{DatasetFilter, VisualFieldSummary};
 
-use crate::{app::WorkbenchApp, ui_theme::TEXT_MUTED};
+use crate::app::WorkbenchApp;
 
-const MAX_VISIBLE_CATEGORY_OPTIONS: usize = 64;
+pub(crate) use controls::show_filters;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum FilterControlState {
@@ -15,12 +17,15 @@ pub(crate) enum FilterControlState {
         domain_max: f64,
         selected_min: f64,
         selected_max: f64,
+        missing_count: usize,
+        invalid_count: usize,
         include_missing: bool,
     },
     Categories {
         column_name: String,
         values: Vec<CategoryOptionState>,
         distinct_count: usize,
+        missing_count: usize,
         truncated: bool,
         include_missing: bool,
     },
@@ -110,6 +115,8 @@ pub(crate) fn scatter_filters_ui_state(app: &WorkbenchApp) -> Option<ScatterFilt
                         domain_max: summary.max,
                         selected_min,
                         selected_max,
+                        missing_count: summary.missing_count,
+                        invalid_count: summary.invalid_count,
                         include_missing,
                     })
                 }
@@ -136,6 +143,7 @@ pub(crate) fn scatter_filters_ui_state(app: &WorkbenchApp) -> Option<ScatterFilt
                             })
                             .collect(),
                         distinct_count: summary.distinct_count,
+                        missing_count: summary.missing_count,
                         truncated: summary.truncated,
                         include_missing,
                     })
@@ -168,194 +176,6 @@ pub(crate) fn scatter_filters_ui_state(app: &WorkbenchApp) -> Option<ScatterFilt
         included_count: evaluation.included_count,
         total_count: catalog.row_count,
         error: app.scatter_filters.error.clone(),
-    })
-}
-
-pub(crate) fn show_filters(
-    ui: &mut Ui,
-    state: Option<&ScatterFiltersUiState>,
-) -> Option<FilterAction> {
-    let state = state?;
-    let mut action = None;
-    ui.horizontal(|ui| {
-        ui.heading("Filters");
-        ui.label(
-            RichText::new(format!(
-                "{} / {} rows",
-                state.included_count, state.total_count
-            ))
-            .small()
-            .color(TEXT_MUTED),
-        );
-    });
-    if !state.active_columns.is_empty() {
-        ui.horizontal_wrapped(|ui| {
-            for column in &state.active_columns {
-                ui.label(RichText::new(column).small());
-                if ui.small_button("Clear").clicked() {
-                    action = Some(FilterAction::RemoveColumn {
-                        column_name: column.clone(),
-                    });
-                }
-            }
-            if ui.small_button("Clear all").clicked() {
-                action = Some(FilterAction::ClearAll);
-            }
-        });
-    }
-    if let Some(error) = &state.error {
-        ui.colored_label(egui::Color32::LIGHT_RED, error);
-    }
-    for control in &state.controls {
-        CollapsingHeader::new(control.column_name())
-            .default_open(true)
-            .show(ui, |ui| {
-                let next = match control {
-                    FilterControlState::NumericRange {
-                        column_name,
-                        domain_min,
-                        domain_max,
-                        selected_min,
-                        selected_max,
-                        include_missing,
-                    } => show_numeric_filter(
-                        ui,
-                        column_name,
-                        *domain_min,
-                        *domain_max,
-                        *selected_min,
-                        *selected_max,
-                        *include_missing,
-                    ),
-                    FilterControlState::Categories {
-                        column_name,
-                        values,
-                        distinct_count,
-                        truncated,
-                        include_missing,
-                    } => show_category_filter(
-                        ui,
-                        column_name,
-                        values,
-                        *distinct_count,
-                        *truncated,
-                        *include_missing,
-                    ),
-                };
-                if next.is_some() {
-                    action = next;
-                }
-            });
-    }
-    ui.menu_button("Add filter", |ui| {
-        for column in &state.available_columns {
-            if ui.button(column).clicked() {
-                action = Some(FilterAction::AddColumn {
-                    column_name: column.clone(),
-                });
-                ui.close();
-            }
-        }
-    });
-    action
-}
-
-fn show_numeric_filter(
-    ui: &mut Ui,
-    column_name: &str,
-    domain_min: f64,
-    domain_max: f64,
-    mut selected_min: f64,
-    mut selected_max: f64,
-    mut include_missing: bool,
-) -> Option<FilterAction> {
-    let min_changed = ui
-        .add(Slider::new(&mut selected_min, domain_min..=domain_max).text("Minimum"))
-        .changed();
-    let max_changed = ui
-        .add(Slider::new(&mut selected_max, domain_min..=domain_max).text("Maximum"))
-        .changed();
-    let missing_changed = ui
-        .checkbox(&mut include_missing, "Include missing")
-        .changed();
-    (min_changed || max_changed || missing_changed).then(|| FilterAction::SetNumericRange {
-        column_name: column_name.to_string(),
-        min_inclusive: selected_min.min(selected_max),
-        max_inclusive: selected_min.max(selected_max),
-        include_missing,
-    })
-}
-
-fn show_category_filter(
-    ui: &mut Ui,
-    column_name: &str,
-    values: &[CategoryOptionState],
-    distinct_count: usize,
-    truncated: bool,
-    mut include_missing: bool,
-) -> Option<FilterAction> {
-    let search_id = ui.id().with(("filter-search", column_name));
-    let mut search = ui
-        .data(|data| data.get_temp::<String>(search_id))
-        .unwrap_or_default();
-    let search_changed = ui.text_edit_singleline(&mut search).changed();
-    if search_changed {
-        ui.data_mut(|data| data.insert_temp(search_id, search.clone()));
-    }
-    let normalized_search = search.trim().to_lowercase();
-    let mut selected = values
-        .iter()
-        .filter(|value| value.selected)
-        .map(|value| value.value.clone())
-        .collect::<Vec<_>>();
-    let mut changed = false;
-    ScrollArea::vertical().max_height(120.0).show(ui, |ui| {
-        for value in values
-            .iter()
-            .filter(|value| {
-                normalized_search.is_empty()
-                    || value.value.to_lowercase().contains(&normalized_search)
-            })
-            .take(MAX_VISIBLE_CATEGORY_OPTIONS)
-        {
-            let mut is_selected = value.selected;
-            if ui
-                .checkbox(
-                    &mut is_selected,
-                    format!("{} ({})", value.value, value.count),
-                )
-                .changed()
-            {
-                changed = true;
-                if is_selected {
-                    selected.push(value.value.clone());
-                } else {
-                    selected.retain(|candidate| candidate != &value.value);
-                }
-            }
-        }
-    });
-    ui.label(
-        RichText::new(if truncated {
-            format!(
-                "Showing up to {MAX_VISIBLE_CATEGORY_OPTIONS} matches from {} retained / {distinct_count} distinct",
-                values.len()
-            )
-        } else {
-            format!(
-                "Showing up to {MAX_VISIBLE_CATEGORY_OPTIONS} matches / {distinct_count} distinct"
-            )
-        })
-        .small()
-        .color(TEXT_MUTED),
-    );
-    changed |= ui
-        .checkbox(&mut include_missing, "Include missing")
-        .changed();
-    changed.then(|| FilterAction::SetCategories {
-        column_name: column_name.to_string(),
-        included_values: selected,
-        include_missing,
     })
 }
 

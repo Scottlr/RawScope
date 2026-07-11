@@ -37,7 +37,10 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let position = positions[vertex_index];
     var output: VertexOutput;
     output.position = vec4<f32>(position, 0.0, 1.0);
-    output.uv = position * 0.5 + vec2<f32>(0.5);
+    output.uv = vec2<f32>(
+        position.x * 0.5 + 0.5,
+        0.5 - position.y * 0.5,
+    );
     return output;
 }
 

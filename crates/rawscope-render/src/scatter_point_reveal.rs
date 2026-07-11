@@ -7,6 +7,11 @@ use rawscope_data::{FilterMask, ScatterPointRecord};
 
 use crate::MaskAlignmentError;
 
+const DEFAULT_MAX_RENDERED_POINTS: usize = 20_000;
+const DEFAULT_FULLY_VISIBLE_ROWS_PER_PIXEL: f32 = 0.02;
+const DEFAULT_HIDDEN_ROWS_PER_PIXEL: f32 = 0.12;
+const DEFAULT_POINT_RADIUS_PX: f32 = 1.5;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PointRevealMode {
     Off,
@@ -27,10 +32,10 @@ impl Default for PointRevealConfig {
     fn default() -> Self {
         Self {
             mode: PointRevealMode::Auto,
-            max_rendered_points: 50_000,
-            fully_visible_rows_per_pixel: 0.03,
-            hidden_rows_per_pixel: 0.25,
-            radius_px: 2.0,
+            max_rendered_points: DEFAULT_MAX_RENDERED_POINTS,
+            fully_visible_rows_per_pixel: DEFAULT_FULLY_VISIBLE_ROWS_PER_PIXEL,
+            hidden_rows_per_pixel: DEFAULT_HIDDEN_ROWS_PER_PIXEL,
+            radius_px: DEFAULT_POINT_RADIUS_PX,
         }
     }
 }
@@ -110,22 +115,11 @@ pub fn select_points_for_reveal(
     if points.len() > u32::MAX as usize {
         return Err(PointRevealError::PointCountTooLarge);
     }
-    let mut eligible = points
+    let eligible_count = points
         .iter()
         .zip(mask.as_gpu_u32_slice())
-        .enumerate()
-        .filter(|(_, (point, included))| {
-            **included == 1 && x_range.contains(point.x) && y_range.contains(point.y)
-        })
-        .map(|(index, (point, _))| {
-            (
-                point_reveal_priority(point.row_id),
-                point.row_id,
-                index as u32,
-            )
-        })
-        .collect::<Vec<_>>();
-    let eligible_count = eligible.len();
+        .filter(|(point, included)| point_is_eligible(point, included, x_range, y_range))
+        .count();
     if config.mode == PointRevealMode::Off {
         return Ok(PointRevealSelection {
             point_indices: Vec::new(),
@@ -146,8 +140,25 @@ pub fn select_points_for_reveal(
         });
     }
 
-    eligible.sort_unstable_by_key(|(priority, row_id, _)| (*priority, *row_id));
-    eligible.truncate(config.max_rendered_points);
+    let mut eligible = points
+        .iter()
+        .zip(mask.as_gpu_u32_slice())
+        .enumerate()
+        .filter(|(_, (point, included))| point_is_eligible(point, included, x_range, y_range))
+        .map(|(index, (point, _))| {
+            (
+                point_reveal_priority(point.row_id),
+                point.row_id,
+                index as u32,
+            )
+        })
+        .collect::<Vec<_>>();
+    if eligible.len() > config.max_rendered_points {
+        eligible.select_nth_unstable_by_key(config.max_rendered_points, |(priority, row_id, _)| {
+            (*priority, *row_id)
+        });
+        eligible.truncate(config.max_rendered_points);
+    }
     eligible.sort_unstable_by_key(|(_, row_id, _)| *row_id);
     Ok(PointRevealSelection {
         point_indices: eligible.into_iter().map(|(_, _, index)| index).collect(),
@@ -155,6 +166,15 @@ pub fn select_points_for_reveal(
         blend,
         sampled: eligible_count > config.max_rendered_points,
     })
+}
+
+fn point_is_eligible(
+    point: &ScatterPointRecord,
+    included: &u32,
+    x_range: F32Range,
+    y_range: F32Range,
+) -> bool {
+    *included == 1 && x_range.contains(point.x) && y_range.contains(point.y)
 }
 
 pub fn project_point_to_plot_fraction(
@@ -222,11 +242,31 @@ mod tests {
         let plot_pixels = (860 * 580) as f32;
         let full = reveal_blend(200_000.0 / plot_pixels, config);
         let black_wins = reveal_blend(94_499.0 / plot_pixels, config);
+        let transitional = reveal_blend(50_000.0 / plot_pixels, config);
         let draws = reveal_blend(5_145.0 / plot_pixels, config);
 
         assert_eq!(full, 0.0);
-        assert!(black_wins > 0.0 && black_wins < 1.0);
+        assert_eq!(black_wins, 0.0);
+        assert!(transitional > 0.0 && transitional < 1.0);
         assert_eq!(draws, 1.0);
+    }
+
+    #[test]
+    fn dense_auto_reveal_counts_rows_without_selecting_markers() {
+        let points = points(100);
+        let evaluation = evaluation(100, None);
+        let selection = select(
+            &points,
+            &evaluation.mask,
+            10,
+            10,
+            PointRevealConfig::default(),
+        );
+
+        assert_eq!(selection.eligible_count, 100);
+        assert!(selection.point_indices.is_empty());
+        assert_eq!(selection.blend, 0.0);
+        assert!(!selection.sampled);
     }
 
     #[test]
