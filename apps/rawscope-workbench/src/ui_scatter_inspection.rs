@@ -3,7 +3,7 @@
 use egui::{vec2, Area, Context, Frame, Id, Order, RichText, Ui};
 use rawscope_data::dataset_profile;
 use rawscope_render::{
-    difference_inspection, DifferenceInspection, ScatterDensityMode, ScatterInspectionHit,
+    DifferenceDirection, DifferenceInspectionSummary, ScatterDensityMode, ScatterInspectionHit,
 };
 
 use crate::{
@@ -19,8 +19,8 @@ pub(crate) struct ScatterInspectionUiState {
     pub(crate) pinned: Option<PinnedScatterInspection>,
     pub(crate) x_label: String,
     pub(crate) y_label: String,
-    pub(crate) hovered_difference: Option<DifferenceInspection>,
-    pub(crate) pinned_difference: Option<DifferenceInspection>,
+    pub(crate) hovered_difference: Option<DifferenceInspectionSummary>,
+    pub(crate) pinned_difference: Option<DifferenceInspectionSummary>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,22 +58,20 @@ pub(crate) fn scatter_inspection_ui_state(app: &WorkbenchApp) -> Option<ScatterI
 fn difference_for_hit(
     app: &WorkbenchApp,
     hit: &ScatterInspectionHit,
-) -> Option<DifferenceInspection> {
+) -> Option<DifferenceInspectionSummary> {
     if app.scatter.density_mode != ScatterDensityMode::FilteredDifference {
         return None;
     }
-    let baseline = app
+    let baseline_count = app
         .scatter_inspection
         .baseline_grid
         .as_ref()?
-        .inspect_bin(hit.bin_x, hit.bin_y)?;
-    let active_total = app.scatter_filters.evaluation.as_ref()?.included_count as u64;
-    Some(difference_inspection(
-        baseline.count,
-        hit.count,
-        app.scatter.points.len() as u64,
-        active_total,
-    ))
+        .inspect_bin(hit.bin_x, hit.bin_y)?
+        .count;
+    app.scatter_inspection
+        .difference_distribution
+        .as_ref()
+        .map(|distribution| distribution.summarize_counts(baseline_count, hit.count))
 }
 
 pub(crate) fn show_scatter_inspection_tooltip(
@@ -142,7 +140,7 @@ fn show_hit(
     ui: &mut Ui,
     state: &ScatterInspectionUiState,
     hit: &ScatterInspectionHit,
-    difference: Option<DifferenceInspection>,
+    difference: Option<DifferenceInspectionSummary>,
 ) {
     ui.label(
         RichText::new(format!("{} rows", hit.count))
@@ -157,7 +155,21 @@ fn show_hit(
             difference.baseline_count,
             difference.baseline_share * 100.0,
         ));
-        ui.label(format!("Share delta {:+.4}%", difference.delta * 100.0));
+        let direction = match difference.direction {
+            DifferenceDirection::MoreCommonInActive => "More common in active",
+            DifferenceDirection::LessCommonInActive => "Less common in active",
+            DifferenceDirection::Unchanged => "Unchanged",
+        };
+        ui.label(format!(
+            "{direction}: {:+.4} percentage points",
+            difference.share_delta * 100.0
+        ));
+        if let Some(percentile) = difference.absolute_delta_percentile {
+            ui.label(format!(
+                "Difference strength: {:.1}th percentile",
+                percentile * 100.0
+            ));
+        }
     }
     ui.label(format!(
         "{} {:.3}..{:.3}",

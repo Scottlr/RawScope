@@ -7,7 +7,8 @@ use rawscope_data::{
     FilterRevision, LoadedSourceRow,
 };
 use rawscope_render::{
-    build_scatter_inspection_grid, ScatterInspectionConfig, ScatterInspectionGrid,
+    build_difference_inspection_distribution, build_scatter_inspection_grid,
+    DifferenceInspectionDistribution, ScatterInspectionConfig, ScatterInspectionGrid,
     ScatterInspectionHit, ScatterInspectionSummary,
 };
 
@@ -26,6 +27,7 @@ pub(crate) struct ScatterInspectionState {
     pub(crate) baseline_grid: Option<ScatterInspectionGrid>,
     pub(crate) hovered: Option<ScatterInspectionHit>,
     pub(crate) hovered_summary: Option<ScatterInspectionSummary>,
+    pub(crate) difference_distribution: Option<DifferenceInspectionDistribution>,
     pub(crate) pinned: Option<PinnedScatterInspection>,
     pub(crate) cache_viewport_revision: u64,
     pub(crate) cache_filter_revision: FilterRevision,
@@ -70,7 +72,7 @@ impl WorkbenchApp {
         ) {
             Ok(grid) => {
                 let baseline_mask = FilterMask::all_included(self.scatter.points.len());
-                self.scatter_inspection.baseline_grid = build_scatter_inspection_grid(
+                let baseline_grid = build_scatter_inspection_grid(
                     &self.scatter.points,
                     &baseline_mask,
                     viewport.x_range(),
@@ -79,6 +81,23 @@ impl WorkbenchApp {
                     config,
                 )
                 .ok();
+                let difference_distribution = baseline_grid.as_ref().and_then(|baseline| {
+                    let baseline_counts = baseline
+                        .bins
+                        .iter()
+                        .map(|bin| bin.count)
+                        .collect::<Vec<_>>();
+                    let active_counts = grid.bins.iter().map(|bin| bin.count).collect::<Vec<_>>();
+                    build_difference_inspection_distribution(
+                        &baseline_counts,
+                        &active_counts,
+                        self.scatter.points.len() as u64,
+                        evaluation.included_count as u64,
+                    )
+                    .ok()
+                });
+                self.scatter_inspection.baseline_grid = baseline_grid;
+                self.scatter_inspection.difference_distribution = difference_distribution;
                 self.scatter_inspection.grid = Some(grid);
                 self.scatter_inspection.hovered = None;
                 self.scatter_inspection.hovered_summary = None;
