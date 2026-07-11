@@ -6,6 +6,7 @@ mod density_encoding;
 mod density_reference;
 mod density_render_pipeline;
 mod difference_density;
+mod difference_inspection;
 mod evidence_sample;
 mod gpu_density_pipeline;
 mod gpu_scatter_density;
@@ -62,6 +63,10 @@ pub use difference_density::{
     difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
     DifferenceDensityConfig, DifferenceDensityError, DifferenceDensityGrid, DifferenceDensityStats,
     DifferenceInspection, DifferencePalette, ScatterDensityMode, DIFFERENCE_FIXED_POINT_SCALE,
+};
+pub use difference_inspection::{
+    build_difference_inspection_distribution, DifferenceDirection,
+    DifferenceInspectionDistribution, DifferenceInspectionSummary,
 };
 pub use gpu_scatter_density::{
     gpu_scatter_density, gpu_scatter_density_masked, gpu_scatter_density_on_device,
