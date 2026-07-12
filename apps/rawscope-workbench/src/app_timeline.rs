@@ -28,7 +28,7 @@ impl WorkbenchApp {
     pub(crate) fn prepare_timeline_demo(&mut self, gpu: &GpuContext) -> Result<(), Box<dyn Error>> {
         self.clear_inspection_presentation();
         self.clear_aggregate_overviews();
-        self.active_session = None;
+        self.workbench_state.active_session = None;
 
         if let Some(WorkbenchInput::Timeline {
             path,

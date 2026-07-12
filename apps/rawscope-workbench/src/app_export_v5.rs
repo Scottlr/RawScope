@@ -15,7 +15,8 @@ impl WorkbenchApp {
         evidence_v4: &ScatterSelectionEvidenceV4,
     ) -> Option<ScatterSelectionEvidenceV5> {
         let session_context =
-            self.active_session
+            self.workbench_state
+                .active_session
                 .as_ref()
                 .map(|session| SessionEvidenceContextV5 {
                     session_artifact_kind: rawscope_session::RAWSCOPE_SESSION_ARTIFACT_KIND,
