@@ -2,6 +2,7 @@
 
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
+use std::num::NonZeroU64;
 
 use super::ScatterDensityRendererConfig;
 use crate::DensityFieldViewport;
@@ -43,6 +44,9 @@ pub(super) struct ScatterDensityRenderParams {
     transition_progress: f32,
     transition_padding: [f32; 3],
 }
+
+const SCATTER_DENSITY_RENDER_PARAMS_SIZE_BYTES: u64 =
+    std::mem::size_of::<ScatterDensityRenderParams>() as u64;
 
 impl ScatterDensityRenderParams {
     #[allow(clippy::too_many_arguments)]
@@ -103,6 +107,7 @@ mod tests {
     #[test]
     fn relief_render_params_are_wgsl_aligned() {
         assert_eq!(std::mem::size_of::<ScatterDensityRenderParams>(), 144);
+        assert_eq!(std::mem::align_of::<ScatterDensityRenderParams>(), 4);
         assert_eq!(std::mem::size_of::<ScatterDensityRenderParams>() % 16, 0);
     }
 }
@@ -118,7 +123,7 @@ pub(super) fn scatter_render_bind_group_layout(device: &wgpu::Device) -> wgpu::B
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(SCATTER_DENSITY_RENDER_PARAMS_SIZE_BYTES),
                 },
                 count: None,
             },
