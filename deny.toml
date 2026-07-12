@@ -1,10 +1,15 @@
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    { id = "RUSTSEC-2024-0436", reason = "paste is a transitive build-time dependency with no safe replacement in the current GUI stack" },
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml is transitive and RawScope does not parse attacker-controlled XML" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml is transitive and RawScope does not parse attacker-controlled XML" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is transitive through platform font rendering and has no safe upgrade available" },
+]
 
 [licenses]
 version = 2
-allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "CC0-1.0", "MPL-2.0", "OpenSSL"]
+allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "CC0-1.0", "MPL-2.0", "OpenSSL", "BSL-1.0", "OFL-1.1", "Ubuntu-font-1.0"]
 confidence-threshold = 0.8
 
 [bans]
