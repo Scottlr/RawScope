@@ -11,6 +11,7 @@ use rawscope_core::{F32Range, PositiveRowLimit, RowId, U64Range};
 use crate::{DatasetIdentity, ScatterPointRecord, TimelineEventRecord};
 
 mod csv;
+mod lane_label;
 mod parquet;
 
 pub use parquet::{load_parquet_scatter_dataset, load_parquet_timeline_dataset};
