@@ -4,6 +4,7 @@ mod dataset;
 mod dataset_filter;
 mod dataset_profile;
 mod evidence_key;
+mod generation_admission;
 mod ingest;
 mod local_dataset;
 mod scatter_projection;
@@ -30,6 +31,10 @@ pub use dataset_profile::{
 pub use evidence_key::{
     validate_evidence_key, validate_evidence_key_with_budget, BoundDatasetEvidenceKey,
     BoundEvidenceKeyError, DatasetEvidenceKey, EvidenceKeyIndexBudget, EvidenceKeyValidationError,
+};
+pub use generation_admission::{
+    AdmissionError, DatasetGenerationAdmission, PendingResourceReservation, ResourceBudget,
+    ResourceReservation,
 };
 pub use ingest::{
     CancellationCheck, ChunkRowCount, IngestionError, IngestionPlan, IngestionProgress,
