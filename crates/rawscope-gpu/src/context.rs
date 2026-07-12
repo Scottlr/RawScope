@@ -73,7 +73,14 @@ impl GpuContext {
         let config = surface
             .get_default_config(&adapter, size.width, size.height)
             .ok_or(GpuError::MissingSurfaceConfig)?;
+        let validation_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         surface.configure(&device, &config);
+        if let Some(source) = validation_scope.pop().await {
+            return Err(GpuError::ValidationScope {
+                operation: "initial surface configuration",
+                source,
+            });
+        }
 
         let adapter_info = GpuAdapterInfo::from_parts(adapter_info, &config);
         info!(
