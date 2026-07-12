@@ -1,5 +1,7 @@
 [advisories]
 version = 2
+# Exceptions are owned and reviewed in docs/DEPENDENCY_POLICY.md; they are
+# narrow transitive reachability decisions, not a blanket advisory waiver.
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is a transitive build-time dependency with no safe replacement in the current GUI stack" },
     { id = "RUSTSEC-2026-0194", reason = "quick-xml is transitive and RawScope does not parse attacker-controlled XML" },
