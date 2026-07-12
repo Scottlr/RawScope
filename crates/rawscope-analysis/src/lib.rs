@@ -2,5 +2,7 @@
 
 pub mod cohort;
 pub mod density;
+pub mod diff;
+pub mod missingness;
 pub mod projection;
 pub mod summary;
