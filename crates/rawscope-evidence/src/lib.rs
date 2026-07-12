@@ -11,6 +11,7 @@ mod provenance;
 mod quantization;
 mod scatter_density_presentation;
 mod scatter_selection_evidence;
+mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
 mod schema;
 mod timeline_selection_evidence;
@@ -50,6 +51,9 @@ pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
     ScatterSelectionGeometry, ScatterSelectionKindCounts, SelectedPointSample,
     SelectedPointSampleV2, SelectedSourceRowSample, SelectionEvidenceConfig,
+};
+pub use scatter_selection_evidence_v3::{
+    ScatterEvidenceViewV3, ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use scatter_selection_export::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown,
