@@ -3,11 +3,11 @@
 use std::num::NonZeroU64;
 
 const MIN_DENSITY_COUNT_BINDING_BYTES: u64 = 4;
-const MIN_DENSITY_PARAMS_BINDING_BYTES: u64 = 4;
 
 pub(crate) fn create_density_render_bind_group_layout(
     device: &wgpu::Device,
     label: &'static str,
+    params_min_binding_size: u64,
 ) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some(label),
@@ -28,7 +28,7 @@ pub(crate) fn create_density_render_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(MIN_DENSITY_PARAMS_BINDING_BYTES),
+                    min_binding_size: NonZeroU64::new(params_min_binding_size),
                 },
                 count: None,
             },
