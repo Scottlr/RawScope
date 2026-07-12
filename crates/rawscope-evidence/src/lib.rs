@@ -1,11 +1,13 @@
 //! Private validated evidence semantics, independent of wire formats.
 
 mod bundle;
+mod density_encoding;
 mod document;
 mod evidence_sample;
 mod markdown_escape;
 mod provenance;
 mod quantization;
+mod scatter_density_presentation;
 mod scatter_selection_evidence;
 mod scatter_selection_export;
 mod schema;
@@ -20,6 +22,9 @@ pub use bundle::{
     BundleArtifactV2, BundleManifestError, BundleManifestV2, BundlePathError, BundleRelativePath,
     ContentChecksumV1, EvidenceArtifactKind, REPORT_BUNDLE_SCHEMA_VERSION_V2,
 };
+pub use density_encoding::{
+    density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,
+};
 pub use document::{
     EvidenceContext, EvidenceDocument, EvidenceValidationError, EvidenceVisualContext,
 };
@@ -31,6 +36,7 @@ pub use quantization::{
     GpuNumericEncoding, NumericDomainV1, QuantizationDisclosureV1, QuantizationError,
     SourceNumericType,
 };
+pub use scatter_density_presentation::ScatterDensityPresentation;
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
     ScatterSelectionGeometry, ScatterSelectionKindCounts, SelectedPointSample,
