@@ -105,7 +105,7 @@ impl WorkbenchApp {
             ));
             self.rebuild_timeline_aggregate_overview();
             self.timeline.density_renderer = Some(timeline_density_renderer);
-            self.export_status = crate::ui::ExportStatus::Idle;
+            self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
                 gpu.device(),
                 gpu.surface_format(),
@@ -153,7 +153,7 @@ impl WorkbenchApp {
         ));
         self.rebuild_timeline_aggregate_overview();
         self.timeline.density_renderer = Some(timeline_density_renderer);
-        self.export_status = crate::ui::ExportStatus::Idle;
+        self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(ScatterBrushOverlayRenderer::new(
             gpu.device(),
             gpu.surface_format(),

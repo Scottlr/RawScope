@@ -44,7 +44,7 @@ use crate::{
     cli::WorkbenchInput,
     demo::{DemoMode, PointCountPreset},
     timeline_render_schedule::TimelineRenderSchedule,
-    ui::{ExportStatus, WorkbenchSurface},
+    ui::WorkbenchSurface,
     ui_plot_surface::PlotSurfaceLayout,
     ui_shell::WorkbenchShellState,
 };
@@ -84,7 +84,6 @@ pub struct WorkbenchApp {
     pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
     pub(crate) next_selection_id: SelectionId,
     pub(crate) visible_surface: WorkbenchSurface,
-    pub(crate) export_status: ExportStatus,
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
@@ -109,10 +108,6 @@ pub struct WorkbenchApp {
     pub(crate) inspection_presentation: InspectionPresentationState,
     pub(crate) point_reveal: ScatterPointRevealState,
     pub(crate) scatter_projection: ScatterProjectionState,
-    #[expect(
-        dead_code,
-        reason = "active-generation state is introduced before caller migration"
-    )]
     pub(crate) workbench_state: crate::workbench_state::WorkbenchState,
 }
 
@@ -327,7 +322,7 @@ impl WorkbenchApp {
             self.rebuild_scatter_aggregate_overview();
             self.scatter.density_renderer = Some(scatter_density_renderer);
             self.rebuild_scatter_inspection_cache();
-            self.export_status = crate::ui::ExportStatus::Idle;
+            self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
             self.scatter_inspection_overlay_renderer = Some(ScatterInspectionOverlayRenderer::new(
                 gpu.device(),
@@ -394,7 +389,7 @@ impl WorkbenchApp {
         ));
         self.rebuild_scatter_aggregate_overview();
         self.scatter.density_renderer = Some(scatter_density_renderer);
-        self.export_status = crate::ui::ExportStatus::Idle;
+        self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
         self.scatter_inspection_overlay_renderer = Some(ScatterInspectionOverlayRenderer::new(
             gpu.device(),

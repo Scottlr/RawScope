@@ -147,7 +147,7 @@ impl WorkbenchApp {
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
         self.clear_brush();
-        self.export_status = ExportStatus::Idle;
+        self.workbench_state.export_status = ExportStatus::Idle;
         self.render_schedule.request_exact_refine();
         self.request_redraw();
     }

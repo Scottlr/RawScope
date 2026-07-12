@@ -1,7 +1,7 @@
 //! Composition-root ownership for active truth and its operational projections.
 
 use crate::{
-    active_generation::ActiveWorkbenchState, degraded_state::DegradedStateStore,
+    active_generation::ActiveWorkbenchState, degraded_state::DegradedStateStore, ui::ExportStatus,
     ui_projection_cache::UiProjectionCache,
 };
 
@@ -10,6 +10,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) active_generation: ActiveWorkbenchState,
     pub(crate) degraded: DegradedStateStore,
     pub(crate) ui_projection_cache: UiProjectionCache,
+    pub(crate) export_status: ExportStatus,
 }
 
 #[cfg(test)]

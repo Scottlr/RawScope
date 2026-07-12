@@ -275,7 +275,7 @@ impl WorkbenchApp {
             view_axes,
             density_encoding,
             view_context,
-            export_status: self.export_status.clone(),
+            export_status: self.workbench_state.export_status.clone(),
             drilldown,
             missingness,
             dataset_diff,
@@ -454,7 +454,7 @@ impl WorkbenchApp {
         };
 
         self.demo_mode = next_mode;
-        self.export_status = ExportStatus::Idle;
+        self.workbench_state.export_status = ExportStatus::Idle;
         self.show_primary_surface();
         let prepare_result = match self.demo_mode {
             DemoMode::Scatter => self.prepare_scatter_demo(&gpu),
