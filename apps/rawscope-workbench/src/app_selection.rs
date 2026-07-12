@@ -1,9 +1,6 @@
 //! Shared linked-selection publishing for the workbench.
 
-use rawscope_core::{
-    CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry,
-    VisualSelectionKind,
-};
+use rawscope_core::{CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry};
 use rawscope_data::DatasetIdentity;
 
 use crate::app::WorkbenchApp;
@@ -37,10 +34,9 @@ impl WorkbenchApp {
             .collect();
 
         self.active_selection = Some(ActiveLinkedSelection {
-            visual_selection: VisualSelection::new(
+            visual_selection: VisualSelection::from_unsorted(
                 self.next_selection_id(),
                 SCATTER_VIEW_ID,
-                VisualSelectionKind::ScatterRect,
                 VisualSelectionGeometry::ScatterRect {
                     x_range: selection.x_range,
                     y_range: selection.y_range,
@@ -69,17 +65,24 @@ impl WorkbenchApp {
             .map(|event| event.row_id)
             .collect();
 
+        let lane_range = match CoreLaneRange::try_new(
+            selection.lane_range.start,
+            selection.lane_range.end_exclusive,
+        ) {
+            Ok(lane_range) => lane_range,
+            Err(_) => {
+                self.clear_active_selection();
+                return;
+            }
+        };
+
         self.active_selection = Some(ActiveLinkedSelection {
-            visual_selection: VisualSelection::new(
+            visual_selection: VisualSelection::from_unsorted(
                 self.next_selection_id(),
                 TIMELINE_VIEW_ID,
-                VisualSelectionKind::TimelineRect,
                 VisualSelectionGeometry::TimelineRect {
                     time_range: selection.time_range,
-                    lane_range: CoreLaneRange::new(
-                        selection.lane_range.start,
-                        selection.lane_range.end_exclusive,
-                    ),
+                    lane_range,
                 },
                 selected_row_ids,
             ),

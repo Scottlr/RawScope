@@ -21,7 +21,7 @@ pub fn scatter_density(
             continue;
         };
 
-        grid.bin_mut(x_bin, y_bin).push(point.row_id);
+        let _ = grid.bin_mut(x_bin, y_bin).push(point.row_id);
     }
 
     grid
@@ -47,7 +47,7 @@ pub fn timeline_density(
             continue;
         };
 
-        grid.bin_mut(x_bin, y_bin).push(event.row_id);
+        let _ = grid.bin_mut(x_bin, y_bin).push(event.row_id);
     }
 
     grid

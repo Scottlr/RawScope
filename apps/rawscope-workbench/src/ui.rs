@@ -685,7 +685,7 @@ fn linked_selection_label(app: &WorkbenchApp) -> String {
         return "Linked selection idle".to_string();
     };
 
-    let source_view = match active_selection.visual_selection.kind {
+    let source_view = match active_selection.visual_selection.kind() {
         VisualSelectionKind::ScatterRect => "scatter",
         VisualSelectionKind::TimelineRect => "timeline",
     };
