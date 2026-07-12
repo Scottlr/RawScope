@@ -4,7 +4,7 @@ use std::{error::Error, fmt, mem::size_of, sync::mpsc::RecvError};
 
 use rawscope_core::{DensityCountGrid, GridSize, U64Range};
 use rawscope_data::TimelineEventRecord;
-use rawscope_gpu::ComputeContext;
+use rawscope_gpu::{ComputeContext, GpuResourcePlan};
 
 use crate::gpu_density_pipeline::{
     create_density_bind_group, create_density_bind_group_layout, create_density_compute_pipeline,
@@ -79,6 +79,7 @@ pub enum GpuTimelineDensityError {
         actual_bytes: usize,
     },
     DevicePoll(wgpu::PollError),
+    ResourcePlan(rawscope_gpu::GpuLimitError),
     InvalidConfiguration(&'static str),
 }
 
@@ -120,6 +121,7 @@ impl fmt::Display for GpuTimelineDensityError {
                 "GPU timeline-density readback buffer has {actual_bytes} bytes; expected {expected_bytes}"
             ),
             Self::DevicePoll(err) => write!(f, "failed while polling GPU device: {err}"),
+            Self::ResourcePlan(err) => write!(f, "invalid timeline GPU resource plan: {err}"),
             Self::InvalidConfiguration(reason) => {
                 write!(f, "invalid timeline density configuration: {reason}")
             }
@@ -136,6 +138,7 @@ impl Error for GpuTimelineDensityError {
             Self::BufferMap(err) => Some(err),
             Self::BufferMapCallbackDropped(err) => Some(err),
             Self::DevicePoll(err) => Some(err),
+            Self::ResourcePlan(err) => Some(err),
             Self::InvalidConfiguration(_) => None,
             Self::BufferMapCallbackTimedOut => None,
             Self::ReadbackSizeOverflow | Self::ReadbackBufferTooSmall { .. } => None,
@@ -211,7 +214,10 @@ pub fn gpu_timeline_density_on_device(
             event_count: events.len(),
         })?;
 
-    let grid_bin_count = (width as usize) * (height as usize);
+    let resource_plan = GpuResourcePlan::for_grid(width, height, &device.limits())
+        .map_err(GpuTimelineDensityError::ResourcePlan)?;
+    let grid_bin_count = usize::try_from(resource_plan.bin_count)
+        .map_err(|_| GpuTimelineDensityError::ReadbackSizeOverflow)?;
     if event_count == 0 {
         return Ok(GpuTimelineDensityGrid::new(
             width,
@@ -257,7 +263,11 @@ pub(crate) fn dispatch_timeline_density(
         })?;
     let timeline_span = timeline_span_u32(config.time_range)?;
 
-    let grid_bin_count = (config.grid_width as usize) * (config.grid_height as usize);
+    let resource_plan =
+        GpuResourcePlan::for_grid(config.grid_width, config.grid_height, &device.limits())
+            .map_err(GpuTimelineDensityError::ResourcePlan)?;
+    let grid_bin_count = usize::try_from(resource_plan.bin_count)
+        .map_err(|_| GpuTimelineDensityError::ReadbackSizeOverflow)?;
     let packed_events = pack_events(events, config.time_range)?;
     let event_buffer = create_storage_upload_buffer(
         device,
@@ -266,7 +276,7 @@ pub(crate) fn dispatch_timeline_density(
         bytemuck::cast_slice(&packed_events),
     );
 
-    let output_size_bytes = (grid_bin_count * std::mem::size_of::<u32>()) as u64;
+    let output_size_bytes = resource_plan.buffer_size_bytes;
     let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("RawScope Timeline Density Output Buffer"),
         size: output_size_bytes,
