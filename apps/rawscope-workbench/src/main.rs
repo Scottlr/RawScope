@@ -33,6 +33,7 @@ mod app_visual_encoding;
 mod app_visual_transition;
 mod app_window;
 mod cli;
+mod controllers;
 mod demo;
 #[expect(
     dead_code,
