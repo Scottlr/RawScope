@@ -2503,6 +2503,7 @@ dependencies = [
  "rawscope-data",
  "rawscope-session-contracts",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
