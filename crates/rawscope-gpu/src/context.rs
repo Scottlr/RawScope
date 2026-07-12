@@ -48,12 +48,11 @@ impl GpuContext {
                 .request_adapter(&adapter_policy.fallback_request_options(Some(&surface)))
                 .await
                 .map_err(GpuError::RequestAdapter)
-                .map_err(|fallback_error| {
+                .inspect_err(|_fallback_error| {
                     warn!(
                         ?error,
                         "preferred WGPU adapter unavailable; software fallback failed"
                     );
-                    fallback_error
                 })?,
             Err(error) => return Err(GpuError::RequestAdapter(error)),
         };
