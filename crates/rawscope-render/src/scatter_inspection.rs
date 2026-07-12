@@ -138,7 +138,7 @@ pub fn build_scatter_inspection_grid(
         })
         .ok_or(ScatterInspectionError::GridTooLarge)?;
     let mut bins = (0..bin_count)
-        .map(|_| MutableInspectionBin::new(config.max_row_ids_per_bin))
+        .map(|_| MutableInspectionBin::new())
         .collect::<Vec<_>>();
     for (point, included) in points.iter().zip(mask.as_gpu_u32_slice()) {
         if *included == 0 {
@@ -289,10 +289,10 @@ struct MutableInspectionBin {
 }
 
 impl MutableInspectionBin {
-    fn new(sample_limit: usize) -> Self {
+    fn new() -> Self {
         Self {
             count: 0,
-            row_ids: Vec::with_capacity(sample_limit),
+            row_ids: Vec::new(),
         }
     }
 
@@ -454,6 +454,13 @@ mod tests {
 
         assert_eq!(summary.hit.count, 3);
         assert_eq!(&*summary.hit.row_ids, &[RowId(2)]);
+    }
+
+    #[test]
+    fn empty_inspection_bins_do_not_reserve_sample_capacity() {
+        let bin = MutableInspectionBin::new();
+
+        assert_eq!(bin.row_ids.capacity(), 0);
     }
 
     fn build(
