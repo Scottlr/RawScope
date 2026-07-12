@@ -180,7 +180,7 @@ impl WorkbenchApp {
             .workbench_state
             .active_selection
             .as_ref()
-            .and_then(|selection| selection.snapshot.as_ref())
+            .and_then(|selection| selection.analysis_snapshot.as_ref())
             .cloned();
         self.scatter.selection_drilldown = snapshot
             .as_ref()
@@ -268,7 +268,7 @@ impl WorkbenchApp {
             .workbench_state
             .active_selection
             .as_ref()
-            .and_then(|active| active.snapshot.as_ref())?;
+            .and_then(|active| active.analysis_snapshot.as_ref())?;
         let total_row_count = self.scatter_filters.cohort_snapshot.as_ref().map_or_else(
             || {
                 self.scatter_filters

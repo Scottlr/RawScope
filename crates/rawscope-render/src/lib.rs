@@ -38,7 +38,6 @@ mod scatter_transition;
 mod scatter_viewport;
 mod selection_comparison;
 mod selection_drilldown;
-mod selection_snapshot;
 mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_resident;
@@ -179,7 +178,6 @@ pub use selection_drilldown::{
     timeline_selection_drilldown_snapshot, DrilldownColumn, DrilldownConfig, DrilldownRow,
     SelectionDrilldown,
 };
-pub use selection_snapshot::SelectionSnapshot;
 pub use timeline_brush::{TimelineBrushDrag, TimelineBrushSelection, TimelineSelectionSummary};
 pub use timeline_density_renderer::{
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineDensityRendererConfig,

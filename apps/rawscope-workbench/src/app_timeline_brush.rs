@@ -46,7 +46,7 @@ impl WorkbenchApp {
             self.workbench_state
                 .active_selection
                 .as_ref()
-                .and_then(|active| active.snapshot.as_ref()),
+                .and_then(|active| active.analysis_snapshot.as_ref()),
         ) {
             self.timeline.selection_summary = Some(TimelineSelectionSummary::from_snapshot(
                 &self.timeline.events,
@@ -195,7 +195,7 @@ impl WorkbenchApp {
             .workbench_state
             .active_selection
             .as_ref()
-            .and_then(|active| active.snapshot.as_ref())
+            .and_then(|active| active.analysis_snapshot.as_ref())
             .cloned();
         self.timeline.selection_drilldown = snapshot
             .as_ref()
