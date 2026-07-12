@@ -4,6 +4,7 @@ mod dataset;
 mod dataset_filter;
 mod dataset_profile;
 mod evidence_key;
+mod ingest;
 mod local_dataset;
 mod scatter_projection;
 mod store;
@@ -29,6 +30,10 @@ pub use dataset_profile::{
 pub use evidence_key::{
     validate_evidence_key, BoundDatasetEvidenceKey, BoundEvidenceKeyError, DatasetEvidenceKey,
     EvidenceKeyValidationError,
+};
+pub use ingest::{
+    CancellationCheck, ChunkRowCount, IngestionError, IngestionPlan, IngestionProgress,
+    IngestionRequest,
 };
 pub use local_dataset::{
     load_dataset_schema, load_parquet_scatter_dataset, load_parquet_timeline_dataset,
