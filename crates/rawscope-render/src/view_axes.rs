@@ -160,7 +160,7 @@ pub fn timeline_axes_context(
 }
 
 fn clamp_tick_count(requested: usize) -> usize {
-    requested.max(MIN_AXIS_TICK_COUNT)
+    requested.clamp(MIN_AXIS_TICK_COUNT, MAX_AXIS_TICKS)
 }
 
 fn nice_numeric_axis_ticks(
@@ -188,8 +188,17 @@ fn nice_numeric_axis_ticks(
     let step = step_factor * magnitude;
     let first = (range.min / step).ceil() * step;
     let mut ticks = Vec::new();
-    let mut value = first;
-    while value <= range.max + step * 0.0001 && ticks.len() < MAX_AXIS_TICKS {
+    let interval_limit = MAX_AXIS_TICKS.saturating_sub(1);
+    for tick_index in 0..=interval_limit {
+        let value = first + (tick_index as f32 * step);
+        if !value.is_finite() || value > range.max + step * 0.0001 {
+            break;
+        }
+        if ticks.last().is_some_and(|tick: &AxisTick| {
+            tick.fraction >= ((value - range.min) / span).clamp(0.0, 1.0)
+        }) {
+            break;
+        }
         let fraction = ((value - range.min) / span).clamp(0.0, 1.0);
         let label = format_axis_value(value, format);
         if ticks
@@ -198,7 +207,6 @@ fn nice_numeric_axis_ticks(
         {
             ticks.push(AxisTick { fraction, label });
         }
-        value += step;
     }
     ticks
 }
@@ -213,7 +221,7 @@ fn u64_axis_ticks(
         return Vec::new();
     }
 
-    let span = (max - min) as f64;
+    let span = u128::from(max) - u128::from(min);
     let last_index = tick_count - 1;
     let last_index_f64 = last_index as f64;
 
@@ -224,13 +232,13 @@ fn u64_axis_ticks(
             } else {
                 (tick_index as f64) / last_index_f64
             };
-            let scaled = (span * fraction).round();
             let value = if last_index == 0 {
                 min
             } else {
-                let upper = max as f64;
-                let candidate = (min as f64 + scaled).clamp(min as f64, upper);
-                candidate as u64
+                let numerator = span * u128::from(tick_index as u64);
+                let denominator = u128::from(last_index as u64);
+                let offset = (numerator + denominator / 2) / denominator;
+                u64::try_from(u128::from(min) + offset).unwrap_or(max)
             };
             AxisTick {
                 fraction: (fraction as f32).clamp(0.0, 1.0),

@@ -130,3 +130,32 @@ fn timeline_axis_ticks_and_lane_labels_remain_bounded() {
     assert_eq!(context.lanes.first().unwrap().label, "lane-0");
     assert_eq!(context.lanes.last().unwrap().label, "lane-7");
 }
+
+#[test]
+fn timeline_ticks_preserve_u64_endpoints_without_float_rounding() {
+    let min = u64::MAX - 4;
+    let max = u64::MAX - 1;
+    let context = timeline_axes_context(U64Range::new(min, max), 1, &[], 20, 20);
+
+    assert!(context.time.ticks.len() <= 9);
+    assert_eq!(context.time.ticks.first().unwrap().label, min.to_string());
+    assert_eq!(context.time.ticks.last().unwrap().label, max.to_string());
+}
+
+#[test]
+fn oversized_tick_requests_are_capped_and_adjacent_float_values_terminate() {
+    let context = scatter_axes_context(
+        F32Range::new(16_777_216.0, 16_777_218.0),
+        F32Range::new(0.0, 1.0),
+        "x",
+        "y",
+        usize::MAX,
+    );
+
+    assert!(context.x.ticks.len() <= 9);
+    assert!(context
+        .x
+        .ticks
+        .windows(2)
+        .all(|pair| pair[0].fraction < pair[1].fraction));
+}
