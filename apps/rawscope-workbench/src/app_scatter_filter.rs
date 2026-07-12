@@ -1,5 +1,9 @@
 //! Scatter filter catalog, evaluation, and cohort revision coordination.
 
+use rawscope_analysis::cohort::{
+    CohortBuilder, CohortGenerationCounter, CohortPolicy, CohortSnapshot,
+};
+use rawscope_data::DatasetGeneration;
 use rawscope_data::{
     available_profile_filter_hints, build_visual_field_catalog, dataset_profile, evaluate_filters,
     DatasetFilter, DatasetProfileId, FilterEvaluation, FilterRevision, FilterSet,
@@ -10,7 +14,7 @@ use crate::{app::WorkbenchApp, ui::ExportStatus, ui_filters::FilterAction};
 
 const DEFAULT_EXPANDED_FILTER_COUNT: usize = 4;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct ScatterFilterState {
     pub(crate) catalog: Option<VisualFieldCatalog>,
     pub(crate) filters: FilterSet,
@@ -18,12 +22,36 @@ pub(crate) struct ScatterFilterState {
     pub(crate) last_uploaded_revision: FilterRevision,
     pub(crate) visible_columns: Vec<String>,
     pub(crate) error: Option<String>,
+    pub(crate) cohort_snapshot: Option<CohortSnapshot>,
+    pub(crate) cohort_builder: CohortBuilder,
+    pub(crate) cohort_generations: CohortGenerationCounter,
+    pub(crate) dataset_generation: DatasetGeneration,
+}
+
+impl Default for ScatterFilterState {
+    fn default() -> Self {
+        Self {
+            catalog: None,
+            filters: FilterSet::default(),
+            evaluation: None,
+            last_uploaded_revision: FilterRevision::default(),
+            visible_columns: Vec::new(),
+            error: None,
+            cohort_snapshot: None,
+            cohort_builder: CohortBuilder::new(CohortPolicy::default()),
+            cohort_generations: CohortGenerationCounter::default(),
+            dataset_generation: rawscope_data::DatasetGenerationCounter::default().mint(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedFilterState {
     pub(crate) filters: FilterSet,
     pub(crate) evaluation: FilterEvaluation,
+    pub(crate) cohort_snapshot: CohortSnapshot,
+    pub(crate) cohort_builder: CohortBuilder,
+    pub(crate) cohort_generations: CohortGenerationCounter,
 }
 
 impl ScatterFilterState {
@@ -43,6 +71,17 @@ impl ScatterFilterState {
             .collect();
         let filters = FilterSet::default();
         let evaluation = evaluate_filters(source, &catalog, &filters).ok();
+        let mut cohort_builder = CohortBuilder::new(CohortPolicy::default());
+        let mut cohort_generations = CohortGenerationCounter::default();
+        let dataset_generation = rawscope_data::DatasetGenerationCounter::default().mint();
+        let cohort_snapshot = cohort_builder
+            .evaluate(
+                source,
+                &catalog,
+                dataset_generation,
+                &mut cohort_generations,
+            )
+            .ok();
         *self = Self {
             catalog: Some(catalog),
             filters,
@@ -50,6 +89,10 @@ impl ScatterFilterState {
             last_uploaded_revision: FilterRevision::default(),
             visible_columns,
             error: None,
+            cohort_snapshot,
+            cohort_builder,
+            cohort_generations,
+            dataset_generation,
         };
     }
 
@@ -140,6 +183,9 @@ impl WorkbenchApp {
         self.scatter_filters.last_uploaded_revision = evaluation_revision;
         self.scatter_filters.filters = next_filters;
         self.scatter_filters.evaluation = Some(evaluation);
+        self.scatter_filters.cohort_snapshot = Some(prepared.cohort_snapshot);
+        self.scatter_filters.cohort_builder = prepared.cohort_builder;
+        self.scatter_filters.cohort_generations = prepared.cohort_generations;
         self.scatter_filters.error = None;
         if !difference_remains_available {
             self.scatter.density_mode = rawscope_render::ScatterDensityMode::AbsoluteDensity;
@@ -166,7 +212,7 @@ impl WorkbenchApp {
             return Ok(None);
         }
         let mut next_filters = self.scatter_filters.filters.clone();
-        match action {
+        match action.clone() {
             FilterAction::SetNumericRange {
                 column_name,
                 min_inclusive,
@@ -198,9 +244,49 @@ impl WorkbenchApp {
         }
         let evaluation =
             evaluate_filters(source, catalog, &next_filters).map_err(|err| err.to_string())?;
+        let mut cohort_builder = self.scatter_filters.cohort_builder.clone();
+        let mut cohort_generations = self.scatter_filters.cohort_generations;
+        match action {
+            FilterAction::SetNumericRange {
+                column_name,
+                min_inclusive,
+                max_inclusive,
+                include_missing,
+            } => cohort_builder.replace_filter(DatasetFilter::NumericRange {
+                column_name,
+                min_inclusive,
+                max_inclusive,
+                include_missing,
+            }),
+            FilterAction::SetCategories {
+                column_name,
+                included_values,
+                include_missing,
+            } => cohort_builder.replace_filter(DatasetFilter::Categories {
+                column_name,
+                included_values,
+                include_missing,
+            }),
+            FilterAction::RemoveColumn { column_name } => {
+                cohort_builder.remove_column(&column_name);
+            }
+            FilterAction::ClearAll => cohort_builder.clear(),
+            FilterAction::AddColumn { .. } => unreachable!("handled above"),
+        }
+        let cohort_snapshot = cohort_builder
+            .evaluate(
+                source,
+                catalog,
+                self.scatter_filters.dataset_generation,
+                &mut cohort_generations,
+            )
+            .map_err(|err| err.to_string())?;
         Ok(Some(PreparedFilterState {
             filters: next_filters,
             evaluation,
+            cohort_snapshot,
+            cohort_builder,
+            cohort_generations,
         }))
     }
 }
@@ -290,6 +376,13 @@ mod tests {
                 .included_count,
             1
         );
+        let cohort = app
+            .scatter_filters
+            .cohort_snapshot
+            .as_ref()
+            .expect("successful filter changes publish a cohort snapshot");
+        assert_eq!(cohort.included_row_ids(), &[RowId(0)]);
+        assert_eq!(cohort.included_row_count(), 1);
         assert!(app.render_schedule.is_refining());
     }
 
