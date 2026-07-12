@@ -336,4 +336,48 @@ mod tests {
         ));
         assert!(Arc::ptr_eq(state.active().unwrap(), &first));
     }
+
+    #[test]
+    fn mismatched_projection_keeps_previous_active_arc() {
+        let mut state = ActiveWorkbenchState::default();
+        let first = state.commit(candidate()).unwrap();
+        let mut stale = candidate();
+        let mut datasets = DatasetGenerationCounter::default();
+        let _ = datasets.mint();
+        stale.projection = WorkbenchProjection::timeline(datasets.mint());
+
+        assert!(matches!(
+            state.commit(stale),
+            Err(ActiveGenerationError::ProjectionDatasetMismatch { .. })
+        ));
+        assert!(Arc::ptr_eq(state.active().unwrap(), &first));
+    }
+
+    #[test]
+    fn mismatched_render_dataset_keeps_previous_active_arc() {
+        let mut state = ActiveWorkbenchState::default();
+        let first = state.commit(candidate()).unwrap();
+        let mut stale = candidate();
+        stale.render.viewport.dataset_generation += 1;
+
+        assert!(matches!(
+            state.commit(stale),
+            Err(ActiveGenerationError::RenderDatasetMismatch { .. })
+        ));
+        assert!(Arc::ptr_eq(state.active().unwrap(), &first));
+    }
+
+    #[test]
+    fn mismatched_render_cohort_keeps_previous_active_arc() {
+        let mut state = ActiveWorkbenchState::default();
+        let first = state.commit(candidate()).unwrap();
+        let mut stale = candidate();
+        stale.render.viewport.cohort_generation += 1;
+
+        assert!(matches!(
+            state.commit(stale),
+            Err(ActiveGenerationError::RenderCohortMismatch { .. })
+        ));
+        assert!(Arc::ptr_eq(state.active().unwrap(), &first));
+    }
 }
