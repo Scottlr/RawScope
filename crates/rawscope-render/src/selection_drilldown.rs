@@ -1,5 +1,6 @@
 //! CPU-backed row drilldown for finalized scatter and timeline selections.
 
+use rawscope_analysis::drilldown::{DrilldownCompleteness, SourceUnavailability};
 use rawscope_core::RowId;
 use rawscope_data::{
     FilterMask, LoadedSourceRow, LoadedSourceTable, ScatterPointKind, ScatterPointRecord,
@@ -45,12 +46,21 @@ pub fn scatter_selection_drilldown_masked(
             insert_lowest_row_id_sample(&mut rows, row, config.max_rows);
         }
     }
+    let displayed_row_count = rows.len();
+    let rows_are_sampled = selected_row_count > displayed_row_count;
     Ok(SelectionDrilldown {
         selected_row_count,
-        displayed_row_count: rows.len(),
-        rows_are_sampled: selected_row_count > rows.len(),
+        displayed_row_count,
+        rows_are_sampled,
         columns,
         rows,
+        completeness: DrilldownCompleteness::new(
+            selected_row_count as u64,
+            selected_row_count as u64,
+            displayed_row_count as u64,
+            rows_are_sampled,
+            Vec::new(),
+        ),
     })
 }
 
@@ -65,24 +75,37 @@ pub fn scatter_selection_drilldown_snapshot(
         .map(source_columns)
         .unwrap_or_else(scatter_fallback_columns);
     let mut rows = Vec::new();
+    let mut unavailable = Vec::new();
     for point in points {
         if snapshot.row_ids().binary_search(&point.row_id).is_err() {
             continue;
         }
         let row = match source_rows {
-            Some(table) => source_row(table, point.row_id),
+            Some(table) => source_row(table, point.row_id).or_else(|| {
+                unavailable.push(SourceUnavailability::new(point.row_id));
+                None
+            }),
             None => Some(scatter_fallback_row(point)),
         };
         if let Some(row) = row {
             insert_lowest_row_id_sample(&mut rows, row, config.max_rows);
         }
     }
+    let displayed_row_count = rows.len();
+    let rows_are_sampled = snapshot.selected_count() > displayed_row_count;
     SelectionDrilldown {
         selected_row_count: snapshot.selected_count(),
-        displayed_row_count: rows.len(),
-        rows_are_sampled: snapshot.selected_count() > rows.len(),
+        displayed_row_count,
+        rows_are_sampled,
         columns,
         rows,
+        completeness: DrilldownCompleteness::new(
+            snapshot.selected_count() as u64,
+            snapshot.selected_count() as u64,
+            displayed_row_count as u64,
+            rows_are_sampled,
+            unavailable,
+        ),
     }
 }
 
@@ -121,6 +144,7 @@ pub struct SelectionDrilldown {
     pub rows_are_sampled: bool,
     pub columns: Vec<DrilldownColumn>,
     pub rows: Vec<DrilldownRow>,
+    pub completeness: DrilldownCompleteness,
 }
 
 /// Builds deterministic drilldown rows from a finalized scatter selection.
@@ -180,24 +204,37 @@ pub fn timeline_selection_drilldown_snapshot(
         .map(source_columns)
         .unwrap_or_else(timeline_fallback_columns);
     let mut rows = Vec::new();
+    let mut unavailable = Vec::new();
     for event in events {
         if snapshot.row_ids().binary_search(&event.row_id).is_err() {
             continue;
         }
         let row = match source_rows {
-            Some(table) => source_row(table, event.row_id),
+            Some(table) => source_row(table, event.row_id).or_else(|| {
+                unavailable.push(SourceUnavailability::new(event.row_id));
+                None
+            }),
             None => Some(timeline_fallback_row(event)),
         };
         if let Some(row) = row {
             insert_lowest_row_id_sample(&mut rows, row, config.max_rows);
         }
     }
+    let displayed_row_count = rows.len();
+    let rows_are_sampled = snapshot.selected_count() > displayed_row_count;
     SelectionDrilldown {
         selected_row_count: snapshot.selected_count(),
-        displayed_row_count: rows.len(),
-        rows_are_sampled: snapshot.selected_count() > rows.len(),
+        displayed_row_count,
+        rows_are_sampled,
         columns,
         rows,
+        completeness: DrilldownCompleteness::new(
+            snapshot.selected_count() as u64,
+            snapshot.selected_count() as u64,
+            displayed_row_count as u64,
+            rows_are_sampled,
+            unavailable,
+        ),
     }
 }
 
@@ -231,6 +268,13 @@ fn build_selection_drilldown<T>(
         rows_are_sampled,
         columns,
         rows,
+        completeness: DrilldownCompleteness::new(
+            selected_row_count as u64,
+            selected_row_count as u64,
+            displayed_row_count as u64,
+            rows_are_sampled,
+            Vec::new(),
+        ),
     }
 }
 

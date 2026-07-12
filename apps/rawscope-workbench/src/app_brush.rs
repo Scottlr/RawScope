@@ -484,6 +484,13 @@ mod tests {
             rows_are_sampled: false,
             columns: vec![],
             rows: vec![],
+            completeness: rawscope_analysis::drilldown::DrilldownCompleteness::new(
+                1,
+                1,
+                1,
+                false,
+                Vec::new(),
+            ),
         });
 
         app.clear_brush();
