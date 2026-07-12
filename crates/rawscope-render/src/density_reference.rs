@@ -1,5 +1,8 @@
 //! CPU reference density implementations for deterministic testing.
 
+use std::num::NonZeroU32;
+
+use rawscope_analysis::density::{bin_f32, bin_u64, BinIndex, BinPlacement};
 use rawscope_core::{DensityGrid, F32Range, GridSize, U64Range};
 use rawscope_data::{ScatterPointRecord, TimelineEventRecord};
 
@@ -14,10 +17,10 @@ pub fn scatter_density(
     let mut grid = DensityGrid::new(GridSize::new(width, height));
 
     for point in points {
-        let Some(x_bin) = bin_f32(point.x, x_range, width) else {
+        let Some(x_bin) = in_domain_bin(bin_f32(point.x, x_range, non_zero_bins(width))) else {
             continue;
         };
-        let Some(y_bin) = bin_f32(point.y, y_range, height) else {
+        let Some(y_bin) = in_domain_bin(bin_f32(point.y, y_range, non_zero_bins(height))) else {
             continue;
         };
 
@@ -40,7 +43,8 @@ pub fn timeline_density(
     let mut grid = DensityGrid::new(GridSize::new(width, height));
 
     for event in events {
-        let Some(x_bin) = bin_u64(event.timestamp, time_range, width) else {
+        let Some(x_bin) = in_domain_bin(bin_u64(event.timestamp, time_range, non_zero_bins(width)))
+        else {
             continue;
         };
         let Some(y_bin) = bin_lane(event.lane, lane_count, height) else {
@@ -53,32 +57,17 @@ pub fn timeline_density(
     grid
 }
 
-fn bin_f32(value: f32, range: F32Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
-    }
-
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-
-    let normalized = (value - range.min) / range.span();
-    let raw_bin = (normalized * bin_count as f32).floor() as u32;
-    Some(raw_bin.min(bin_count - 1))
+fn non_zero_bins(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("density grid dimensions are validated by GridSize")
 }
 
-fn bin_u64(value: u64, range: U64Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
+fn in_domain_bin(
+    result: Result<BinPlacement, rawscope_analysis::density::BinningError>,
+) -> Option<u32> {
+    match result.ok()? {
+        BinPlacement::InDomain(BinIndex(index)) => Some(index),
+        BinPlacement::BeforeDomain | BinPlacement::AfterDomain => None,
     }
-
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-
-    let normalized = (value - range.min) as f64 / range.span() as f64;
-    let raw_bin = (normalized * bin_count as f64).floor() as u32;
-    Some(raw_bin.min(bin_count - 1))
 }
 
 fn bin_lane(lane: u32, lane_count: u32, height: u32) -> Option<u32> {
