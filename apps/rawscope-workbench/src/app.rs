@@ -74,7 +74,6 @@ pub struct WorkbenchApp {
     pub(crate) scatter_inspection_overlay_renderer: Option<ScatterInspectionOverlayRenderer>,
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
-    pub(crate) active_dataset_profile: Option<rawscope_data::DatasetProfileId>,
     pub(crate) pending_session: Option<PendingSessionContext>,
     pub(crate) active_session: Option<ActiveSessionContext>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
@@ -292,7 +291,7 @@ impl WorkbenchApp {
             self.initialize_scatter_difference(gpu, &dataset.points, renderer_config)?;
 
             self.dataset_identity = Some(dataset.identity);
-            self.active_dataset_profile = resolved_binding.active_profile;
+            self.workbench_state.active_dataset_profile = resolved_binding.active_profile;
             self.workbench_state.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
             self.clear_active_selection();
@@ -364,7 +363,7 @@ impl WorkbenchApp {
         self.scatter.active_preset = active_preset;
         self.scatter.point_count_label = active_preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
-        self.active_dataset_profile = None;
+        self.workbench_state.active_dataset_profile = None;
         self.workbench_state.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.scatter.points = dataset.points;

@@ -44,6 +44,7 @@ fn scatter_inspection_ui_state_with_pin(
     include_pinned: bool,
 ) -> Option<ScatterInspectionUiState> {
     let (x_label, y_label) = app
+        .workbench_state
         .active_dataset_profile
         .and_then(|profile_id| dataset_profile(profile_id).scatter_binding)
         .map(|binding| (binding.x_column.to_string(), binding.y_column.to_string()))

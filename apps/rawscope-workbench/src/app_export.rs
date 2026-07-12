@@ -211,7 +211,7 @@ impl WorkbenchApp {
                 aggregate_overview,
                 &evidence_v2.selected_row_id_sample,
             ),
-            self.active_dataset_profile,
+            self.workbench_state.active_dataset_profile,
         ))
     }
 
@@ -364,7 +364,7 @@ impl WorkbenchApp {
                 aggregate_overview,
                 &evidence_v2.selected_row_id_sample,
             ),
-            self.active_dataset_profile,
+            self.workbench_state.active_dataset_profile,
         ))
     }
 }

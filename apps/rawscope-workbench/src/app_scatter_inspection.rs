@@ -227,7 +227,7 @@ impl WorkbenchApp {
         bin_row_count: u32,
     ) -> Vec<PinnedCategorySummary> {
         let (Some(profile_id), Some(catalog), Some(source)) = (
-            self.active_dataset_profile,
+            self.workbench_state.active_dataset_profile,
             self.scatter_filters.catalog.as_ref(),
             self.scatter.source_rows.as_ref(),
         ) else {

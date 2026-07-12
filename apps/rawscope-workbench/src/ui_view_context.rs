@@ -52,9 +52,10 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
                 )
             };
 
-            let use_rating_axes =
-                app.active_dataset_profile == Some(rawscope_data::DatasetProfileId::LichessGames);
+            let use_rating_axes = app.workbench_state.active_dataset_profile
+                == Some(rawscope_data::DatasetProfileId::LichessGames);
             let show_equality_guide = app
+                .workbench_state
                 .active_dataset_profile
                 .map(dataset_profile)
                 .is_some_and(|profile| profile.scatter_defaults.show_equality_guide);
