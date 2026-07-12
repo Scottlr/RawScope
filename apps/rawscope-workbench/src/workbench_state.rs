@@ -4,6 +4,7 @@ use crate::{
     active_generation::ActiveWorkbenchState, degraded_state::DegradedStateStore, ui::ExportStatus,
     ui_projection_cache::UiProjectionCache,
 };
+use rawscope_render::DatasetDiffSummary;
 
 #[derive(Debug, Default)]
 pub(crate) struct WorkbenchState {
@@ -12,6 +13,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) ui_projection_cache: UiProjectionCache,
     pub(crate) export_status: ExportStatus,
     pub(crate) evidence_export_counter: u64,
+    pub(crate) dataset_diff_summary: Option<DatasetDiffSummary>,
 }
 
 #[cfg(test)]

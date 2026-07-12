@@ -12,13 +12,13 @@ use rawscope_data::{
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, BrushScreenPoint, DatasetDiffSummary, DensityEncoding,
-    ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
-    ScatterBrushSelection, ScatterDensityMode, ScatterDensityPresentation,
-    ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
-    ScatterDifferenceRenderStats, ScatterDifferenceRenderer, ScatterInspectionOverlayRenderer,
-    ScatterMarginalSummary, ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary,
-    SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    scatter_marginal_summary, BrushScreenPoint, DensityEncoding, ReliefFieldConfig,
+    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterDensityRenderStats,
+    ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDifferenceRenderStats,
+    ScatterDifferenceRenderer, ScatterInspectionOverlayRenderer, ScatterMarginalSummary,
+    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
@@ -87,7 +87,6 @@ pub struct WorkbenchApp {
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
-    pub(crate) dataset_diff_summary: Option<DatasetDiffSummary>,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,

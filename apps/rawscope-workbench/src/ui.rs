@@ -475,7 +475,7 @@ impl WorkbenchApp {
 
 fn view_label(app: &WorkbenchApp) -> String {
     if app.visible_surface == WorkbenchSurface::DatasetDiff {
-        let Some(summary) = app.dataset_diff_summary.as_ref() else {
+        let Some(summary) = app.workbench_state.dataset_diff_summary.as_ref() else {
             return "Dataset diff unavailable".to_string();
         };
         return format!(
@@ -548,7 +548,7 @@ fn view_label(app: &WorkbenchApp) -> String {
 
 fn selection_label(app: &WorkbenchApp) -> String {
     if app.visible_surface == WorkbenchSurface::DatasetDiff {
-        let Some(summary) = app.dataset_diff_summary.as_ref() else {
+        let Some(summary) = app.workbench_state.dataset_diff_summary.as_ref() else {
             return "Dataset diff unavailable".to_string();
         };
         return format!(
@@ -611,7 +611,7 @@ fn selection_label(app: &WorkbenchApp) -> String {
 
 fn axis_labels(app: &WorkbenchApp) -> (String, String) {
     if app.visible_surface == WorkbenchSurface::DatasetDiff {
-        let Some(summary) = app.dataset_diff_summary.as_ref() else {
+        let Some(summary) = app.workbench_state.dataset_diff_summary.as_ref() else {
             return (
                 "dataset diff unavailable".to_string(),
                 "dataset diff unavailable".to_string(),
@@ -727,7 +727,7 @@ fn missingness_ui_state(app: &WorkbenchApp) -> Option<MissingnessUiState> {
 }
 
 fn dataset_diff_ui_state(app: &WorkbenchApp) -> Option<DatasetDiffUiState> {
-    let summary = app.dataset_diff_summary.clone()?;
+    let summary = app.workbench_state.dataset_diff_summary.clone()?;
     let before_label = app
         .input
         .as_ref()
