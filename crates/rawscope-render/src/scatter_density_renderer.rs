@@ -4,7 +4,7 @@ use rawscope_core::F32Range;
 use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
 
 use crate::density_render_pipeline::create_density_render_pipeline;
-use crate::gpu_scatter_density::GpuScatterDensityError;
+use crate::gpu_scatter_density::{GpuScatterDensityError, GpuScatterDensityGrid};
 use crate::{
     DensityEncoding, DensityFieldViewport, DensityQualityTier, DensityReadbackPolicy, PlotRectPx,
     ReliefFieldConfig, ScatterDensityGpuState, ScatterDensityPresentation, ScatterDensityUpdate,
@@ -253,6 +253,27 @@ impl ScatterDensityRenderer {
         self.transition_progress = 0.0;
 
         Ok(self.stats)
+    }
+
+    /// Starts a nonblocking full-count readback for the resident active field.
+    pub fn begin_full_readback(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Result<(), GpuScatterDensityError> {
+        self.gpu_state.begin_full_readback(device, queue)
+    }
+
+    /// Advances a previously started full-count readback without waiting.
+    pub fn poll_full_readback(
+        &mut self,
+        device: &wgpu::Device,
+    ) -> Result<Option<GpuScatterDensityGrid>, GpuScatterDensityError> {
+        self.gpu_state.poll_full_readback(device).map(|counts| {
+            counts.map(|counts| {
+                GpuScatterDensityGrid::new(self.config.grid_width, self.config.grid_height, counts)
+            })
+        })
     }
 
     pub fn set_display_viewport(
