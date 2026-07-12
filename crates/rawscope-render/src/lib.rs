@@ -39,7 +39,7 @@ mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_resident;
 mod timeline_selection_evidence;
-mod timeline_selection_export_v3;
+mod timeline_selection_export_v3_helpers;
 mod timeline_viewport;
 mod view_axes;
 mod view_summaries;
@@ -89,6 +89,10 @@ pub use rawscope_evidence::{
 pub use rawscope_evidence::{
     scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
     ScatterSelectionExportError, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+};
+pub use rawscope_evidence::{
+    timeline_selection_evidence_v3_json, timeline_selection_evidence_v3_markdown,
+    TimelineSelectionExportError, TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
 };
 pub use rawscope_evidence::{
     AggregateEvidenceBin, ScatterAggregateEvidenceContext, TimelineAggregateEvidenceContext,
@@ -194,11 +198,7 @@ pub use timeline_resident::{
     TimelineResidentState, TimelineUpdateQuality, TimelineUpdateRequest,
 };
 pub use timeline_selection_evidence::timeline_selection_evidence_from_events;
-pub use timeline_selection_export_v3::{
-    timeline_aggregate_evidence_context, timeline_selection_evidence_v3_json,
-    timeline_selection_evidence_v3_markdown, TimelineSelectionExportError,
-    TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
-};
+pub use timeline_selection_export_v3_helpers::timeline_aggregate_evidence_context;
 pub use timeline_viewport::TimelineViewport;
 pub use view_axes::{
     format_axis_value, scatter_axes_context, scatter_axes_context_with_options,

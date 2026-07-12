@@ -18,6 +18,7 @@ mod schema;
 mod timeline_selection_evidence;
 mod timeline_selection_evidence_v3;
 mod timeline_selection_export;
+mod timeline_selection_export_v3;
 pub mod wire;
 
 pub use evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
@@ -85,4 +86,8 @@ pub use timeline_selection_export::{
     timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
     TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
     TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+};
+pub use timeline_selection_export_v3::{
+    timeline_selection_evidence_v3_json, timeline_selection_evidence_v3_markdown,
+    TimelineSelectionExportError, TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
 };
