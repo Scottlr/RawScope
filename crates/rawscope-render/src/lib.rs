@@ -43,6 +43,7 @@ mod selection_drilldown;
 mod selection_snapshot;
 mod timeline_brush;
 mod timeline_density_renderer;
+mod timeline_resident;
 mod timeline_selection_evidence;
 mod timeline_selection_evidence_v3;
 mod timeline_selection_export;
@@ -183,6 +184,10 @@ pub use timeline_brush::{
 };
 pub use timeline_density_renderer::{
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineDensityRendererConfig,
+};
+pub use timeline_resident::{
+    PendingTimelineField, TimelineFieldGeneration, TimelineFieldState, TimelineResidentError,
+    TimelineResidentState, TimelineUpdateQuality, TimelineUpdateRequest,
 };
 pub use timeline_selection_evidence::{
     SelectedTimelineEventSample, SelectedTimelineEventSampleV2, TimelineEvidenceConfig,
