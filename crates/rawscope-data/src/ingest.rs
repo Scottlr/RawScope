@@ -196,7 +196,10 @@ impl IngestionPlan {
             if cancel.is_cancelled() {
                 return Err(IngestionError::Cancelled { rows_processed });
             }
-            let chunk_end = (chunk_start + self.chunk_rows.get()).min(self.source.rows.len());
+            let chunk_end = chunk_start
+                .checked_add(self.chunk_rows.get())
+                .ok_or(IngestionError::RowCountOverflow)?
+                .min(self.source.rows.len());
             let chunk = self.build_chunk(chunk_start, chunk_end)?;
             builder.append_chunk(chunk)?;
             rows_processed =
@@ -210,6 +213,8 @@ impl IngestionPlan {
     }
 
     fn build_chunk(&self, start: usize, end: usize) -> Result<DatasetChunk, IngestionError> {
+        let row_id_start =
+            RowId(u64::try_from(start).map_err(|_| IngestionError::RowCountOverflow)?);
         let columns = self
             .source
             .columns
@@ -232,7 +237,7 @@ impl IngestionPlan {
                 ColumnChunk::new(column_id, cells)
             })
             .collect();
-        Ok(DatasetChunk::new(RowId(start as u64), columns))
+        Ok(DatasetChunk::new(row_id_start, columns))
     }
 }
 
