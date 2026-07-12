@@ -121,6 +121,7 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) selection_summary: Option<SelectedRegionSummary>,
     pub(crate) selection_evidence: Option<ScatterSelectionEvidence>,
     pub(crate) selection_drilldown: Option<SelectionDrilldown>,
+    pub(crate) pending_exact_readback: Option<crate::app_render_schedule::PendingExactReadback>,
 }
 
 /// Timeline-specific workbench state.
@@ -168,6 +169,7 @@ impl Default for ScatterWorkbenchState {
             selection_summary: None,
             selection_evidence: None,
             selection_drilldown: None,
+            pending_exact_readback: None,
         }
     }
 }

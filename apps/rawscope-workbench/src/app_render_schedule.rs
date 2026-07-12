@@ -45,6 +45,11 @@ pub(crate) enum ScheduledDensityWork {
     Exact { revision: u64 },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PendingExactReadback {
+    pub(crate) work: ScheduledDensityWork,
+}
+
 pub(crate) struct RenderSchedule {
     phase: InteractiveDensityPhase,
     config: InteractiveDensityConfig,
@@ -214,6 +219,42 @@ impl WorkbenchApp {
         {
             return Ok(());
         }
+
+        if let Some(pending) = self.scatter.pending_exact_readback {
+            let poll_result = {
+                let gpu = self.gpu.as_ref().expect("GPU checked above");
+                let renderer = self
+                    .scatter
+                    .density_renderer
+                    .as_mut()
+                    .expect("density renderer checked above");
+                renderer.poll_full_readback(gpu.device())
+            };
+            match poll_result {
+                Ok(None) => {
+                    self.request_redraw();
+                    return Ok(());
+                }
+                Ok(Some(_counts)) => {
+                    self.scatter.pending_exact_readback = None;
+                    if self.render_schedule.work_completed(pending.work) {
+                        self.refresh_scatter_marginal_summary();
+                        self.rebuild_scatter_inspection_cache();
+                        self.invalidate_scatter_point_reveal();
+                        self.update_window_title();
+                        self.begin_visual_transition(
+                            rawscope_render::TransitionKind::DensityRefresh,
+                        );
+                    }
+                    return Ok(());
+                }
+                Err(err) => {
+                    self.scatter.pending_exact_readback = None;
+                    self.render_schedule.work_failed(pending.work);
+                    return Err(err.into());
+                }
+            }
+        }
         let Some(work) = self.render_schedule.next_work(now_ms) else {
             return Ok(());
         };
@@ -231,7 +272,7 @@ impl WorkbenchApp {
                 DEMO_GRID_WIDTH,
                 DEMO_GRID_HEIGHT,
                 DensityQualityTier::Exact,
-                DensityReadbackPolicy::FullCounts,
+                DensityReadbackPolicy::None,
                 revision,
             ),
         };
@@ -293,6 +334,26 @@ impl WorkbenchApp {
             )?);
             self.scatter.difference_baseline_dirty = false;
         }
+
+        if matches!(work, ScheduledDensityWork::Exact { .. }) {
+            let begin_result = {
+                let gpu = self.gpu.as_ref().expect("GPU checked above");
+                let renderer = self
+                    .scatter
+                    .density_renderer
+                    .as_mut()
+                    .expect("density renderer checked above");
+                renderer.begin_full_readback(gpu.device(), gpu.queue())
+            };
+            if let Err(err) = begin_result {
+                self.render_schedule.work_failed(work);
+                return Err(err.into());
+            }
+            self.scatter.pending_exact_readback = Some(PendingExactReadback { work });
+            self.request_redraw();
+            return Ok(());
+        }
+
         let settled = self.render_schedule.work_completed(work);
         if settled {
             self.refresh_scatter_marginal_summary();
