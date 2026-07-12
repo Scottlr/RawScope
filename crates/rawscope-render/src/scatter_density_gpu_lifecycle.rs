@@ -45,18 +45,23 @@ impl ScatterDensityGpuState {
         mask: &[u32],
         revision: FilterRevision,
     ) -> Result<bool, GpuScatterDensityError> {
-        if mask.len() != self.point_count as usize {
-            return Err(GpuScatterDensityError::FilterMaskLengthMismatch {
-                point_count: self.point_count as usize,
-                mask_len: mask.len(),
-            });
-        }
+        self.validate_filter_mask(mask)?;
         if self.filter_revision == revision {
             return Ok(false);
         }
         queue.write_buffer(&self.filter_mask_buffer, 0, bytemuck::cast_slice(mask));
         self.filter_revision = revision;
         Ok(true)
+    }
+
+    pub fn validate_filter_mask(&self, mask: &[u32]) -> Result<(), GpuScatterDensityError> {
+        if mask.len() != self.point_count as usize {
+            return Err(GpuScatterDensityError::FilterMaskLengthMismatch {
+                point_count: self.point_count as usize,
+                mask_len: mask.len(),
+            });
+        }
+        Ok(())
     }
 
     pub fn filter_revision(&self) -> FilterRevision {
