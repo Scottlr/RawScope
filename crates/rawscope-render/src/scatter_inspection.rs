@@ -1,7 +1,8 @@
 //! Settled scatter-density inspection cache with bounded row evidence.
 
-use std::{collections::BTreeMap, error::Error, fmt, sync::Arc};
+use std::{collections::BTreeMap, error::Error, fmt, num::NonZeroU32, sync::Arc};
 
+use rawscope_analysis::density::{bin_f32, BinIndex, BinPlacement};
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
 
@@ -144,8 +145,8 @@ pub fn build_scatter_inspection_grid(
             continue;
         }
         let (Some(bin_x), Some(bin_y)) = (
-            bin_f32(point.x, x_range, config.grid_width),
-            bin_f32(point.y, y_range, config.grid_height),
+            in_domain_bin(bin_f32(point.x, x_range, non_zero_bins(config.grid_width))),
+            in_domain_bin(bin_f32(point.y, y_range, non_zero_bins(config.grid_height))),
         ) else {
             continue;
         };
@@ -196,8 +197,16 @@ impl ScatterInspectionGrid {
         }
         let data_x = self.x_range.min + x_fraction * self.x_range.span();
         let data_y = self.y_range.max - y_fraction * self.y_range.span();
-        let bin_x = bin_f32(data_x, self.x_range, self.grid_width)?;
-        let bin_y = bin_f32(data_y, self.y_range, self.grid_height)?;
+        let bin_x = in_domain_bin(bin_f32(
+            data_x,
+            self.x_range,
+            non_zero_bins(self.grid_width),
+        ))?;
+        let bin_y = in_domain_bin(bin_f32(
+            data_y,
+            self.y_range,
+            non_zero_bins(self.grid_height),
+        ))?;
         self.inspect_bin(bin_x, bin_y)
     }
 
@@ -309,15 +318,17 @@ impl From<MutableInspectionBin> for ScatterInspectionBin {
     }
 }
 
-fn bin_f32(value: f32, range: F32Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
+fn non_zero_bins(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("inspection grid dimensions are validated")
+}
+
+fn in_domain_bin(
+    result: Result<BinPlacement, rawscope_analysis::density::BinningError>,
+) -> Option<u32> {
+    match result.ok()? {
+        BinPlacement::InDomain(BinIndex(index)) => Some(index),
+        BinPlacement::BeforeDomain | BinPlacement::AfterDomain => None,
     }
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-    let normalized = (value - range.min) / range.span();
-    Some(((normalized * bin_count as f32).floor() as u32).min(bin_count - 1))
 }
 
 fn bin_range(range: F32Range, bin: u32, bin_count: u32) -> F32Range {
