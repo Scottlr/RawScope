@@ -16,13 +16,31 @@ use crate::{
 };
 
 impl ApplicationHandler<WorkbenchUserEvent> for WorkbenchApp {
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: WorkbenchUserEvent) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: WorkbenchUserEvent) {
         match event {
-            WorkbenchUserEvent::JobCompleted { .. } => self.request_redraw(),
+            WorkbenchUserEvent::JobCompleted { job_id, .. } => {
+                match self.complete_startup_job(job_id) {
+                    Ok(true) => {
+                        if let Err(error) = self.create_window_and_gpu(event_loop) {
+                            error!(error = %error, "failed to initialize RawScope workbench after startup resolution");
+                            event_loop.exit();
+                        }
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        error!(error = %error, "failed to resolve RawScope startup session");
+                        event_loop.exit();
+                    }
+                }
+                self.request_redraw();
+            }
         }
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.startup_job.is_some() {
+            return;
+        }
         if let Err(err) = self.create_window_and_gpu(event_loop) {
             error!(error = %err, "failed to initialize RawScope workbench");
             event_loop.exit();

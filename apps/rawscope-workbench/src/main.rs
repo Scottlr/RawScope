@@ -39,10 +39,6 @@ mod controllers;
 #[allow(dead_code)]
 mod degraded_state;
 mod demo;
-#[expect(
-    dead_code,
-    reason = "staged coordinator foundation is integrated by a follow-up task"
-)]
 mod job_coordinator;
 #[allow(dead_code)]
 mod operation_error;
@@ -85,7 +81,6 @@ mod workbench_state;
 use std::{error::Error, io};
 
 use app::WorkbenchApp;
-use app_session::resolve_workbench_startup;
 use cli::WorkbenchArgs;
 use winit::event_loop::EventLoop;
 use workbench_event::WorkbenchUserEvent;
@@ -95,9 +90,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let args = WorkbenchArgs::parse(std::env::args().skip(1))
         .map_err(|message| io::Error::new(io::ErrorKind::InvalidInput, message))?;
-    let startup = resolve_workbench_startup(args)?;
     let event_loop = EventLoop::<WorkbenchUserEvent>::with_user_event().build()?;
-    let mut app = WorkbenchApp::new(startup);
+    let proxy = event_loop.create_proxy();
+    let mut app = WorkbenchApp::new_from_args(args, proxy).map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("failed to submit startup resolution job: {error:?}"),
+        )
+    })?;
     event_loop.run_app(&mut app)?;
 
     Ok(())
