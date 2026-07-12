@@ -17,6 +17,15 @@ pub enum DeviceLossReason {
     Other,
 }
 
+impl DeviceLossReason {
+    pub const fn from_wgpu(reason: wgpu::DeviceLostReason) -> Self {
+        match reason {
+            wgpu::DeviceLostReason::Destroyed => Self::Destroyed,
+            wgpu::DeviceLostReason::Unknown => Self::Unknown,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GpuRecoveryState {
     Ready(DeviceGeneration),
@@ -112,5 +121,17 @@ mod tests {
             .surface_outdated()
             .surface_reconfigured();
         assert_eq!(state, GpuRecoveryState::Ready(generation));
+    }
+
+    #[test]
+    fn wgpu_loss_reasons_are_preserved_for_recovery() {
+        assert_eq!(
+            DeviceLossReason::from_wgpu(wgpu::DeviceLostReason::Destroyed),
+            DeviceLossReason::Destroyed
+        );
+        assert_eq!(
+            DeviceLossReason::from_wgpu(wgpu::DeviceLostReason::Unknown),
+            DeviceLossReason::Unknown
+        );
     }
 }

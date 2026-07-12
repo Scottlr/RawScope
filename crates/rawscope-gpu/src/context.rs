@@ -89,7 +89,7 @@ impl GpuContext {
         device.set_device_lost_callback(move |reason, message| {
             if let Ok(mut signals) = lost_signals.lock() {
                 signals.push(GpuRuntimeSignal::DeviceLost {
-                    reason: format!("{reason:?}"),
+                    reason: DeviceLossReason::from_wgpu(reason),
                     message,
                 });
             }
@@ -159,8 +159,8 @@ impl GpuContext {
             .map(|mut signals| std::mem::take(&mut *signals))
             .unwrap_or_default();
         for signal in &signals {
-            if matches!(signal, GpuRuntimeSignal::DeviceLost { .. }) {
-                self.recovery_state = self.recovery_state.device_lost(DeviceLossReason::Unknown);
+            if let GpuRuntimeSignal::DeviceLost { reason, .. } = signal {
+                self.recovery_state = self.recovery_state.device_lost(*reason);
             }
         }
         signals
