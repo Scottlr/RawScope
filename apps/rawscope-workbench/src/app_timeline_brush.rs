@@ -150,7 +150,7 @@ impl WorkbenchApp {
             self.timeline.selection_evidence = None;
             return;
         };
-        let Some(dataset_metadata) = self.dataset_metadata.clone() else {
+        let Some(dataset_metadata) = self.workbench_state.dataset_metadata.clone() else {
             self.timeline.selection_evidence = None;
             return;
         };

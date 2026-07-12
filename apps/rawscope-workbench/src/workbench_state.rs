@@ -6,6 +6,7 @@ use crate::{
     ui::{ExportStatus, WorkbenchSurface},
     ui_projection_cache::UiProjectionCache,
 };
+use rawscope_data::SyntheticDatasetMetadata;
 use rawscope_render::DatasetDiffSummary;
 
 #[derive(Debug, Default)]
@@ -17,6 +18,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) evidence_export_counter: u64,
     pub(crate) dataset_diff_summary: Option<DatasetDiffSummary>,
     pub(crate) visible_surface: WorkbenchSurface,
+    pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
 }
 
 #[cfg(test)]

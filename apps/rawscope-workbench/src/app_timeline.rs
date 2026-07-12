@@ -81,10 +81,9 @@ impl WorkbenchApp {
 
             self.dataset_identity = Some(dataset.identity);
             self.active_dataset_profile = resolved_binding.active_profile;
-            self.dataset_metadata = Some(rawscope_data::SyntheticDatasetMetadata::new(
-                0,
-                render_stats.event_count,
-            ));
+            self.workbench_state.dataset_metadata = Some(
+                rawscope_data::SyntheticDatasetMetadata::new(0, render_stats.event_count),
+            );
             self.clear_active_selection();
             self.timeline.events = dataset.events;
             self.timeline.source_rows = Some(dataset.source_rows);
@@ -132,7 +131,7 @@ impl WorkbenchApp {
 
         self.dataset_identity = Some(dataset.identity);
         self.active_dataset_profile = None;
-        self.dataset_metadata = Some(dataset.metadata);
+        self.workbench_state.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.timeline.events = dataset.events;
         self.timeline.source_rows = None;

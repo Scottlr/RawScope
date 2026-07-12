@@ -78,7 +78,6 @@ pub struct WorkbenchApp {
     pub(crate) pending_session: Option<PendingSessionContext>,
     pub(crate) active_session: Option<ActiveSessionContext>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
-    pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
     pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
     pub(crate) next_selection_id: SelectionId,
@@ -294,7 +293,7 @@ impl WorkbenchApp {
 
             self.dataset_identity = Some(dataset.identity);
             self.active_dataset_profile = resolved_binding.active_profile;
-            self.dataset_metadata =
+            self.workbench_state.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
             self.clear_active_selection();
             self.scatter.points = dataset.points;
@@ -366,7 +365,7 @@ impl WorkbenchApp {
         self.scatter.point_count_label = active_preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
         self.active_dataset_profile = None;
-        self.dataset_metadata = Some(dataset.metadata);
+        self.workbench_state.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.scatter.points = dataset.points;
         self.scatter.source_rows = None;
