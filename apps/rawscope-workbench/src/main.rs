@@ -48,6 +48,8 @@ mod job_coordinator;
 mod operation_error;
 #[allow(dead_code)]
 mod render_coordinator;
+#[allow(dead_code)]
+mod startup_job;
 #[expect(
     dead_code,
     reason = "staged startup lifecycle foundation is integrated by a follow-up task"
