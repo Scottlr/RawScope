@@ -18,6 +18,7 @@ from .models import (
     DataframeSchemaError,
     InvalidSession,
     PreparedSession,
+    RawScopeError,
     ScatterView,
     TimelineView,
     require_text,
@@ -37,12 +38,23 @@ def prepare_dataframe(
     adapter = select_adapter(source)
     _validate_dataframe(adapter, view, display_name, evidence_key, limit)
     temporary_bundle = destination is None
+    staged_bundle = False
     if temporary_bundle:
         bundle_dir = Path(tempfile.mkdtemp(prefix="rawscope-session-"))
         manifest_path = bundle_dir / "analysis.rawscope.json"
     else:
         bundle_dir, manifest_path = _destination_paths(destination)
-        bundle_dir.mkdir(parents=True, exist_ok=True)
+        if bundle_dir.exists():
+            raise RawScopeError(
+                f"persistent dataframe destination already exists: {bundle_dir}"
+            )
+        bundle_dir.parent.mkdir(parents=True, exist_ok=True)
+        staging_dir = Path(
+            tempfile.mkdtemp(prefix=f".{bundle_dir.name}.rawscope-", dir=bundle_dir.parent)
+        )
+        bundle_dir = staging_dir
+        manifest_path = staging_dir / "analysis.rawscope.json"
+        staged_bundle = True
 
     dataset_path = bundle_dir / "data.parquet"
     try:
@@ -57,9 +69,15 @@ def prepare_dataframe(
         )
         _atomic_write_json(manifest_path, payload)
     except Exception:
-        if temporary_bundle:
+        if temporary_bundle or staged_bundle:
             shutil.rmtree(bundle_dir, ignore_errors=True)
         raise
+    if staged_bundle:
+        final_bundle_dir, final_manifest_path = _destination_paths(destination)
+        os.replace(bundle_dir, final_bundle_dir)
+        bundle_dir = final_bundle_dir
+        manifest_path = final_manifest_path
+        dataset_path = final_bundle_dir / "data.parquet"
     return PreparedSession(
         bundle_dir=bundle_dir.resolve(),
         manifest_path=manifest_path.resolve(),

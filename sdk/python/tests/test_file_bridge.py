@@ -104,6 +104,30 @@ class FileBridgeTests(unittest.TestCase):
             self.assertFalse((bundle_root / dataset.name).exists())
             self.assertEqual(session.dataset_path, dataset.resolve())
 
+    def test_dataframe_bundle_failure_leaves_no_published_destination(self) -> None:
+        from rawscope.bundle import prepare_dataframe
+
+        source = type("Frame", (), {})()
+        with tempfile.TemporaryDirectory() as temporary, patch(
+            "rawscope.bundle.select_adapter"
+        ) as select_adapter:
+            adapter = select_adapter.return_value
+            adapter.column_names.return_value = ("x", "y")
+            adapter.row_count.return_value = 1
+            adapter.write_parquet.side_effect = OSError("write failed")
+            destination = Path(temporary) / "bundle"
+            with self.assertRaises(OSError):
+                prepare_dataframe(
+                    source,
+                    view=rawscope.ScatterView("x", "y"),
+                    destination=destination,
+                    display_name=None,
+                    evidence_key=None,
+                    limit=None,
+                )
+            self.assertFalse(destination.exists())
+            self.assertEqual(list(Path(temporary).iterdir()), [])
+
     def test_launcher_uses_explicit_env_then_path_resolution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             explicit = Path(temporary) / "explicit.exe"
