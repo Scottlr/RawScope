@@ -61,12 +61,21 @@ impl GpuTimelineDensityGrid {
 /// Errors returned by GPU timeline-density compute and readback.
 #[derive(Debug)]
 pub enum GpuTimelineDensityError {
-    EventCountTooLarge { event_count: usize },
-    TimeRangeTooWide { span: u64 },
+    EventCountTooLarge {
+        event_count: usize,
+    },
+    TimeRangeTooWide {
+        span: u64,
+    },
     MissingReadbackCounts,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
     BufferMapCallbackTimedOut,
+    ReadbackSizeOverflow,
+    ReadbackBufferTooSmall {
+        expected_bytes: usize,
+        actual_bytes: usize,
+    },
     DevicePoll(wgpu::PollError),
     InvalidConfiguration(&'static str),
 }
@@ -98,6 +107,16 @@ impl fmt::Display for GpuTimelineDensityError {
                     "GPU timeline-density readback callback exceeded its bounded wait"
                 )
             }
+            Self::ReadbackSizeOverflow => {
+                write!(f, "GPU timeline-density readback size overflowed usize")
+            }
+            Self::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes,
+            } => write!(
+                f,
+                "GPU timeline-density readback buffer has {actual_bytes} bytes; expected {expected_bytes}"
+            ),
             Self::DevicePoll(err) => write!(f, "failed while polling GPU device: {err}"),
             Self::InvalidConfiguration(reason) => {
                 write!(f, "invalid timeline density configuration: {reason}")
@@ -117,6 +136,7 @@ impl Error for GpuTimelineDensityError {
             Self::DevicePoll(err) => Some(err),
             Self::InvalidConfiguration(_) => None,
             Self::BufferMapCallbackTimedOut => None,
+            Self::ReadbackSizeOverflow | Self::ReadbackBufferTooSmall { .. } => None,
         }
     }
 }
@@ -129,6 +149,14 @@ impl From<GpuDensityReadbackError> for GpuTimelineDensityError {
                 Self::BufferMapCallbackDropped(err)
             }
             GpuDensityReadbackError::BufferMapCallbackTimedOut => Self::BufferMapCallbackTimedOut,
+            GpuDensityReadbackError::ReadbackSizeOverflow => Self::ReadbackSizeOverflow,
+            GpuDensityReadbackError::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes,
+            } => Self::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes,
+            },
             GpuDensityReadbackError::DevicePoll(err) => Self::DevicePoll(err),
         }
     }

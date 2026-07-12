@@ -41,12 +41,22 @@ impl GpuScatterDensityGrid {
 
 #[derive(Debug)]
 pub enum GpuScatterDensityError {
-    PointCountTooLarge { point_count: usize },
-    FilterMaskLengthMismatch { point_count: usize, mask_len: usize },
+    PointCountTooLarge {
+        point_count: usize,
+    },
+    FilterMaskLengthMismatch {
+        point_count: usize,
+        mask_len: usize,
+    },
     MissingReadbackCounts,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
     BufferMapCallbackTimedOut,
+    ReadbackSizeOverflow,
+    ReadbackBufferTooSmall {
+        expected_bytes: usize,
+        actual_bytes: usize,
+    },
     DevicePoll(wgpu::PollError),
 }
 
@@ -80,6 +90,16 @@ impl fmt::Display for GpuScatterDensityError {
                     "GPU scatter-density readback callback exceeded its bounded wait"
                 )
             }
+            Self::ReadbackSizeOverflow => {
+                write!(f, "GPU scatter-density readback size overflowed usize")
+            }
+            Self::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes,
+            } => write!(
+                f,
+                "GPU scatter-density readback buffer has {actual_bytes} bytes; expected {expected_bytes}"
+            ),
             Self::DevicePoll(error) => write!(f, "failed while polling GPU device: {error}"),
         }
     }
@@ -95,6 +115,7 @@ impl Error for GpuScatterDensityError {
             | Self::FilterMaskLengthMismatch { .. }
             | Self::MissingReadbackCounts => None,
             Self::BufferMapCallbackTimedOut => None,
+            Self::ReadbackSizeOverflow | Self::ReadbackBufferTooSmall { .. } => None,
         }
     }
 }
@@ -107,6 +128,14 @@ impl From<GpuDensityReadbackError> for GpuScatterDensityError {
                 Self::BufferMapCallbackDropped(error)
             }
             GpuDensityReadbackError::BufferMapCallbackTimedOut => Self::BufferMapCallbackTimedOut,
+            GpuDensityReadbackError::ReadbackSizeOverflow => Self::ReadbackSizeOverflow,
+            GpuDensityReadbackError::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes,
+            } => Self::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes,
+            },
             GpuDensityReadbackError::DevicePoll(error) => Self::DevicePoll(error),
         }
     }
