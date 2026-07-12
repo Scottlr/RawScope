@@ -139,7 +139,7 @@ impl WorkbenchApp {
         source: &LoadedSourceTable,
     ) -> Result<(), io::Error> {
         let Some(pending) = self.workbench_state.pending_session.as_ref() else {
-            self.active_session = None;
+            self.workbench_state.active_session = None;
             return Ok(());
         };
         let evidence_key = pending
@@ -156,7 +156,7 @@ impl WorkbenchApp {
                     ),
                 )
             })?;
-        self.active_session = Some(ActiveSessionContext {
+        self.workbench_state.active_session = Some(ActiveSessionContext {
             manifest_path: pending.manifest_path.clone(),
             display_name: pending.display_name.clone(),
             data_format: pending.data_format,
@@ -270,7 +270,8 @@ mod tests {
         app.activate_session_context(&source).unwrap();
 
         assert_eq!(
-            app.active_session
+            app.workbench_state
+                .active_session
                 .as_ref()
                 .and_then(|session| session.evidence_key.as_ref())
                 .and_then(|key| key.value(&source.rows[0])),

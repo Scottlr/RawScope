@@ -177,7 +177,8 @@ impl WorkbenchApp {
                 DatasetDisplayIdentity::from_dataset_with_display_name(
                     identity,
                     self.workbench_state.active_dataset_profile,
-                    self.active_session
+                    self.workbench_state
+                        .active_session
                         .as_ref()
                         .and_then(|session| session.display_name.as_deref()),
                 )

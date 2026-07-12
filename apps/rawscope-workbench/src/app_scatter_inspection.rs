@@ -264,6 +264,7 @@ impl WorkbenchApp {
 
     fn pinned_evidence_key_values(&self, rows: &[LoadedSourceRow]) -> Vec<PinnedEvidenceKeyValue> {
         let Some(key) = self
+            .workbench_state
             .active_session
             .as_ref()
             .and_then(|session| session.evidence_key.as_ref())
