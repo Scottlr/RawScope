@@ -282,14 +282,14 @@ mod tests {
             profile,
         )
         .unwrap();
-        app.active_dataset_profile = resolved.active_profile;
+        app.workbench_state.active_dataset_profile = resolved.active_profile;
         let comparison_rows = app
             .load_scatter_comparison_source_rows(&resolved.x_column, &resolved.y_column, limit)
             .unwrap();
         app.set_comparison_source_rows(comparison_rows);
 
         assert_eq!(
-            app.active_dataset_profile,
+            app.workbench_state.active_dataset_profile,
             Some(DatasetProfileId::LichessGames)
         );
         assert!(app.comparison_source_rows.is_some());

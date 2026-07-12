@@ -65,7 +65,7 @@ impl WorkbenchApp {
             return;
         };
         self.scatter_filters
-            .initialize(source, self.active_dataset_profile);
+            .initialize(source, self.workbench_state.active_dataset_profile);
     }
 
     pub(crate) fn apply_scatter_filter_action(&mut self, action: FilterAction) {

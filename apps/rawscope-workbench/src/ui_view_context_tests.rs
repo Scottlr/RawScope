@@ -96,7 +96,6 @@ fn hidden_surface_does_not_project_view_context() {
 fn lichess_axes_use_integer_ticks_and_equality_guide() {
     let mut app = WorkbenchApp {
         demo_mode: DemoMode::Scatter,
-        active_dataset_profile: Some(rawscope_data::DatasetProfileId::LichessGames),
         scatter: crate::app::ScatterWorkbenchState {
             viewport: Some(rawscope_render::ScatterViewport::new(
                 F32Range::new(1_000.0, 2_000.0),
@@ -106,6 +105,8 @@ fn lichess_axes_use_integer_ticks_and_equality_guide() {
         },
         ..WorkbenchApp::default()
     };
+    app.workbench_state.active_dataset_profile =
+        Some(rawscope_data::DatasetProfileId::LichessGames);
     app.workbench_state.visible_surface = WorkbenchSurface::Primary;
 
     let WorkbenchViewAxes::Scatter(axes) =
@@ -126,7 +127,6 @@ fn lichess_axes_use_integer_ticks_and_equality_guide() {
 fn mean_difference_axes_use_zero_guide() {
     let mut app = WorkbenchApp {
         demo_mode: DemoMode::Scatter,
-        active_dataset_profile: Some(rawscope_data::DatasetProfileId::LichessGames),
         scatter: crate::app::ScatterWorkbenchState {
             viewport: Some(rawscope_render::ScatterViewport::new(
                 F32Range::new(800.0, 3_000.0),
@@ -145,6 +145,8 @@ fn mean_difference_axes_use_zero_guide() {
         },
         ..WorkbenchApp::default()
     };
+    app.workbench_state.active_dataset_profile =
+        Some(rawscope_data::DatasetProfileId::LichessGames);
     app.workbench_state.visible_surface = WorkbenchSurface::Primary;
 
     let WorkbenchViewAxes::Scatter(axes) = view_axes_ui_state(&app).unwrap() else {
