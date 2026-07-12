@@ -54,8 +54,17 @@ impl ScatterDifferenceRenderer {
     ) -> Result<Self, GpuScatterDensityError> {
         let baseline = ScatterDensityGpuState::new(device, queue, points, config, 0)?;
         let active = ScatterDensityGpuState::new(device, queue, points, config, 0)?;
-        let reduction_layout = difference_bind_group_layout(device, wgpu::ShaderStages::COMPUTE);
-        let render_layout = difference_bind_group_layout(device, wgpu::ShaderStages::FRAGMENT);
+        let params_min_binding_size = std::mem::size_of::<DifferenceGpuParams>() as u64;
+        let reduction_layout = difference_bind_group_layout(
+            device,
+            wgpu::ShaderStages::COMPUTE,
+            params_min_binding_size,
+        );
+        let render_layout = difference_bind_group_layout(
+            device,
+            wgpu::ShaderStages::FRAGMENT,
+            params_min_binding_size,
+        );
         let reduction_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("RawScope Difference Reduction Shader"),
             source: wgpu::ShaderSource::Wgsl(REDUCTION_SHADER.into()),
@@ -343,4 +352,16 @@ struct DifferenceGpuParams {
     display_x_max: f32,
     display_y_min: f32,
     display_y_max: f32,
+}
+
+#[cfg(test)]
+mod abi_tests {
+    use super::DifferenceGpuParams;
+
+    #[test]
+    fn difference_params_match_wgsl_uniform_alignment() {
+        assert_eq!(std::mem::size_of::<DifferenceGpuParams>(), 64);
+        assert_eq!(std::mem::align_of::<DifferenceGpuParams>(), 4);
+        assert_eq!(std::mem::size_of::<DifferenceGpuParams>() % 16, 0);
+    }
 }
