@@ -45,14 +45,14 @@ fn gpu_density_benchmarks(c: &mut Criterion) {
             &dataset,
             |bencher, dataset| {
                 bencher.iter(|| {
-                    let grid = block_on(gpu_scatter_density(
+                    let grid = gpu_scatter_density(
                         &context,
                         black_box(&dataset.points),
                         dataset.x_range,
                         dataset.y_range,
                         DENSITY_GRID_WIDTH,
                         DENSITY_GRID_HEIGHT,
-                    ))
+                    )
                     .expect("GPU scatter benchmark should produce density counts");
                     black_box(grid.total_count())
                 });
@@ -74,14 +74,14 @@ fn gpu_density_benchmarks(c: &mut Criterion) {
             &dataset,
             |bencher, dataset| {
                 bencher.iter(|| {
-                    let grid = block_on(gpu_timeline_density(
+                    let grid = gpu_timeline_density(
                         &context,
                         black_box(&dataset.events),
                         dataset.time_range,
                         dataset.lane_count,
                         DENSITY_GRID_WIDTH,
                         DENSITY_GRID_HEIGHT,
-                    ))
+                    )
                     .expect("GPU timeline benchmark should produce density counts");
                     black_box(grid.total_count())
                 });
