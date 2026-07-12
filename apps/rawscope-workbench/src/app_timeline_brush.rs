@@ -302,7 +302,7 @@ mod tests {
     fn clear_timeline_brush_clears_timeline_drilldown() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Timeline;
-        app.dataset_identity =
+        app.workbench_state.dataset_identity =
             Some(generate_synthetic_events(SyntheticEventConfig::new(42, 1)).identity);
         app.timeline.events = vec![TimelineEventRecord {
             row_id: RowId(1),

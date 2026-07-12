@@ -46,7 +46,7 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
                 )
             } else {
                 axis_field_labels(
-                    app.dataset_identity.as_ref(),
+                    app.workbench_state.dataset_identity.as_ref(),
                     (DatasetFieldRole::X, "x"),
                     (DatasetFieldRole::Y, "y"),
                 )
@@ -98,6 +98,7 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
             let viewport = app.timeline.viewport?;
 
             let lane_labels = app
+                .workbench_state
                 .dataset_identity
                 .as_ref()
                 .map_or(&[][..], |identity| identity.lane_labels.as_slice());

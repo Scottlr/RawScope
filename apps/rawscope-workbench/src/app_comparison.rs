@@ -67,7 +67,8 @@ impl WorkbenchApp {
     }
 
     fn datasets_match(&self, dataset_identity: &DatasetIdentity) -> bool {
-        self.dataset_identity
+        self.workbench_state
+            .dataset_identity
             .as_ref()
             .is_some_and(|identity| identity == dataset_identity)
     }
@@ -192,7 +193,7 @@ mod tests {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
         app.workbench_state.visible_surface = WorkbenchSurface::Primary;
-        app.dataset_identity = Some(dataset.identity);
+        app.workbench_state.dataset_identity = Some(dataset.identity);
         app.scatter.points = scatter_points();
         app.scatter.active_brush_selection = Some(ScatterBrushSelection {
             x_range: F32Range::new(0.0, 2.5),
@@ -218,7 +219,7 @@ mod tests {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Timeline;
         app.workbench_state.visible_surface = WorkbenchSurface::Primary;
-        app.dataset_identity = Some(dataset.identity);
+        app.workbench_state.dataset_identity = Some(dataset.identity);
         app.timeline.events = timeline_events();
         app.timeline.viewport = Some(rawscope_render::TimelineViewport::new(
             U64Range::new(0, 100),
@@ -273,7 +274,7 @@ mod tests {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
         app.workbench_state.visible_surface = WorkbenchSurface::Primary;
-        app.dataset_identity = Some(dataset.identity);
+        app.workbench_state.dataset_identity = Some(dataset.identity);
         app.scatter.points = scatter_points();
         app.scatter.selection_summary = Some(SelectedRegionSummary::from_points(
             &app.scatter.points,
@@ -297,7 +298,7 @@ mod tests {
         app.demo_mode = DemoMode::Scatter;
         app.scatter.active_preset = PointCountPreset::default();
         app.workbench_state.visible_surface = WorkbenchSurface::Primary;
-        app.dataset_identity = Some(dataset.identity);
+        app.workbench_state.dataset_identity = Some(dataset.identity);
         app.scatter.points = scatter_points();
         app.scatter.selection_summary = Some(SelectedRegionSummary::from_points(
             &app.scatter.points,

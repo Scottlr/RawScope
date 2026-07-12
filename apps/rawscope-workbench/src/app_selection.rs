@@ -22,7 +22,7 @@ impl WorkbenchApp {
             self.clear_active_selection();
             return;
         };
-        let Some(dataset_identity) = self.dataset_identity.clone() else {
+        let Some(dataset_identity) = self.workbench_state.dataset_identity.clone() else {
             self.clear_active_selection();
             return;
         };
@@ -68,7 +68,7 @@ impl WorkbenchApp {
             self.clear_active_selection();
             return;
         };
-        let Some(dataset_identity) = self.dataset_identity.clone() else {
+        let Some(dataset_identity) = self.workbench_state.dataset_identity.clone() else {
             self.clear_active_selection();
             return;
         };
@@ -160,7 +160,7 @@ mod tests {
     fn publish_scatter_active_selection_sorts_row_ids() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
-        app.dataset_identity = Some(
+        app.workbench_state.dataset_identity = Some(
             rawscope_data::generate_synthetic_points(rawscope_data::SyntheticPointConfig::new(
                 42, 2,
             ))
@@ -201,7 +201,7 @@ mod tests {
     fn publish_timeline_active_selection_uses_incrementing_ids() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Timeline;
-        app.dataset_identity = Some(
+        app.workbench_state.dataset_identity = Some(
             rawscope_data::generate_synthetic_events(rawscope_data::SyntheticEventConfig::new(
                 42, 2,
             ))

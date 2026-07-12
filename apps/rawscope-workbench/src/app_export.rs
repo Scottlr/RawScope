@@ -175,7 +175,7 @@ impl WorkbenchApp {
 
     fn scatter_selection_evidence_v2(&self) -> Option<ScatterSelectionEvidenceV2> {
         let evidence = self.scatter.selection_evidence.as_ref()?;
-        let dataset_identity = self.dataset_identity.clone()?;
+        let dataset_identity = self.workbench_state.dataset_identity.clone()?;
         let viewport = self.scatter.viewport?;
         let render_stats = self.scatter.render_stats?;
         let view = ScatterEvidenceView {
@@ -328,7 +328,7 @@ impl WorkbenchApp {
 
     fn timeline_selection_evidence_v2(&self) -> Option<TimelineSelectionEvidenceV2> {
         let evidence = self.timeline.selection_evidence.as_ref()?;
-        let dataset_identity = self.dataset_identity.clone()?;
+        let dataset_identity = self.workbench_state.dataset_identity.clone()?;
         let viewport = self.timeline.viewport?;
         let render_stats = self.timeline.render_stats?;
         let view = TimelineEvidenceView {
