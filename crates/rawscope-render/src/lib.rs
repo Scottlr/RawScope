@@ -28,7 +28,7 @@ mod scatter_relief;
 mod scatter_resident;
 mod scatter_selection_evidence_v4;
 mod scatter_selection_evidence_v5;
-mod scatter_selection_export_v3;
+mod scatter_selection_export_v3_helpers;
 mod scatter_selection_export_v4;
 mod scatter_selection_export_v5;
 mod scatter_transition;
@@ -86,6 +86,10 @@ pub use plot_geometry::{PlotGeometryError, PlotPointPx, PlotRectPx};
 pub use rawscope_evidence::{
     density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,
     ScatterDensityPresentation,
+};
+pub use rawscope_evidence::{
+    scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
+    ScatterSelectionExportError, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
 };
 pub use rawscope_evidence::{
     AggregateEvidenceBin, ScatterAggregateEvidenceContext, TimelineAggregateEvidenceContext,
@@ -154,10 +158,8 @@ pub use scatter_selection_evidence_v5::{
     SessionDataFormatEvidenceV5, SessionEvidenceContextV5,
     SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION,
 };
-pub use scatter_selection_export_v3::{
+pub use scatter_selection_export_v3_helpers::{
     scatter_aggregate_evidence_context, scatter_aggregate_evidence_context_for_bins,
-    scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
-    ScatterSelectionExportError, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
 };
 pub use scatter_selection_export_v4::{
     scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown,

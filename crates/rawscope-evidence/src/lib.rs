@@ -13,6 +13,7 @@ mod scatter_density_presentation;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_export;
+mod scatter_selection_export_v3;
 mod schema;
 mod timeline_selection_evidence;
 mod timeline_selection_export;
@@ -60,6 +61,10 @@ pub use scatter_selection_export::{
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
     SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
     SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+};
+pub use scatter_selection_export_v3::{
+    scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
+    ScatterSelectionExportError, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
 };
 pub use schema::{
     EvidenceSchemaFamily, EvidenceSchemaVersion, SCATTER_SELECTION_EVIDENCE_V6_SCHEMA_VERSION,
