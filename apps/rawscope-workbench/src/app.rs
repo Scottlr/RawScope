@@ -38,7 +38,7 @@ use crate::{
     app_scatter_point_reveal::ScatterPointRevealState,
     app_scatter_projection::ScatterProjectionState,
     app_selection::ActiveLinkedSelection,
-    app_session::{ActiveSessionContext, PendingSessionContext, WorkbenchStartup},
+    app_session::{ActiveSessionContext, WorkbenchStartup},
     app_visual_transition::WorkbenchVisualTransition,
     cli::WorkbenchInput,
     demo::{DemoMode, PointCountPreset},
@@ -73,7 +73,6 @@ pub struct WorkbenchApp {
     pub(crate) scatter_inspection_overlay_renderer: Option<ScatterInspectionOverlayRenderer>,
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
-    pub(crate) pending_session: Option<PendingSessionContext>,
     pub(crate) active_session: Option<ActiveSessionContext>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
@@ -206,7 +205,10 @@ impl WorkbenchApp {
             demo_mode: startup.demo_mode,
             input: startup.input,
             compare_input: startup.compare_input,
-            pending_session: startup.session,
+            workbench_state: crate::workbench_state::WorkbenchState {
+                pending_session: startup.session,
+                ..Default::default()
+            },
             active_session: None,
             scatter: ScatterWorkbenchState {
                 point_count_label: PointCountPreset::default().row_count_label().to_string(),

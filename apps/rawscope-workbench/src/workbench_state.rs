@@ -1,5 +1,6 @@
 //! Composition-root ownership for active truth and its operational projections.
 
+use crate::app_session::PendingSessionContext;
 use crate::{
     active_generation::ActiveWorkbenchState,
     degraded_state::DegradedStateStore,
@@ -24,6 +25,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) active_dataset_profile: Option<DatasetProfileId>,
     pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
     pub(crate) next_selection_id: SelectionId,
+    pub(crate) pending_session: Option<PendingSessionContext>,
 }
 
 #[cfg(test)]
