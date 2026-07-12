@@ -15,6 +15,15 @@ from rawscope.launcher import resolve_workbench_executable
 
 
 class FileBridgeTests(unittest.TestCase):
+    def test_row_limit_rejects_bool_zero_and_oversized_values(self) -> None:
+        from rawscope.models import InvalidSession, MAX_SESSION_ROW_LIMIT
+
+        with self.assertRaises(InvalidSession):
+            rawscope.prepare("missing.csv", view=rawscope.ScatterView("x", "y"), destination=Path("bundle"), limit=True)
+        with self.assertRaises(InvalidSession):
+            rawscope.prepare("missing.csv", view=rawscope.ScatterView("x", "y"), destination=Path("bundle"), limit=0)
+        with self.assertRaises(InvalidSession):
+            rawscope.prepare("missing.csv", view=rawscope.ScatterView("x", "y"), destination=Path("bundle"), limit=MAX_SESSION_ROW_LIMIT + 1)
     def test_scatter_manifest_matches_rust_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
