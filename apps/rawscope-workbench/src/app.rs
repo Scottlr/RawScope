@@ -1,6 +1,6 @@
 //! Native workbench application handler for RawScope density views.
 
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{error::Error, io, path::PathBuf, sync::Arc};
 
 use egui::Context as EguiContext;
 use egui_wgpu::Renderer as EguiRenderer;
@@ -22,7 +22,9 @@ use rawscope_render::{
     TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::info;
-use winit::{dpi::PhysicalPosition, keyboard::ModifiersState, window::Window};
+use winit::{
+    dpi::PhysicalPosition, event_loop::EventLoopProxy, keyboard::ModifiersState, window::Window,
+};
 
 use crate::{
     app_dataset_profile::resolve_scatter_input_binding,
@@ -39,11 +41,15 @@ use crate::{
     app_scatter_projection::ScatterProjectionState,
     app_session::WorkbenchStartup,
     app_visual_transition::WorkbenchVisualTransition,
-    cli::WorkbenchInput,
+    cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
+    job_coordinator::{JobCoordinator, JobHandle, JobSubmitError, WorkbenchJobId},
+    startup_job::{submit_startup_resolution, StartupResolution},
+    startup_lifecycle::{StartupLifecycle, StartupRequestId},
     timeline_render_schedule::TimelineRenderSchedule,
     ui_plot_surface::PlotSurfaceLayout,
     ui_shell::WorkbenchShellState,
+    workbench_event::WorkbenchUserEvent,
 };
 
 pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
@@ -94,6 +100,9 @@ pub struct WorkbenchApp {
     pub(crate) point_reveal: ScatterPointRevealState,
     pub(crate) scatter_projection: ScatterProjectionState,
     pub(crate) workbench_state: crate::workbench_state::WorkbenchState,
+    pub(crate) startup_coordinator: Option<JobCoordinator>,
+    pub(crate) startup_job: Option<(StartupRequestId, JobHandle, StartupResolution)>,
+    pub(crate) startup_lifecycle: StartupLifecycle<WorkbenchStartup>,
 }
 
 /// Scatter-specific workbench state.
@@ -197,6 +206,58 @@ impl Default for TimelineWorkbenchState {
 }
 
 impl WorkbenchApp {
+    pub(crate) fn new_from_args(
+        args: WorkbenchArgs,
+        proxy: EventLoopProxy<WorkbenchUserEvent>,
+    ) -> Result<Self, JobSubmitError> {
+        let startup = crate::app_session::startup_without_session(args.clone());
+        let mut app = Self::new(startup.clone());
+        let request = StartupRequestId::new(1);
+        app.startup_lifecycle.begin(request);
+        let coordinator = JobCoordinator::with_proxy(1, proxy);
+        if args.session_path.is_some() {
+            let (job, resolution) = submit_startup_resolution(&coordinator, args)?;
+            app.startup_job = Some((request, job, resolution));
+        } else {
+            let _ = app.startup_lifecycle.publish_ready(request, startup);
+        }
+        app.startup_coordinator = Some(coordinator);
+        Ok(app)
+    }
+
+    pub(crate) fn complete_startup_job(
+        &mut self,
+        job_id: WorkbenchJobId,
+    ) -> Result<bool, io::Error> {
+        let Some((request, job, resolution)) = self.startup_job.take() else {
+            return Ok(false);
+        };
+        if job.id() != job_id {
+            self.startup_job = Some((request, job, resolution));
+            return Ok(false);
+        }
+        let startup = resolution.take().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "startup job completed without a durable result",
+            )
+        })?;
+        match startup {
+            Ok(startup) => {
+                self.demo_mode = startup.demo_mode;
+                self.input = startup.input.clone();
+                self.compare_input = startup.compare_input.clone();
+                self.workbench_state.pending_session = startup.session.clone();
+                let _ = self.startup_lifecycle.publish_ready(request, startup);
+                Ok(true)
+            }
+            Err(error) => {
+                let _ = self.startup_lifecycle.fail(request, error.to_string());
+                Err(error)
+            }
+        }
+    }
+
     pub(crate) fn new(startup: WorkbenchStartup) -> Self {
         Self {
             demo_mode: startup.demo_mode,

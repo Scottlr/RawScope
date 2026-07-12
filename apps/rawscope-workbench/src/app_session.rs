@@ -66,6 +66,16 @@ pub(crate) fn resolve_workbench_startup(
     startup_from_session(session)
 }
 
+/// Projects syntax-only CLI arguments into initial app state without reading a manifest.
+pub(crate) fn startup_without_session(args: WorkbenchArgs) -> WorkbenchStartup {
+    WorkbenchStartup {
+        demo_mode: args.demo_mode,
+        input: args.input,
+        compare_input: args.compare_input,
+        session: None,
+    }
+}
+
 fn startup_from_session(session: ResolvedRawScopeSession) -> Result<WorkbenchStartup, io::Error> {
     let ResolvedRawScopeSession {
         manifest_path,
