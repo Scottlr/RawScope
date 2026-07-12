@@ -38,6 +38,35 @@ pub enum DatasetSource {
     LocalParquet { path: PathBuf, limit: Option<usize> },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DatasetSourceFormat {
+    Synthetic,
+    Csv,
+    Parquet,
+}
+
+impl DatasetSource {
+    pub const fn format(&self) -> DatasetSourceFormat {
+        match self {
+            Self::Synthetic { .. } => DatasetSourceFormat::Synthetic,
+            Self::LocalCsv { .. } => DatasetSourceFormat::Csv,
+            Self::LocalParquet { .. } => DatasetSourceFormat::Parquet,
+        }
+    }
+
+    pub fn portable_label(&self) -> String {
+        match self {
+            Self::Synthetic { generator, .. } => (*generator).to_string(),
+            Self::LocalCsv { path, .. } | Self::LocalParquet { path, .. } => path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .filter(|name| !name.is_empty())
+                .unwrap_or("local-dataset")
+                .to_string(),
+        }
+    }
+}
+
 /// The role a field binding plays in a visual dataset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DatasetFieldRole {
@@ -72,6 +101,16 @@ pub struct DatasetIdentity {
     pub row_count: usize,
     pub field_bindings: Vec<DatasetFieldBinding>,
     pub lane_labels: Vec<String>,
+}
+
+impl DatasetIdentity {
+    pub const fn source_format(&self) -> DatasetSourceFormat {
+        self.source.format()
+    }
+
+    pub fn portable_source_label(&self) -> String {
+        self.source.portable_label()
+    }
 }
 
 impl DatasetIdentity {

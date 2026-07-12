@@ -5,8 +5,8 @@ use std::{
 
 use rawscope_data::{
     generate_synthetic_events, generate_synthetic_points, load_scatter_dataset,
-    load_timeline_dataset, DatasetFieldRole, DatasetSource, SyntheticEventConfig,
-    SyntheticPointConfig, VisualDatasetKind,
+    load_timeline_dataset, DatasetFieldRole, DatasetSource, DatasetSourceFormat,
+    SyntheticEventConfig, SyntheticPointConfig, VisualDatasetKind,
 };
 
 #[test]
@@ -34,6 +34,11 @@ fn synthetic_scatter_identity_records_seed_and_row_count() {
             generator: "synthetic-points",
         }
     ));
+    assert_eq!(
+        dataset.identity.source_format(),
+        DatasetSourceFormat::Synthetic
+    );
+    assert_eq!(dataset.identity.portable_source_label(), "synthetic-points");
 }
 
 #[test]
@@ -63,6 +68,11 @@ fn local_csv_scatter_identity_records_path_limit_and_bindings() {
             limit: Some(1),
         } if identity_path == &path
     ));
+    assert_eq!(dataset.identity.source_format(), DatasetSourceFormat::Csv);
+    assert_eq!(
+        dataset.identity.portable_source_label(),
+        path.file_name().unwrap().to_string_lossy()
+    );
 
     remove_fixture(&path);
 }
