@@ -2,7 +2,6 @@
 
 mod aggregate_cache;
 mod dataset_diff;
-mod density_encoding;
 mod density_reference;
 mod density_render_pipeline;
 mod difference_density;
@@ -18,7 +17,6 @@ mod plot_geometry;
 mod scatter_brush;
 mod scatter_brush_overlay;
 mod scatter_density_gpu_state;
-mod scatter_density_presentation;
 mod scatter_density_renderer;
 mod scatter_density_reprojection;
 mod scatter_difference_renderer;
@@ -57,9 +55,6 @@ pub use dataset_diff::{
     dataset_diff_summary, DatasetDiffColumn, DatasetDiffColumnStatus, DatasetDiffMissingnessDelta,
     DatasetDiffSummary,
 };
-pub use density_encoding::{
-    density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,
-};
 pub use density_reference::{scatter_density, timeline_density};
 pub use difference_density::{
     difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
@@ -90,6 +85,10 @@ pub use missingness_reference::{
 };
 pub use plot_geometry::{PlotGeometryError, PlotPointPx, PlotRectPx};
 pub use rawscope_evidence::{
+    density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,
+    ScatterDensityPresentation,
+};
+pub use rawscope_evidence::{
     SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
     TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2,
@@ -103,7 +102,6 @@ pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
 pub use scatter_density_gpu_state::{
     DensityReadbackPolicy, ScatterDensityGpuState, ScatterDensityUpdate,
 };
-pub use scatter_density_presentation::ScatterDensityPresentation;
 pub use scatter_density_renderer::{
     ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
 };
