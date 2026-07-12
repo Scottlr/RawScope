@@ -2471,6 +2471,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rawscope-analysis"
+version = "0.1.0"
+dependencies = [
+ "rawscope-core",
+ "rawscope-data",
+]
+
+[[package]]
 name = "rawscope-core"
 version = "0.1.0"
 
@@ -2502,6 +2510,7 @@ dependencies = [
  "bytemuck",
  "criterion",
  "pollster",
+ "rawscope-analysis",
  "rawscope-core",
  "rawscope-data",
  "rawscope-gpu",

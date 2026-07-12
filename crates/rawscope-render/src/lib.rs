@@ -77,6 +77,9 @@ pub use gpu_scatter_density::{
     gpu_scatter_density, gpu_scatter_density_masked, gpu_scatter_density_on_device,
     GpuScatterDensityError, GpuScatterDensityGrid,
 };
+pub use gpu_scatter_density_pack::{
+    pack_scatter_points, GpuQuantization, PackedScatterPoint, VisualPackingError,
+};
 pub use gpu_timeline_density::{
     gpu_timeline_density, gpu_timeline_density_on_device, GpuTimelineDensityError,
     GpuTimelineDensityGrid,

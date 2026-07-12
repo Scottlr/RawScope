@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 bytemuck = { version = "1.25.0", features = ["derive"] }
 rawscope-core = { path = "../rawscope-core" }
+rawscope-analysis = { path = "../rawscope-analysis" }
 rawscope-data = { path = "../rawscope-data" }
 rawscope-gpu = { path = "../rawscope-gpu" }
 serde = { version = "1.0.228", features = ["derive"] }
