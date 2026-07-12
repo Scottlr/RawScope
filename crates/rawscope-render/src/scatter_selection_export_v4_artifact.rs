@@ -11,6 +11,7 @@ use crate::{
     PinnedScatterInspectionEvidence, PointRevealEvidence, ReliefFieldConfig,
     ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4, ScatterSelectionExportError,
     ScatterVisualQueryV4, SCATTER_SELECTION_EVIDENCE_V4_ARTIFACT_KIND,
+    SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
 };
 
 pub(super) fn to_json(
@@ -51,7 +52,7 @@ impl From<&ScatterSelectionEvidenceV4> for ScatterSelectionEvidenceV4Artifact {
         let legacy = legacy_v3_payload(evidence);
         Self {
             artifact_kind: SCATTER_SELECTION_EVIDENCE_V4_ARTIFACT_KIND,
-            schema_version: evidence.schema_version,
+            schema_version: SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
             dataset_identity: legacy["dataset_identity"].clone(),
             active_dataset_profile: evidence
                 .active_dataset_profile
