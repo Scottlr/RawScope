@@ -71,6 +71,7 @@ pub(crate) struct JobCoordinator {
     sender: Option<SyncSender<QueuedJob>>,
     workers: Vec<JoinHandle<()>>,
     next_id: AtomicU64,
+    cancellations: Arc<Mutex<Vec<CancellationToken>>>,
 }
 
 impl JobCoordinator {
@@ -84,6 +85,7 @@ impl JobCoordinator {
             sender: Some(sender),
             workers,
             next_id: AtomicU64::new(1),
+            cancellations: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -101,23 +103,43 @@ impl JobCoordinator {
         };
         let sender = self.sender.as_ref().ok_or(JobSubmitError::ShuttingDown)?;
         match sender.try_send(queued) {
-            Ok(()) => Ok(JobHandle {
-                id,
-                cancel,
-                terminal,
-            }),
+            Ok(()) => {
+                self.cancellations
+                    .lock()
+                    .expect("job cancellation lock")
+                    .push(cancel.clone());
+                Ok(JobHandle {
+                    id,
+                    cancel,
+                    terminal,
+                })
+            }
             Err(TrySendError::Full(_)) => Err(JobSubmitError::QueueFull),
             Err(TrySendError::Disconnected(_)) => Err(JobSubmitError::ShuttingDown),
+        }
+    }
+
+    /// Stops admissions and asks every accepted job to finish cooperatively.
+    /// Queued jobs still reach a terminal cancellation outcome on the workers.
+    pub(crate) fn shutdown(&mut self) {
+        self.sender.take();
+        for cancellation in self
+            .cancellations
+            .lock()
+            .expect("job cancellation lock")
+            .iter()
+        {
+            cancellation.cancel();
+        }
+        for worker in self.workers.drain(..) {
+            let _ = worker.join();
         }
     }
 }
 
 impl Drop for JobCoordinator {
     fn drop(&mut self) {
-        self.sender.take();
-        for worker in self.workers.drain(..) {
-            let _ = worker.join();
-        }
+        self.shutdown();
     }
 }
 
@@ -143,6 +165,7 @@ fn spawn_worker(index: usize, receiver: Arc<Mutex<Receiver<QueuedJob>>>) -> Join
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
 
     #[test]
     fn accepted_jobs_reach_durable_terminal_state() {
@@ -169,5 +192,24 @@ mod tests {
         }
         assert_eq!(cancelled.outcome(), Some(JobOutcome::Cancelled));
         assert_eq!(panicked.outcome(), Some(JobOutcome::Panicked));
+    }
+
+    #[test]
+    fn shutdown_cancels_a_running_cooperative_job_before_joining() {
+        let mut coordinator = JobCoordinator::new(1);
+        let (started_sender, started_receiver) = mpsc::channel();
+        let handle = coordinator
+            .submit(move |token| {
+                started_sender.send(()).unwrap();
+                while !token.is_cancelled() {
+                    std::thread::yield_now();
+                }
+                JobOutcome::Cancelled
+            })
+            .unwrap();
+        started_receiver.recv().unwrap();
+        coordinator.shutdown();
+        assert_eq!(handle.outcome(), Some(JobOutcome::Cancelled));
+        assert!(coordinator.submit(|_| JobOutcome::Succeeded).is_err());
     }
 }
