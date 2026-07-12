@@ -1,7 +1,8 @@
 //! Shared linked-selection publishing for the workbench.
 
 use rawscope_core::{CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry};
-use rawscope_data::DatasetIdentity;
+use rawscope_data::{DatasetIdentity, FilterMask};
+use rawscope_render::SelectionSnapshot;
 
 use crate::app::WorkbenchApp;
 
@@ -12,6 +13,7 @@ const TIMELINE_VIEW_ID: ViewId = ViewId(2);
 pub(crate) struct ActiveLinkedSelection {
     pub(crate) visual_selection: VisualSelection,
     pub(crate) dataset_identity: DatasetIdentity,
+    pub(crate) snapshot: Option<SelectionSnapshot>,
 }
 
 impl WorkbenchApp {
@@ -25,17 +27,30 @@ impl WorkbenchApp {
             return;
         };
 
-        let selected_row_ids = self
-            .scatter
-            .points
-            .iter()
-            .filter(|point| selection.contains_point(point))
-            .map(|point| point.row_id)
-            .collect();
+        let filter_mask = self
+            .scatter_filters
+            .evaluation
+            .as_ref()
+            .map(|evaluation| evaluation.mask.clone())
+            .unwrap_or_else(|| FilterMask::all_included(self.scatter.points.len()));
+        let selection_id = self.next_selection_id();
+        let snapshot = SelectionSnapshot::from_filtered_points(
+            selection_id,
+            &self.scatter.points,
+            &filter_mask,
+            selection,
+            256,
+            256,
+        )
+        .ok();
+        let selected_row_ids = snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.row_ids().to_vec())
+            .unwrap_or_default();
 
         self.active_selection = Some(ActiveLinkedSelection {
             visual_selection: VisualSelection::from_unsorted(
-                self.next_selection_id(),
+                selection_id,
                 SCATTER_VIEW_ID,
                 VisualSelectionGeometry::ScatterRect {
                     x_range: selection.x_range,
@@ -44,6 +59,7 @@ impl WorkbenchApp {
                 selected_row_ids,
             ),
             dataset_identity,
+            snapshot,
         });
     }
 
@@ -87,6 +103,7 @@ impl WorkbenchApp {
                 selected_row_ids,
             ),
             dataset_identity,
+            snapshot: None,
         });
     }
 
@@ -155,7 +172,7 @@ mod tests {
             .as_ref()
             .expect("active selection should exist");
         assert_eq!(
-            selection.visual_selection.selected_row_ids,
+            selection.visual_selection.selected_row_ids(),
             vec![RowId(2), RowId(7)]
         );
     }
@@ -197,14 +214,14 @@ mod tests {
             .as_ref()
             .expect("active selection should exist")
             .visual_selection
-            .selection_id;
+            .selection_id();
         app.publish_timeline_active_selection();
         let second_selection_id = app
             .active_selection
             .as_ref()
             .expect("active selection should exist")
             .visual_selection
-            .selection_id;
+            .selection_id();
 
         assert_eq!(first_selection_id, SelectionId(1));
         assert_eq!(second_selection_id, SelectionId(2));
