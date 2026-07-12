@@ -5,7 +5,6 @@ use rawscope_data::{
     DatasetFilter, DatasetProfileId, FilterEvaluation, FilterRevision, FilterSet,
     LoadedSourceTable, VisualFieldCatalog, VisualFieldCatalogConfig,
 };
-use tracing::error;
 
 use crate::{app::WorkbenchApp, ui::ExportStatus, ui_filters::FilterAction};
 
@@ -19,6 +18,12 @@ pub(crate) struct ScatterFilterState {
     pub(crate) last_uploaded_revision: FilterRevision,
     pub(crate) visible_columns: Vec<String>,
     pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PreparedFilterState {
+    pub(crate) filters: FilterSet,
+    pub(crate) evaluation: FilterEvaluation,
 }
 
 impl ScatterFilterState {
@@ -64,9 +69,6 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn apply_scatter_filter_action(&mut self, action: FilterAction) {
-        let Some(source) = self.scatter.source_rows.as_ref() else {
-            return;
-        };
         let Some(catalog) = self.scatter_filters.catalog.as_ref() else {
             return;
         };
@@ -83,6 +85,71 @@ impl WorkbenchApp {
             return;
         }
 
+        let prepared = match self.prepare_filter_action(action) {
+            Ok(Some(prepared)) => prepared,
+            Ok(None) => return,
+            Err(err) => {
+                self.scatter_filters.error = Some(err);
+                self.request_redraw();
+                return;
+            }
+        };
+        let next_filters = prepared.filters.clone();
+        let evaluation = prepared.evaluation;
+        let difference_remains_available =
+            next_filters.is_active() && evaluation.included_count > 0;
+        let evaluation_revision = evaluation.revision;
+
+        let upload_result = self
+            .gpu
+            .as_ref()
+            .zip(self.scatter.density_renderer.as_mut())
+            .map(|(gpu, renderer)| {
+                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation_revision)
+            });
+        if let Err(err) = upload_result.transpose() {
+            self.scatter_filters.error = Some(err.to_string());
+            return;
+        }
+        if let (Some(gpu), Some(renderer)) =
+            (self.gpu.as_ref(), self.scatter.difference_renderer.as_mut())
+        {
+            if let Err(err) =
+                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation_revision)
+            {
+                self.scatter_filters.error = Some(err.to_string());
+                return;
+            }
+        }
+
+        self.scatter_filters.last_uploaded_revision = evaluation_revision;
+        self.scatter_filters.filters = next_filters;
+        self.scatter_filters.evaluation = Some(evaluation);
+        self.scatter_filters.error = None;
+        if !difference_remains_available {
+            self.scatter.density_mode = rawscope_render::ScatterDensityMode::AbsoluteDensity;
+        }
+        self.invalidate_scatter_inspection();
+        self.invalidate_scatter_point_reveal();
+        self.clear_brush();
+        self.export_status = ExportStatus::Idle;
+        self.render_schedule.request_exact_refine();
+        self.request_redraw();
+    }
+
+    fn prepare_filter_action(
+        &self,
+        action: FilterAction,
+    ) -> Result<Option<PreparedFilterState>, String> {
+        let Some(source) = self.scatter.source_rows.as_ref() else {
+            return Ok(None);
+        };
+        let Some(catalog) = self.scatter_filters.catalog.as_ref() else {
+            return Ok(None);
+        };
+        if matches!(action, FilterAction::AddColumn { .. }) {
+            return Ok(None);
+        }
         let mut next_filters = self.scatter_filters.filters.clone();
         match action {
             FilterAction::SetNumericRange {
@@ -112,59 +179,14 @@ impl WorkbenchApp {
             FilterAction::AddColumn { .. } => unreachable!("handled above"),
         }
         if next_filters == self.scatter_filters.filters {
-            return;
+            return Ok(None);
         }
-        let evaluation = match evaluate_filters(source, catalog, &next_filters) {
-            Ok(evaluation) => evaluation,
-            Err(err) => {
-                self.scatter_filters.error = Some(err.to_string());
-                self.request_redraw();
-                return;
-            }
-        };
-
-        let upload_result = self
-            .gpu
-            .as_ref()
-            .zip(self.scatter.density_renderer.as_mut())
-            .map(|(gpu, renderer)| {
-                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation.revision)
-            });
-        match upload_result.transpose() {
-            Ok(_) => {}
-            Err(err) => {
-                error!(error = %err, "failed to upload scatter filter mask");
-                self.scatter_filters.error = Some(err.to_string());
-                return;
-            }
-        }
-        if let (Some(gpu), Some(renderer)) =
-            (self.gpu.as_ref(), self.scatter.difference_renderer.as_mut())
-        {
-            if let Err(err) =
-                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation.revision)
-            {
-                error!(error = %err, "failed to upload difference density filter mask");
-                self.scatter_filters.error = Some(err.to_string());
-                return;
-            }
-        }
-
-        let difference_remains_available =
-            next_filters.is_active() && evaluation.included_count > 0;
-        self.scatter_filters.last_uploaded_revision = evaluation.revision;
-        self.scatter_filters.filters = next_filters;
-        self.scatter_filters.evaluation = Some(evaluation);
-        self.scatter_filters.error = None;
-        if !difference_remains_available {
-            self.scatter.density_mode = rawscope_render::ScatterDensityMode::AbsoluteDensity;
-        }
-        self.invalidate_scatter_inspection();
-        self.invalidate_scatter_point_reveal();
-        self.clear_brush();
-        self.export_status = ExportStatus::Idle;
-        self.render_schedule.request_exact_refine();
-        self.request_redraw();
+        let evaluation =
+            evaluate_filters(source, catalog, &next_filters).map_err(|err| err.to_string())?;
+        Ok(Some(PreparedFilterState {
+            filters: next_filters,
+            evaluation,
+        }))
     }
 }
 
