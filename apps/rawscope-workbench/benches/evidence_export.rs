@@ -1,6 +1,7 @@
 use std::{
     fs,
-    path::PathBuf,
+    hint::black_box,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
@@ -18,7 +19,7 @@ use rawscope_render::{
     TimelineSelectionEvidenceV2,
 };
 use rawscope_workbench::benchmark_support::{
-    write_scatter_report_bundle, write_timeline_report_bundle,
+    write_scatter_report_bundle, write_timeline_report_bundle, BenchmarkRunMetadata,
 };
 
 const EXPORT_BENCHMARK_TIMESTAMP_MS: u128 = 1_735_689_600_000;
@@ -28,11 +29,35 @@ const EXPORT_SAMPLE_SIZE: usize = 5;
 static EXPORT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn evidence_export_benchmarks(c: &mut Criterion) {
-    let output_root = benchmark_output_root();
-    if output_root.exists() {
-        let _ = fs::remove_dir_all(&output_root);
+    let output_root = BenchmarkOutputRoot::new();
+    fs::create_dir_all(output_root.path()).expect("benchmark output root should be created");
+    for metadata in [
+        BenchmarkRunMetadata::for_scenario(
+            "workbench-evidence-export-scatter-v1",
+            "fixture-v1",
+            EXPORT_BENCHMARK_ROW_COUNT as u64,
+            "workspace-default",
+            10,
+            "bundle_writes",
+        ),
+        BenchmarkRunMetadata::for_scenario(
+            "workbench-evidence-export-timeline-v1",
+            "fixture-v1",
+            EXPORT_BENCHMARK_ROW_COUNT as u64,
+            "workspace-default",
+            10,
+            "bundle_writes",
+        ),
+    ] {
+        metadata
+            .validate()
+            .expect("benchmark metadata fixture should be complete");
+        black_box(
+            metadata
+                .to_json()
+                .expect("benchmark metadata should serialize"),
+        );
     }
-    fs::create_dir_all(&output_root).expect("benchmark output root should be created");
 
     let scatter_evidence = scatter_evidence_fixture();
     let timeline_evidence = timeline_evidence_fixture();
@@ -50,7 +75,7 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
             bencher.iter(|| {
                 let export_counter = EXPORT_COUNTER.fetch_add(1, Ordering::Relaxed);
                 write_scatter_report_bundle(
-                    &output_root,
+                    output_root.path(),
                     evidence,
                     EXPORT_BENCHMARK_TIMESTAMP_MS,
                     export_counter,
@@ -67,7 +92,7 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
             bencher.iter(|| {
                 let export_counter = EXPORT_COUNTER.fetch_add(1, Ordering::Relaxed);
                 write_timeline_report_bundle(
-                    &output_root,
+                    output_root.path(),
                     evidence,
                     EXPORT_BENCHMARK_TIMESTAMP_MS,
                     export_counter,
@@ -78,8 +103,6 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
     );
 
     group.finish();
-
-    let _ = fs::remove_dir_all(&output_root);
 }
 
 fn scatter_evidence_fixture() -> ScatterSelectionEvidenceV2 {
@@ -220,6 +243,39 @@ fn timeline_evidence_fixture() -> TimelineSelectionEvidenceV2 {
         },
         Some(&source_rows),
     )
+}
+
+struct BenchmarkOutputRoot {
+    path: PathBuf,
+}
+
+impl BenchmarkOutputRoot {
+    fn new() -> Self {
+        let path = benchmark_output_root();
+        if path.exists() {
+            let expected_parent = std::env::temp_dir();
+            if path.parent() != Some(expected_parent.as_path()) {
+                panic!("benchmark output root escaped the process temp directory");
+            }
+            fs::remove_dir_all(&path).expect("stale benchmark output root should be removable");
+        }
+        Self { path }
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for BenchmarkOutputRoot {
+    fn drop(&mut self) {
+        if self.path.exists() {
+            let expected_parent = std::env::temp_dir();
+            if self.path.parent() == Some(expected_parent.as_path()) {
+                let _ = fs::remove_dir_all(&self.path);
+            }
+        }
+    }
 }
 
 fn benchmark_output_root() -> PathBuf {
