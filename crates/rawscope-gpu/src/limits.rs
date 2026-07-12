@@ -63,10 +63,13 @@ impl GpuResourcePlan {
         let buffer_size_bytes = bin_count
             .checked_mul(4)
             .ok_or(GpuLimitError::ArithmeticOverflow)?;
-        if buffer_size_bytes > limits.max_storage_buffer_binding_size {
+        let max_allowed_buffer_bytes = limits
+            .max_storage_buffer_binding_size
+            .min(limits.max_buffer_size);
+        if buffer_size_bytes > max_allowed_buffer_bytes {
             return Err(GpuLimitError::BufferTooLarge {
                 requested_bytes: buffer_size_bytes,
-                max_bytes: limits.max_storage_buffer_binding_size,
+                max_bytes: max_allowed_buffer_bytes,
             });
         }
         let dispatch_workgroups_x =
@@ -108,5 +111,19 @@ mod tests {
             GpuResourcePlan::for_density(u32::MAX, u32::MAX, 1, &limits),
             Err(GpuLimitError::BufferTooLarge { .. } | GpuLimitError::ArithmeticOverflow)
         ));
+    }
+
+    #[test]
+    fn resource_plan_honors_total_buffer_limit() {
+        let mut limits = wgpu::Limits::downlevel_defaults();
+        limits.max_storage_buffer_binding_size = u64::MAX;
+        limits.max_buffer_size = 64;
+        assert_eq!(
+            GpuResourcePlan::for_density(5, 5, 1, &limits),
+            Err(GpuLimitError::BufferTooLarge {
+                requested_bytes: 100,
+                max_bytes: 64,
+            })
+        );
     }
 }
