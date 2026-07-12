@@ -1,0 +1,12 @@
+[package]
+name = "rawscope-evidence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+rawscope-analysis = { version = "0.1.0", path = "../rawscope-analysis" }
+rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
+rawscope-data = { version = "0.1.0", path = "../rawscope-data" }
+rawscope-session-contracts = { version = "0.1.0", path = "../rawscope-session-contracts" }
