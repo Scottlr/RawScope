@@ -188,7 +188,7 @@ impl WorkbenchApp {
         let view_label = view_label(self);
         let selection_label = selection_label(self);
         let linked_selection_label = linked_selection_label(self);
-        let comparison = self.active_comparison.clone();
+        let comparison = self.workbench_state.active_comparison.clone();
         let (axis_primary_label, axis_secondary_label) = axis_labels(self);
         let scatter_inspection = scatter_inspection_ui_state(self);
         let inspection_presentation = self.inspection_presentation.retained_content().cloned();

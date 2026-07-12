@@ -18,7 +18,7 @@ pub(crate) enum WorkbenchComparison {
 
 impl WorkbenchApp {
     pub(crate) fn rebuild_active_comparison(&mut self) {
-        self.active_comparison = match self.workbench_state.visible_surface {
+        self.workbench_state.active_comparison = match self.workbench_state.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
                 DemoMode::Scatter => self.scatter_comparison(),
                 DemoMode::Timeline => self.timeline_comparison(),
@@ -29,7 +29,7 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn clear_active_comparison(&mut self) {
-        self.active_comparison = None;
+        self.workbench_state.active_comparison = None;
     }
 
     fn scatter_comparison(&self) -> Option<WorkbenchComparison> {
@@ -208,7 +208,7 @@ mod tests {
         app.rebuild_active_comparison();
 
         assert!(matches!(
-            app.active_comparison,
+            app.workbench_state.active_comparison,
             Some(WorkbenchComparison::Scatter(_))
         ));
     }
@@ -246,7 +246,7 @@ mod tests {
         app.rebuild_active_comparison();
 
         assert!(matches!(
-            app.active_comparison,
+            app.workbench_state.active_comparison,
             Some(WorkbenchComparison::Timeline(_))
         ));
     }
@@ -263,7 +263,7 @@ mod tests {
         app.rebuild_active_comparison();
 
         assert!(matches!(
-            app.active_comparison,
+            app.workbench_state.active_comparison,
             Some(WorkbenchComparison::Missingness(_))
         ));
     }
@@ -288,7 +288,7 @@ mod tests {
 
         app.clear_brush();
 
-        assert!(app.active_comparison.is_none());
+        assert!(app.workbench_state.active_comparison.is_none());
     }
 
     #[test]
@@ -312,6 +312,6 @@ mod tests {
 
         app.switch_point_preset(PointCountPreset::from_digit_key('2').unwrap());
 
-        assert!(app.active_comparison.is_none());
+        assert!(app.workbench_state.active_comparison.is_none());
     }
 }
