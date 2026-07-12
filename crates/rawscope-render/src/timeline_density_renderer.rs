@@ -14,6 +14,8 @@ use crate::gpu_timeline_density::{
 use crate::{DensityEncoding, PlotRectPx};
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/timeline_density_render.wgsl");
+const TIMELINE_DENSITY_RENDER_PARAMS_SIZE_BYTES: u64 =
+    std::mem::size_of::<TimelineDensityRenderParams>() as u64;
 
 /// Render stats needed by the workbench title and density colour scale.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,6 +117,7 @@ impl TimelineDensityRenderer {
         let bind_group_layout = create_density_render_bind_group_layout(
             device,
             "RawScope Timeline Density Render Bind Group Layout",
+            TIMELINE_DENSITY_RENDER_PARAMS_SIZE_BYTES,
         );
         let bind_group = create_density_render_bind_group(
             device,
@@ -254,4 +257,16 @@ struct TimelineDensityRenderParams {
     transform_id: u32,
     palette_id: u32,
     _padding: [u32; 3],
+}
+
+#[cfg(test)]
+mod abi_tests {
+    use super::TimelineDensityRenderParams;
+
+    #[test]
+    fn timeline_density_render_params_match_wgsl_uniform_alignment() {
+        assert_eq!(std::mem::size_of::<TimelineDensityRenderParams>(), 32);
+        assert_eq!(std::mem::align_of::<TimelineDensityRenderParams>(), 4);
+        assert_eq!(std::mem::size_of::<TimelineDensityRenderParams>() % 16, 0);
+    }
 }
