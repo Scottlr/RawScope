@@ -101,6 +101,14 @@ pub struct FilterMask {
 }
 
 impl FilterMask {
+    pub fn from_u32(included: Vec<u32>) -> Self {
+        let included_count = included.iter().filter(|value| **value == 1).count();
+        Self {
+            included,
+            included_count,
+        }
+    }
+
     pub fn all_included(row_count: usize) -> Self {
         Self {
             included: vec![1; row_count],
