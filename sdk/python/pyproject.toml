@@ -17,10 +17,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
 ]
+dependencies = []
+
 [project.urls]
 Homepage = "https://github.com/Scottlr/RawScope"
 Repository = "https://github.com/Scottlr/RawScope"
-dependencies = []
 
 [project.optional-dependencies]
 pandas = ["pandas>=2.2", "pyarrow>=15"]
