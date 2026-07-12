@@ -11,6 +11,9 @@ mod scatter_selection_export;
 mod schema;
 pub mod wire;
 
+pub use evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
+pub use markdown_escape::{escape_inline_code, escape_table_cell, portable_path_label};
+
 pub use bundle::{
     BundleArtifactV2, BundleManifestError, BundleManifestV2, BundlePathError, BundleRelativePath,
     ContentChecksumV1, EvidenceArtifactKind, REPORT_BUNDLE_SCHEMA_VERSION_V2,
