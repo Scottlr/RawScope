@@ -12,6 +12,24 @@ use crate::{
     CellRef, DatasetGeneration, DatasetStore, LoadedSourceRow, LoadedSourceTable, SourceValue,
 };
 
+const INDEX_ENTRY_OVERHEAD_BYTES: u64 = 32;
+
+/// Admission limit for the exact natural-key index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EvidenceKeyIndexBudget {
+    max_bytes: u64,
+}
+
+impl EvidenceKeyIndexBudget {
+    pub const fn new(max_bytes: u64) -> Self {
+        Self { max_bytes }
+    }
+
+    pub const fn max_bytes(self) -> u64 {
+        self.max_bytes
+    }
+}
+
 /// Validated source-column descriptor for a natural evidence key.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DatasetEvidenceKey {
@@ -171,6 +189,10 @@ pub enum EvidenceKeyValidationError {
         first: RowId,
         duplicate: RowId,
     },
+    BudgetExceeded {
+        requested_bytes: u64,
+        max_bytes: u64,
+    },
 }
 
 impl fmt::Display for EvidenceKeyValidationError {
@@ -197,6 +219,13 @@ impl fmt::Display for EvidenceKeyValidationError {
                 formatter,
                 "evidence key column '{column_name}' contains duplicate value '{value}' in rows {first:?} and {duplicate:?}"
             ),
+            Self::BudgetExceeded {
+                requested_bytes,
+                max_bytes,
+            } => write!(
+                formatter,
+                "evidence key index requires {requested_bytes} bytes, exceeding budget of {max_bytes} bytes"
+            ),
         }
     }
 }
@@ -207,6 +236,15 @@ impl Error for EvidenceKeyValidationError {}
 pub fn validate_evidence_key(
     source: &LoadedSourceTable,
     column_name: &str,
+) -> Result<DatasetEvidenceKey, EvidenceKeyValidationError> {
+    validate_evidence_key_with_budget(source, column_name, EvidenceKeyIndexBudget::new(u64::MAX))
+}
+
+/// Validates a natural key while admitting its exact index within a byte budget.
+pub fn validate_evidence_key_with_budget(
+    source: &LoadedSourceTable,
+    column_name: &str,
+    budget: EvidenceKeyIndexBudget,
 ) -> Result<DatasetEvidenceKey, EvidenceKeyValidationError> {
     let Some(column_index) = source
         .columns
@@ -223,7 +261,8 @@ pub fn validate_evidence_key(
         column_name: column_name.to_string(),
         column_index,
     };
-    let mut first_row_by_value = HashMap::<String, RowId>::with_capacity(source.rows.len());
+    let mut first_row_by_value = HashMap::<String, RowId>::new();
+    let mut index_bytes = 0_u64;
     for row in &source.rows {
         let Some(value) = key.value(row) else {
             return Err(EvidenceKeyValidationError::MissingValue {
@@ -249,6 +288,22 @@ pub fn validate_evidence_key(
             }
             Entry::Vacant(entry) => {
                 entry.insert(row.row_id);
+                index_bytes = index_bytes
+                    .checked_add(
+                        u64::try_from(normalized_value.len())
+                            .unwrap_or(u64::MAX)
+                            .saturating_add(INDEX_ENTRY_OVERHEAD_BYTES),
+                    )
+                    .ok_or(EvidenceKeyValidationError::BudgetExceeded {
+                        requested_bytes: u64::MAX,
+                        max_bytes: budget.max_bytes(),
+                    })?;
+                if index_bytes > budget.max_bytes() {
+                    return Err(EvidenceKeyValidationError::BudgetExceeded {
+                        requested_bytes: index_bytes,
+                        max_bytes: budget.max_bytes(),
+                    });
+                }
             }
         }
     }

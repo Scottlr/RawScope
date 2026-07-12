@@ -1,7 +1,8 @@
 use rawscope_core::RowId;
 use rawscope_data::{
-    validate_evidence_key, DatasetEvidenceKey, EvidenceKeyValidationError, LoadedColumnKind,
-    LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
+    validate_evidence_key, validate_evidence_key_with_budget, DatasetEvidenceKey,
+    EvidenceKeyIndexBudget, EvidenceKeyValidationError, LoadedColumnKind, LoadedColumnSchema,
+    LoadedSourceRow, LoadedSourceTable,
 };
 
 #[test]
@@ -75,6 +76,18 @@ fn evidence_key_missing_column_lists_available_columns() {
             column_name,
             available_columns
         } if column_name == "missing" && available_columns == vec!["game_id".to_string()]
+    ));
+}
+
+#[test]
+fn evidence_key_budget_rejects_before_claiming_uniqueness() {
+    let source = source(&[(0, "g-001"), (1, "g-002")]);
+    let error =
+        validate_evidence_key_with_budget(&source, "game_id", EvidenceKeyIndexBudget::new(32))
+            .unwrap_err();
+    assert!(matches!(
+        error,
+        EvidenceKeyValidationError::BudgetExceeded { .. }
     ));
 }
 
