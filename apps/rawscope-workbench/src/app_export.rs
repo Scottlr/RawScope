@@ -4,9 +4,10 @@ use tracing::{error, info, warn};
 
 use rawscope_render::{
     normalized_difference_density, scatter_aggregate_evidence_context,
-    timeline_aggregate_evidence_context, DifferenceDensityEvidenceConfig,
-    PinnedScatterInspectionEvidence, PointRevealEvidence, PointRevealStats, ScatterCohortEvidence,
-    ScatterDensityMode, ScatterDensityPresentation, ScatterEvidenceView, ScatterInspectionConfig,
+    scatter_aggregate_evidence_context_for_bins, timeline_aggregate_evidence_context,
+    DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
+    PointRevealStats, ScatterAggregateOverview, ScatterCohortEvidence, ScatterDensityMode,
+    ScatterDensityPresentation, ScatterEvidenceView, ScatterInspectionConfig,
     ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4,
     ScatterVisualQueryV4, TimelineEvidenceView, TimelineSelectionEvidenceV2,
     TimelineSelectionEvidenceV3, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
@@ -207,10 +208,7 @@ impl WorkbenchApp {
             self.scatter.density_encoding,
             self.scatter.density_presentation,
             comparison,
-            scatter_aggregate_evidence_context(
-                aggregate_overview,
-                &evidence_v2.selected_row_id_sample,
-            ),
+            self.scatter_aggregate_evidence_context(aggregate_overview, evidence_v2),
             self.workbench_state.active_dataset_profile,
         ))
     }
@@ -294,6 +292,29 @@ impl WorkbenchApp {
             pinned_inspection,
         )
         .ok()
+    }
+
+    fn scatter_aggregate_evidence_context(
+        &self,
+        overview: &ScatterAggregateOverview,
+        evidence: &ScatterSelectionEvidenceV2,
+    ) -> rawscope_render::ScatterAggregateEvidenceContext {
+        if let Some(snapshot) = self
+            .workbench_state
+            .active_selection
+            .as_ref()
+            .and_then(|selection| selection.snapshot.as_ref())
+        {
+            return scatter_aggregate_evidence_context_for_bins(
+                overview,
+                &snapshot
+                    .selected_bins()
+                    .iter()
+                    .map(|index| *index as usize)
+                    .collect::<Vec<_>>(),
+            );
+        }
+        scatter_aggregate_evidence_context(overview, &evidence.selected_row_id_sample)
     }
 
     fn difference_evidence_config(&self) -> Option<DifferenceDensityEvidenceConfig> {
