@@ -39,6 +39,8 @@ mod demo;
     reason = "staged coordinator foundation is integrated by a follow-up task"
 )]
 mod job_coordinator;
+#[allow(dead_code)]
+mod render_coordinator;
 #[expect(
     dead_code,
     reason = "staged startup lifecycle foundation is integrated by a follow-up task"
