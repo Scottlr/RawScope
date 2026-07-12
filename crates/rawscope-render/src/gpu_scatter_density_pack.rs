@@ -121,17 +121,48 @@ pub(crate) fn pack_points(points: &[ScatterPointRecord]) -> Vec<GpuPoint> {
 
 #[cfg(test)]
 mod tests {
+    use std::mem::{align_of, size_of};
+
     use super::*;
     use rawscope_analysis::projection::ProjectedScatterPoint;
     use rawscope_core::RowId;
     use rawscope_data::ScatterPointKind;
 
     #[test]
+    fn scatter_gpu_abis_match_wgsl_scalar_layout() {
+        assert_eq!(size_of::<GpuPoint>(), 8);
+        assert_eq!(align_of::<GpuPoint>(), 4);
+        assert_eq!(size_of::<ScatterParams>(), 32);
+        assert_eq!(align_of::<ScatterParams>(), 4);
+    }
+
+    #[test]
     fn packing_rejects_non_finite_and_out_of_domain_points() {
-        let quantization = GpuQuantization { x_min: 0.0, x_max: 1.0, y_min: 0.0, y_max: 1.0 };
-        let non_finite = [ProjectedScatterPoint { row_id: RowId(1), x: f64::NAN, y: 0.5, kind: ScatterPointKind::Unclassified }];
-        assert!(matches!(pack_scatter_points(&non_finite, quantization), Err(VisualPackingError::NonFinite { .. })));
-        let outside = [ProjectedScatterPoint { row_id: RowId(2), x: 2.0, y: 0.5, kind: ScatterPointKind::Unclassified }];
-        assert!(matches!(pack_scatter_points(&outside, quantization), Err(VisualPackingError::OutsideDomain { .. })));
+        let quantization = GpuQuantization {
+            x_min: 0.0,
+            x_max: 1.0,
+            y_min: 0.0,
+            y_max: 1.0,
+        };
+        let non_finite = [ProjectedScatterPoint {
+            row_id: RowId(1),
+            x: f64::NAN,
+            y: 0.5,
+            kind: ScatterPointKind::Unclassified,
+        }];
+        assert!(matches!(
+            pack_scatter_points(&non_finite, quantization),
+            Err(VisualPackingError::NonFinite { .. })
+        ));
+        let outside = [ProjectedScatterPoint {
+            row_id: RowId(2),
+            x: 2.0,
+            y: 0.5,
+            kind: ScatterPointKind::Unclassified,
+        }];
+        assert!(matches!(
+            pack_scatter_points(&outside, quantization),
+            Err(VisualPackingError::OutsideDomain { .. })
+        ));
     }
 }

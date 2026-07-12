@@ -1,5 +1,7 @@
 //! Buffer, layout, and bind-group construction for resident scatter compute.
 
+use std::num::NonZeroU64;
+
 use rawscope_data::ScatterPointRecord;
 
 use crate::gpu_scatter_density_pack::{pack_points, ScatterParams};
@@ -109,7 +111,9 @@ pub(super) fn compute_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                         }
                     },
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: (binding == 1)
+                        .then(|| NonZeroU64::new(std::mem::size_of::<ScatterParams>() as u64))
+                        .flatten(),
                 },
                 count: None,
             })

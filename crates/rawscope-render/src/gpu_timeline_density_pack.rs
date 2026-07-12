@@ -85,11 +85,21 @@ fn pack_event(
 
 #[cfg(test)]
 mod tests {
+    use std::mem::{align_of, size_of};
+
     use rawscope_core::{RowId, U64Range};
     use rawscope_data::{TimelineEventKind, TimelineEventRecord};
 
-    use super::{pack_event, timeline_span_u32};
+    use super::{pack_event, timeline_span_u32, GpuTimelineEvent, TimelineParams};
     use crate::gpu_timeline_density::GpuTimelineDensityError;
+
+    #[test]
+    fn timeline_gpu_abis_match_wgsl_scalar_layout() {
+        assert_eq!(size_of::<GpuTimelineEvent>(), 16);
+        assert_eq!(align_of::<GpuTimelineEvent>(), 4);
+        assert_eq!(size_of::<TimelineParams>(), 24);
+        assert_eq!(align_of::<TimelineParams>(), 4);
+    }
 
     #[test]
     fn pack_event_marks_timestamps_outside_range() {
