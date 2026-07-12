@@ -26,6 +26,12 @@ fn decoded_csv_cell_preserves_raw_spelling_separately_from_normalized_state() {
         cell.analytical(),
         CellState::Value(NormalizedValue::I64(42))
     ));
+    let stored = cell.into_stored_cell();
+    assert_eq!(stored.raw_text(), Some("  0042 "));
+    assert!(matches!(
+        stored.normalized(),
+        CellState::Value(NormalizedValue::I64(42))
+    ));
 }
 
 fn chunk(row_id_start: u64, score: f64) -> DatasetChunk {
@@ -116,6 +122,18 @@ fn store_preserves_raw_values_and_distinguishes_invalid_cells() {
         store.source_value(RowId(0), ColumnId::new(0)).unwrap(),
         CellRef::Invalid(cell) if *cell == invalid
     ));
+}
+
+#[test]
+fn decoded_csv_invalid_state_keeps_the_original_lexeme() {
+    let invalid = InvalidCell::new(RowId(0), ColumnId::new(0), InvalidCellReason::ParseFailure);
+    let stored = DecodedCsvCell::new(
+        Arc::<str>::from("  not-a-number  "),
+        CellState::Invalid(invalid),
+    )
+    .into_stored_cell();
+    assert_eq!(stored.raw_text(), Some("  not-a-number  "));
+    assert!(matches!(stored.as_cell_ref(), CellRef::Invalid(value) if *value == invalid));
 }
 
 #[test]
