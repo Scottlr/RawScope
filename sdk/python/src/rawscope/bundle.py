@@ -21,6 +21,7 @@ from .models import (
     ScatterView,
     TimelineView,
     require_text,
+    validate_row_limit,
 )
 
 
@@ -78,8 +79,7 @@ def _validate_dataframe(
         require_text(display_name, "dataset.display_name")
     if evidence_key is not None:
         require_text(evidence_key, "dataset.evidence_key")
-    if limit is not None and (not isinstance(limit, int) or limit <= 0):
-        raise InvalidSession("dataset.limit must be a positive integer")
+    limit = validate_row_limit(limit)
     names = adapter.column_names()
     required = (
         (view.x, view.y) if isinstance(view, ScatterView) else (view.time, view.lane)

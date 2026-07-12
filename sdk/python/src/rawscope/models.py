@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import numbers
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +26,22 @@ class MissingOptionalDependency(RawScopeError):
 
 class DataframeSchemaError(RawScopeError):
     """Raised when a dataframe cannot map to the flat RawScope table contract."""
+
+
+MAX_SESSION_ROW_LIMIT = 10_000_000_000
+
+
+def validate_row_limit(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+        raise InvalidSession("dataset.limit must be an integer, not bool")
+    normalized = int(value)
+    if not 1 <= normalized <= MAX_SESSION_ROW_LIMIT:
+        raise InvalidSession(
+            f"dataset.limit must be between 1 and {MAX_SESSION_ROW_LIMIT}"
+        )
+    return normalized
 
 
 def require_text(value: str, field: str) -> str:

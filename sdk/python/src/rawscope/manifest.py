@@ -15,6 +15,7 @@ from .models import (
     ScatterView,
     TimelineView,
     require_text,
+    validate_row_limit,
 )
 
 ARTIFACT_KIND = "rawscope.session"
@@ -52,8 +53,7 @@ def prepare(
         require_text(display_name, "dataset.display_name")
     if evidence_key is not None:
         require_text(evidence_key, "dataset.evidence_key")
-    if limit is not None and (not isinstance(limit, int) or limit <= 0):
-        raise InvalidSession("dataset.limit must be a positive integer")
+    limit = validate_row_limit(limit)
 
     bundle_dir, manifest_path = _destination_paths(destination)
     bundle_dir.mkdir(parents=True, exist_ok=True)
