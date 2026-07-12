@@ -1,7 +1,7 @@
 //! Shared linked-selection publishing for the workbench.
 
 use rawscope_core::{CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry};
-use rawscope_data::{DatasetIdentity, FilterMask, FilterRevision};
+use rawscope_data::{DatasetIdentity, FilterMask};
 use rawscope_render::SelectionSnapshot;
 
 use crate::app::WorkbenchApp;
@@ -30,15 +30,28 @@ impl WorkbenchApp {
 
         let filter_mask = self
             .scatter_filters
-            .evaluation
+            .cohort_snapshot
             .as_ref()
-            .map(|evaluation| evaluation.mask.clone())
+            .map(|snapshot| snapshot.filter_mask())
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| evaluation.mask.clone())
+            })
             .unwrap_or_else(|| FilterMask::all_included(self.scatter.points.len()));
         let filter_revision = self
             .scatter_filters
-            .evaluation
+            .cohort_snapshot
             .as_ref()
-            .map_or(FilterRevision::default(), |evaluation| evaluation.revision);
+            .map(|snapshot| snapshot.filter_revision())
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| evaluation.revision)
+            })
+            .unwrap_or_default();
         let selection_id = self.next_selection_id();
         let snapshot = SelectionSnapshot::from_filtered_points(
             selection_id,
@@ -166,12 +179,14 @@ impl WorkbenchApp {
 mod tests {
     use rawscope_core::{F32Range, RowId, U64Range};
     use rawscope_data::{
-        ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
+        LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable, ScatterPointKind,
+        ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
     };
     use rawscope_render::{ScatterBrushSelection, TimelineBrushSelection, TimelineLaneRange};
 
     use super::*;
     use crate::demo::DemoMode;
+    use crate::ui_filters::FilterAction;
 
     #[test]
     fn publish_scatter_active_selection_sorts_row_ids() {
@@ -265,5 +280,69 @@ mod tests {
 
         assert_eq!(first_selection_id, SelectionId(1));
         assert_eq!(second_selection_id, SelectionId(2));
+    }
+
+    #[test]
+    fn publish_scatter_selection_uses_cohort_membership_not_compatibility_samples() {
+        let mut app = WorkbenchApp::default();
+        app.demo_mode = DemoMode::Scatter;
+        app.workbench_state.dataset_identity = Some(
+            rawscope_data::generate_synthetic_points(rawscope_data::SyntheticPointConfig::new(
+                42, 2,
+            ))
+            .identity,
+        );
+        app.scatter.source_rows = Some(LoadedSourceTable {
+            columns: vec![LoadedColumnSchema {
+                name: "winner".into(),
+                kind: LoadedColumnKind::String,
+            }],
+            rows: vec![
+                LoadedSourceRow {
+                    row_id: RowId(0),
+                    values: vec!["white".into()],
+                },
+                LoadedSourceRow {
+                    row_id: RowId(1),
+                    values: vec!["black".into()],
+                },
+            ],
+        });
+        app.scatter.points = vec![
+            ScatterPointRecord {
+                row_id: RowId(0),
+                x: 1.0,
+                y: 1.0,
+                kind: ScatterPointKind::Unclassified,
+            },
+            ScatterPointRecord {
+                row_id: RowId(1),
+                x: 2.0,
+                y: 2.0,
+                kind: ScatterPointKind::Unclassified,
+            },
+        ];
+        app.initialize_scatter_filters();
+        app.apply_scatter_filter_action(FilterAction::SetCategories {
+            column_name: "winner".into(),
+            included_values: vec!["white".into()],
+            include_missing: false,
+        });
+        app.scatter.active_brush_selection = Some(ScatterBrushSelection {
+            x_range: F32Range::new(0.0, 3.0),
+            y_range: F32Range::new(0.0, 3.0),
+        });
+
+        app.publish_scatter_active_selection();
+
+        let selection = app
+            .workbench_state
+            .active_selection
+            .as_ref()
+            .expect("filtered selection should be published");
+        assert_eq!(
+            selection.visual_selection.selected_row_ids(),
+            vec![RowId(0)]
+        );
     }
 }
