@@ -1,5 +1,6 @@
 //! Evidence report-bundle export routing for the workbench density demos.
 
+use rawscope_evidence::{EvidenceContext, EvidenceDocument, EvidenceVisualContext};
 use tracing::{error, info, warn};
 
 use rawscope_render::{
@@ -186,12 +187,58 @@ impl WorkbenchApp {
             grid_height: render_stats.grid_height,
         };
 
+        if let Some(canonical) = self.canonical_scatter_evidence(&dataset_identity, view) {
+            if canonical.selected_count() != evidence.selected_row_count as u64 {
+                return None;
+            }
+        }
+
         Some(ScatterSelectionEvidenceV2::from_v1(
             evidence,
             dataset_identity,
             view,
             self.scatter.source_rows.as_ref(),
         ))
+    }
+
+    fn canonical_scatter_evidence(
+        &self,
+        dataset_identity: &rawscope_data::DatasetIdentity,
+        view: ScatterEvidenceView,
+    ) -> Option<EvidenceDocument> {
+        let active_selection = self.workbench_state.active_selection.as_ref()?;
+        let snapshot = active_selection.analysis_snapshot.as_ref()?;
+        let cohort_included_row_count = self
+            .scatter_filters
+            .cohort_snapshot
+            .as_ref()
+            .map(|cohort| cohort.included_row_count())
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| evaluation.included_count as u64)
+            })
+            .unwrap_or(self.scatter.points.len() as u64);
+        EvidenceDocument::from_selection(
+            snapshot,
+            EvidenceContext {
+                dataset_generation: snapshot.dataset_generation(),
+                cohort_generation: snapshot.cohort_generation(),
+                dataset_identity: dataset_identity.clone(),
+                cohort_included_row_count,
+                source_rows_available: self.scatter.source_rows.is_some(),
+                visual: EvidenceVisualContext {
+                    x_min: f64::from(view.x_range.min),
+                    x_max: f64::from(view.x_range.max),
+                    y_min: f64::from(view.y_range.min),
+                    y_max: f64::from(view.y_range.max),
+                    grid_width: view.grid_width,
+                    grid_height: view.grid_height,
+                },
+            },
+        )
+        .ok()
     }
 
     fn scatter_selection_evidence_v3(
