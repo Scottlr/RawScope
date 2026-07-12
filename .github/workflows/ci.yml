@@ -46,9 +46,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Install MSRV
-        run: rustup toolchain install 1.88.0 --profile minimal
-      - run: cargo +1.88.0 check --workspace --all-targets
-      - run: cargo +1.88.0 test --workspace --all-targets
+        run: rustup toolchain install 1.92.0 --profile minimal
+      - run: cargo +1.92.0 check --workspace --all-targets
+      - run: cargo +1.92.0 test --workspace --all-targets
 
   platform-build:
     name: platform-build (${{ matrix.os }})
