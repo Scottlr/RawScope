@@ -86,6 +86,13 @@ impl WorkbenchApp {
             projection,
         )?;
 
+        if let Some(renderer) = self.scatter.density_renderer.as_ref() {
+            renderer.validate_dataset(&projected.points)?;
+        }
+        if let Some(renderer) = self.scatter.difference_renderer.as_ref() {
+            renderer.validate_dataset(&projected.points)?;
+        }
+
         self.scatter.density_dataset_revision += 1;
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())

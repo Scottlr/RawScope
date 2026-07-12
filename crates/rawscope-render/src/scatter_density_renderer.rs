@@ -308,6 +308,13 @@ impl ScatterDensityRenderer {
             .replace_dataset(device, queue, points, dataset_revision)
     }
 
+    pub fn validate_dataset(
+        &self,
+        points: &[ScatterPointRecord],
+    ) -> Result<(), GpuScatterDensityError> {
+        self.gpu_state.validate_dataset(points)
+    }
+
     pub fn update_filter_mask(
         &mut self,
         queue: &wgpu::Queue,
