@@ -1,5 +1,10 @@
 //! Local dataset loading types for the first real-data workbench slice.
 
+#![cfg_attr(
+    not(any(feature = "csv", feature = "parquet")),
+    allow(dead_code, unused_variables)
+)]
+
 use std::{
     error::Error,
     fmt,
@@ -10,10 +15,14 @@ use rawscope_core::{F32Range, PositiveRowLimit, RowId, U64Range};
 
 use crate::{DatasetIdentity, ScatterPointRecord, TimelineEventRecord};
 
+#[cfg(feature = "csv")]
 mod csv;
+#[cfg(any(feature = "csv", feature = "parquet"))]
 mod lane_label;
+#[cfg(feature = "parquet")]
 mod parquet;
 
+#[cfg(feature = "parquet")]
 pub use parquet::{load_parquet_scatter_dataset, load_parquet_timeline_dataset};
 
 pub(super) const CSV_EXTENSION: &str = "csv";
@@ -147,13 +156,18 @@ pub struct LoadedTimelineDataset {
 /// Errors returned while opening a local dataset and binding columns.
 #[derive(Debug)]
 pub enum DatasetLoadError {
+    #[cfg(feature = "csv")]
     CsvRead {
         path: PathBuf,
         source: ::csv::Error,
     },
+    #[cfg(feature = "parquet")]
     ParquetRead {
         path: PathBuf,
         source: ::parquet::errors::ParquetError,
+    },
+    FeatureDisabled {
+        format: &'static str,
     },
     UnsupportedFileFormat {
         path: PathBuf,
@@ -201,12 +215,18 @@ pub enum DatasetLoadError {
 impl fmt::Display for DatasetLoadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(feature = "csv")]
             Self::CsvRead { path, source } => {
                 write!(f, "failed to read CSV '{}': {source}", path.display())
             }
+            #[cfg(feature = "parquet")]
             Self::ParquetRead { path, source } => {
                 write!(f, "failed to read Parquet '{}': {source}", path.display())
             }
+            Self::FeatureDisabled { format } => write!(
+                f,
+                "{format} source support is disabled; enable the corresponding crate feature"
+            ),
             Self::UnsupportedFileFormat { path, extension } => {
                 let extension = extension.as_deref().unwrap_or("<none>");
                 write!(
@@ -277,8 +297,11 @@ impl fmt::Display for DatasetLoadError {
 impl Error for DatasetLoadError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            #[cfg(feature = "csv")]
             Self::CsvRead { source, .. } => Some(source),
+            #[cfg(feature = "parquet")]
             Self::ParquetRead { source, .. } => Some(source),
+            Self::FeatureDisabled { .. } => None,
             Self::UnsupportedParquetColumnType { .. }
             | Self::ParquetInvalidColumnValue { .. }
             | Self::UnsupportedFileFormat { .. }
@@ -314,10 +337,16 @@ pub fn load_scatter_dataset(
 ) -> Result<LoadedScatterDataset, DatasetLoadError> {
     let path = path.as_ref();
     match normalized_extension(path).as_deref() {
+        #[cfg(feature = "csv")]
         Some(CSV_EXTENSION) => csv::load_scatter_dataset(path, x_column, y_column, limit),
+        #[cfg(feature = "parquet")]
         Some(PARQUET_EXTENSION) => {
             parquet::load_parquet_scatter_dataset(path, x_column, y_column, limit)
         }
+        #[cfg(not(feature = "csv"))]
+        Some(CSV_EXTENSION) => Err(DatasetLoadError::FeatureDisabled { format: "CSV" }),
+        #[cfg(not(feature = "parquet"))]
+        Some(PARQUET_EXTENSION) => Err(DatasetLoadError::FeatureDisabled { format: "Parquet" }),
         _ => Err(DatasetLoadError::UnsupportedFileFormat {
             path: path.to_path_buf(),
             extension: normalized_extension(path),
@@ -332,8 +361,14 @@ pub fn load_dataset_schema(
 ) -> Result<Vec<LoadedColumnSchema>, DatasetLoadError> {
     let path = path.as_ref();
     match normalized_extension(path).as_deref() {
+        #[cfg(feature = "csv")]
         Some(CSV_EXTENSION) => csv::load_dataset_schema(path, limit),
+        #[cfg(feature = "parquet")]
         Some(PARQUET_EXTENSION) => parquet::load_dataset_schema(path, limit),
+        #[cfg(not(feature = "csv"))]
+        Some(CSV_EXTENSION) => Err(DatasetLoadError::FeatureDisabled { format: "CSV" }),
+        #[cfg(not(feature = "parquet"))]
+        Some(PARQUET_EXTENSION) => Err(DatasetLoadError::FeatureDisabled { format: "Parquet" }),
         _ => Err(DatasetLoadError::UnsupportedFileFormat {
             path: path.to_path_buf(),
             extension: normalized_extension(path),
@@ -350,10 +385,16 @@ pub fn load_timeline_dataset(
 ) -> Result<LoadedTimelineDataset, DatasetLoadError> {
     let path = path.as_ref();
     match normalized_extension(path).as_deref() {
+        #[cfg(feature = "csv")]
         Some(CSV_EXTENSION) => csv::load_timeline_dataset(path, time_column, lane_column, limit),
+        #[cfg(feature = "parquet")]
         Some(PARQUET_EXTENSION) => {
             parquet::load_parquet_timeline_dataset(path, time_column, lane_column, limit)
         }
+        #[cfg(not(feature = "csv"))]
+        Some(CSV_EXTENSION) => Err(DatasetLoadError::FeatureDisabled { format: "CSV" }),
+        #[cfg(not(feature = "parquet"))]
+        Some(PARQUET_EXTENSION) => Err(DatasetLoadError::FeatureDisabled { format: "Parquet" }),
         _ => Err(DatasetLoadError::UnsupportedFileFormat {
             path: path.to_path_buf(),
             extension: normalized_extension(path),

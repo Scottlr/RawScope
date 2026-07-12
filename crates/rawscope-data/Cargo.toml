@@ -6,11 +6,16 @@ license.workspace = true
 publish = false
 description = "Typed local dataset storage and source adapters for RawScope"
 
+[features]
+default = ["csv"]
+csv = ["dep:csv"]
+parquet = ["csv", "dep:arrow-array", "dep:arrow-schema", "dep:parquet"]
+
 [dependencies]
-arrow-array = "59.1.0"
-arrow-schema = "59.1.0"
-csv = "1.3.1"
-parquet = { version = "59.1.0", features = ["arrow"] }
+arrow-array = { version = "59.1.0", optional = true }
+arrow-schema = { version = "59.1.0", optional = true }
+csv = { version = "1.3.1", optional = true }
+parquet = { version = "59.1.0", features = ["arrow"], optional = true }
 rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
 
 [dev-dependencies]
@@ -19,3 +24,9 @@ criterion = { workspace = true }
 [[bench]]
 name = "local_ingest"
 harness = false
+required-features = ["parquet"]
+
+[[test]]
+name = "local_dataset_import"
+path = "tests/local_dataset_import.rs"
+required-features = ["parquet"]

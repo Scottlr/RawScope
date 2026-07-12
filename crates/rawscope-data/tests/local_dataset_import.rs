@@ -1,3 +1,5 @@
+#![cfg(feature = "parquet")]
+
 use std::{
     fs,
     fs::File,

@@ -41,11 +41,13 @@ pub use ingest::{
     IngestionRequest,
 };
 pub use local_dataset::{
-    load_dataset_schema, load_parquet_scatter_dataset, load_parquet_timeline_dataset,
-    load_scatter_dataset, load_timeline_dataset, DatasetChunkId, DatasetLoadError,
-    LoadedColumnKind, LoadedColumnSchema, LoadedColumnarChunk, LoadedColumnarDataset,
-    LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable, LoadedTimelineDataset,
+    load_dataset_schema, load_scatter_dataset, load_timeline_dataset, DatasetChunkId,
+    DatasetLoadError, LoadedColumnKind, LoadedColumnSchema, LoadedColumnarChunk,
+    LoadedColumnarDataset, LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable,
+    LoadedTimelineDataset,
 };
+#[cfg(feature = "parquet")]
+pub use local_dataset::{load_parquet_scatter_dataset, load_parquet_timeline_dataset};
 pub use scatter_projection::{
     project_scatter_points, ProjectedScatterData, ScatterProjection, ScatterProjectionError,
     ScatterProjectionLabels, ScatterProjectionSpec,
