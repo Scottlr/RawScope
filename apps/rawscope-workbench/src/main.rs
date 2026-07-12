@@ -36,6 +36,8 @@ mod app_visual_transition;
 mod app_window;
 mod cli;
 mod controllers;
+#[allow(dead_code)]
+mod degraded_state;
 mod demo;
 #[expect(
     dead_code,
