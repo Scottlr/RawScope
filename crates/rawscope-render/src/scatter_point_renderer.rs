@@ -3,6 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::ScatterPointRecord;
+use std::num::NonZeroU64;
 
 use crate::{PlotRectPx, PointRevealConfig, PointRevealSelection, PointRevealStats};
 
@@ -213,6 +214,8 @@ struct GpuRevealPoint {
     row_id_high: u32,
 }
 
+const GPU_REVEAL_POINT_SIZE_BYTES: u64 = std::mem::size_of::<GpuRevealPoint>() as u64;
+
 impl From<&ScatterPointRecord> for GpuRevealPoint {
     fn from(point: &ScatterPointRecord) -> Self {
         Self {
@@ -240,6 +243,8 @@ struct PointRevealParams {
     has_emphasis: u32,
     _padding: u32,
 }
+
+const POINT_REVEAL_PARAMS_SIZE_BYTES: u64 = std::mem::size_of::<PointRevealParams>() as u64;
 
 impl PointRevealParams {
     fn new(
@@ -287,7 +292,7 @@ fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(GPU_REVEAL_POINT_SIZE_BYTES),
                 },
                 count: None,
             },
@@ -297,7 +302,7 @@ fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(POINT_REVEAL_PARAMS_SIZE_BYTES),
                 },
                 count: None,
             },
@@ -330,6 +335,15 @@ fn create_bind_group(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn point_reveal_abis_match_wgsl_scalar_layout() {
+        assert_eq!(std::mem::size_of::<GpuRevealPoint>(), 16);
+        assert_eq!(std::mem::align_of::<GpuRevealPoint>(), 4);
+        assert_eq!(std::mem::size_of::<PointRevealParams>(), 48);
+        assert_eq!(std::mem::align_of::<PointRevealParams>(), 4);
+        assert_eq!(std::mem::size_of::<PointRevealParams>() % 16, 0);
+    }
 
     #[test]
     fn point_reveal_params_preserve_plot_and_high_row_id() {
