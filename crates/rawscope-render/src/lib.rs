@@ -69,6 +69,7 @@ pub use density_encoding::{
 pub use density_reference::{scatter_density, timeline_density};
 pub use difference_density::{
     difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
+    StableShareParts,
     DifferenceDensityConfig, DifferenceDensityError, DifferenceDensityGrid, DifferenceDensityStats,
     DifferenceInspection, DifferencePalette, ScatterDensityMode, DIFFERENCE_FIXED_POINT_SCALE,
 };
