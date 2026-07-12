@@ -1,44 +1,92 @@
-//! Shared linked-selection primitives for future interaction flows.
+//! Shared linked-selection primitives for interaction and evidence flows.
+
+use std::{error::Error, fmt, ops::Deref};
 
 use crate::{F32Range, RowId, U64Range};
 
-/// Identifies a user-driven selection in the visual exploration pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct SelectionId(pub u64);
 
-/// Identifies the source view that produced a linked visual selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ViewId(pub u64);
 
-/// Shared selection kind independent of render- or app-owned brush structs.
+/// Legacy display label derived from `VisualSelectionGeometry`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisualSelectionKind {
     ScatterRect,
     TimelineRect,
 }
 
-/// Dependency-free half-open lane range for timeline-linked selections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CoreLaneRange {
+pub struct CoreLaneRangeFields {
     pub start: u32,
     pub end_exclusive: u32,
 }
 
-impl CoreLaneRange {
-    /// Creates a non-empty half-open lane range.
-    pub fn new(start: u32, end_exclusive: u32) -> Self {
-        assert!(
-            end_exclusive > start,
-            "lane range end must be greater than start"
-        );
-        Self {
-            start,
-            end_exclusive,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoreLaneRangeError {
+    EmptyOrReversed { start: u32, end_exclusive: u32 },
+}
+
+impl fmt::Display for CoreLaneRangeError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyOrReversed {
+                start,
+                end_exclusive,
+            } => write!(
+                formatter,
+                "lane range {start}..{end_exclusive} is empty or reversed"
+            ),
         }
     }
 }
 
-/// Shared geometry for a finalized linked selection.
+impl Error for CoreLaneRangeError {}
+
+/// Dependency-free half-open lane range for timeline-linked selections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CoreLaneRange {
+    fields: CoreLaneRangeFields,
+}
+
+impl CoreLaneRange {
+    pub fn try_new(start: u32, end_exclusive: u32) -> Result<Self, CoreLaneRangeError> {
+        if end_exclusive <= start {
+            return Err(CoreLaneRangeError::EmptyOrReversed {
+                start,
+                end_exclusive,
+            });
+        }
+        Ok(Self {
+            fields: CoreLaneRangeFields {
+                start,
+                end_exclusive,
+            },
+        })
+    }
+
+    pub fn new(start: u32, end_exclusive: u32) -> Self {
+        Self::try_new(start, end_exclusive).expect("validated core lane range")
+    }
+
+    pub const fn start(self) -> u32 {
+        self.fields.start
+    }
+
+    pub const fn end_exclusive(self) -> u32 {
+        self.fields.end_exclusive
+    }
+}
+
+impl Deref for CoreLaneRange {
+    type Target = CoreLaneRangeFields;
+
+    fn deref(&self) -> &Self::Target {
+        &self.fields
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum VisualSelectionGeometry {
     ScatterRect {
@@ -51,38 +99,89 @@ pub enum VisualSelectionGeometry {
     },
 }
 
-/// A shared finalized selection contract that future views can consume.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VisualSelectionError {
+    RowIdsNotStrictlySorted { position: usize },
+}
+
+impl fmt::Display for VisualSelectionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RowIdsNotStrictlySorted { position } => write!(
+                formatter,
+                "selection row ids must be strictly sorted and unique at position {position}"
+            ),
+        }
+    }
+}
+
+impl Error for VisualSelectionError {}
+
+/// A finalized linked selection with geometry as its sole kind discriminator.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VisualSelection {
-    pub selection_id: SelectionId,
-    pub source_view_id: ViewId,
-    pub kind: VisualSelectionKind,
-    pub geometry: VisualSelectionGeometry,
-    pub selected_row_ids: Vec<RowId>,
+    selection_id: SelectionId,
+    source_view_id: ViewId,
+    geometry: VisualSelectionGeometry,
+    selected_row_ids: Vec<RowId>,
 }
 
 impl VisualSelection {
-    /// Creates a deterministic linked selection by sorting and deduplicating row ids.
-    pub fn new(
+    pub fn try_new(
         selection_id: SelectionId,
         source_view_id: ViewId,
-        kind: VisualSelectionKind,
+        geometry: VisualSelectionGeometry,
+        selected_row_ids: Vec<RowId>,
+    ) -> Result<Self, VisualSelectionError> {
+        for (position, pair) in selected_row_ids.windows(2).enumerate() {
+            if pair[0] >= pair[1] {
+                return Err(VisualSelectionError::RowIdsNotStrictlySorted { position });
+            }
+        }
+        Ok(Self {
+            selection_id,
+            source_view_id,
+            geometry,
+            selected_row_ids,
+        })
+    }
+
+    /// Sorts and deduplicates current producer output before validation.
+    pub fn from_unsorted(
+        selection_id: SelectionId,
+        source_view_id: ViewId,
         geometry: VisualSelectionGeometry,
         mut selected_row_ids: Vec<RowId>,
     ) -> Self {
         selected_row_ids.sort_unstable_by_key(|row_id| row_id.0);
         selected_row_ids.dedup();
+        Self::try_new(selection_id, source_view_id, geometry, selected_row_ids)
+            .expect("sorted selection row ids are valid")
+    }
 
-        Self {
-            selection_id,
-            source_view_id,
-            kind,
-            geometry,
-            selected_row_ids,
+    pub const fn selection_id(&self) -> SelectionId {
+        self.selection_id
+    }
+
+    pub const fn source_view_id(&self) -> ViewId {
+        self.source_view_id
+    }
+
+    pub fn geometry(&self) -> &VisualSelectionGeometry {
+        &self.geometry
+    }
+
+    pub fn selected_row_ids(&self) -> &[RowId] {
+        &self.selected_row_ids
+    }
+
+    pub const fn kind(&self) -> VisualSelectionKind {
+        match self.geometry {
+            VisualSelectionGeometry::ScatterRect { .. } => VisualSelectionKind::ScatterRect,
+            VisualSelectionGeometry::TimelineRect { .. } => VisualSelectionKind::TimelineRect,
         }
     }
 
-    /// Returns the deterministic linked row count.
     pub fn selected_row_count(&self) -> usize {
         self.selected_row_ids.len()
     }
@@ -91,17 +190,16 @@ impl VisualSelection {
 #[cfg(test)]
 mod tests {
     use super::{
-        CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry,
-        VisualSelectionKind,
+        CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionError,
+        VisualSelectionGeometry, VisualSelectionKind,
     };
     use crate::{F32Range, RowId, U64Range};
 
     #[test]
-    fn visual_selection_sorts_and_deduplicates_row_ids() {
-        let selection = VisualSelection::new(
+    fn visual_selection_from_unsorted_rows_is_canonical() {
+        let selection = VisualSelection::from_unsorted(
             SelectionId(7),
             ViewId(2),
-            VisualSelectionKind::ScatterRect,
             VisualSelectionGeometry::ScatterRect {
                 x_range: F32Range::new(0.0, 1.0),
                 y_range: F32Range::new(2.0, 3.0),
@@ -110,28 +208,26 @@ mod tests {
         );
 
         assert_eq!(
-            selection.selected_row_ids,
-            vec![RowId(1), RowId(2), RowId(9)]
+            selection.selected_row_ids(),
+            &[RowId(1), RowId(2), RowId(9)]
         );
-        assert_eq!(selection.selected_row_count(), 3);
+        assert_eq!(selection.kind(), VisualSelectionKind::ScatterRect);
     }
 
     #[test]
-    fn visual_selection_keeps_timeline_geometry() {
-        let selection = VisualSelection::new(
-            SelectionId(3),
-            ViewId(4),
-            VisualSelectionKind::TimelineRect,
+    fn visual_selection_rejects_duplicate_rows_from_checked_constructor() {
+        let result = VisualSelection::try_new(
+            SelectionId(1),
+            ViewId(1),
             VisualSelectionGeometry::TimelineRect {
                 time_range: U64Range::new(10, 20),
                 lane_range: CoreLaneRange::new(1, 3),
             },
-            vec![RowId(5)],
+            vec![RowId(1), RowId(1)],
         );
-
-        assert_eq!(selection.selection_id, SelectionId(3));
-        assert_eq!(selection.source_view_id, ViewId(4));
-        assert_eq!(selection.kind, VisualSelectionKind::TimelineRect);
-        assert_eq!(selection.selected_row_count(), 1);
+        assert_eq!(
+            result,
+            Err(VisualSelectionError::RowIdsNotStrictlySorted { position: 0 })
+        );
     }
 }
