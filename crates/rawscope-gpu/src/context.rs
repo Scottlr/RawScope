@@ -6,7 +6,10 @@ use tracing::{info, warn};
 use wgpu::{CurrentSurfaceTexture, SurfaceTexture, TextureView};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{AdapterPolicy, GpuAdapterInfo, GpuError, GpuRuntimeSignal};
+use crate::{
+    AdapterPolicy, DeviceGeneration, DeviceLossReason, GpuAdapterInfo, GpuError, GpuRecoveryState,
+    GpuRuntimeSignal,
+};
 
 /// Result of attempting to present one frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +31,7 @@ pub struct GpuContext {
     size: PhysicalSize<u32>,
     adapter_info: GpuAdapterInfo,
     runtime_signals: Arc<Mutex<Vec<GpuRuntimeSignal>>>,
+    recovery_state: GpuRecoveryState,
 }
 
 impl GpuContext {
@@ -121,6 +125,7 @@ impl GpuContext {
             size,
             adapter_info,
             runtime_signals,
+            recovery_state: GpuRecoveryState::Ready(DeviceGeneration(0)),
         })
     }
 
@@ -145,11 +150,39 @@ impl GpuContext {
     }
 
     /// Drains uncaptured validation/device-loss signals observed by WGPU.
-    pub fn drain_runtime_signals(&self) -> Vec<GpuRuntimeSignal> {
-        self.runtime_signals
+    pub fn drain_runtime_signals(&mut self) -> Vec<GpuRuntimeSignal> {
+        let signals = self
+            .runtime_signals
             .lock()
             .map(|mut signals| std::mem::take(&mut *signals))
-            .unwrap_or_default()
+            .unwrap_or_default();
+        for signal in &signals {
+            if matches!(signal, GpuRuntimeSignal::DeviceLost { .. }) {
+                self.recovery_state = self.recovery_state.device_lost(DeviceLossReason::Unknown);
+            }
+        }
+        signals
+    }
+
+    /// Returns the current device/surface recovery state.
+    pub fn recovery_state(&self) -> GpuRecoveryState {
+        self.recovery_state
+    }
+
+    /// Marks a complete replacement context as ready.
+    pub fn complete_recovery(&mut self) -> bool {
+        let next = self.recovery_state.recovered();
+        let changed = next != self.recovery_state;
+        self.recovery_state = next;
+        changed
+    }
+
+    /// Begins rebuilding after a reported device loss.
+    pub fn begin_recovery(&mut self) -> bool {
+        let next = self.recovery_state.begin_recovery();
+        let changed = next != self.recovery_state;
+        self.recovery_state = next;
+        changed
     }
 
     /// Reconfigures the surface after a window resize.
@@ -184,10 +217,14 @@ impl GpuContext {
             CurrentSurfaceTexture::Timeout => return Ok(ClearFrameStatus::SkippedTimeout),
             CurrentSurfaceTexture::Occluded => return Ok(ClearFrameStatus::SkippedOccluded),
             CurrentSurfaceTexture::Outdated | CurrentSurfaceTexture::Lost => {
+                self.recovery_state = self.recovery_state.surface_outdated();
                 self.reconfigure_current_size();
                 return Ok(ClearFrameStatus::Reconfigured);
             }
-            CurrentSurfaceTexture::Validation => return Err(GpuError::SurfaceValidation),
+            CurrentSurfaceTexture::Validation => {
+                self.recovery_state = GpuRecoveryState::Fatal;
+                return Err(GpuError::SurfaceValidation);
+            }
         };
 
         self.render_surface_texture(frame, render);
