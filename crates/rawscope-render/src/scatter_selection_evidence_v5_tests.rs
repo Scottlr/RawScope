@@ -144,7 +144,7 @@ fn scatter_selection_export_v5_serializes_session_and_rich_pinned_inspection() {
     assert!(json.contains("rawscope.scatter-selection-evidence.v5"));
     assert!(json.contains("\"session_context\""));
     assert!(json.contains("\"evidence_key_values\""));
-    let markdown = scatter_selection_evidence_v5_markdown(&evidence);
+    let markdown = scatter_selection_evidence_v5_markdown(&evidence).unwrap();
     assert!(markdown.contains("Occupied-cell density percentile"));
     assert!(markdown.contains("Natural-key values"));
 }

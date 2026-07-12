@@ -16,7 +16,15 @@ pub fn scatter_selection_evidence_v4_json(
     artifact::to_json(evidence)
 }
 
-pub fn scatter_selection_evidence_v4_markdown(evidence: &ScatterSelectionEvidenceV4) -> String {
+pub fn scatter_selection_evidence_v4_markdown(
+    evidence: &ScatterSelectionEvidenceV4,
+) -> Result<String, ScatterSelectionExportError> {
+    evidence.validate().map_err(|error| {
+        serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            error.to_string(),
+        ))
+    })?;
     let query = &evidence.visual_query;
     let mut markdown = String::from("# RawScope Scatter Selection Evidence v4\n\n");
     markdown
@@ -106,7 +114,7 @@ pub fn scatter_selection_evidence_v4_markdown(evidence: &ScatterSelectionEvidenc
         evidence.selected_row_id_sample.len(),
         evidence.selected_source_row_sample.len(),
     ));
-    markdown
+    Ok(markdown)
 }
 
 pub(super) fn projection_variant(value: ScatterProjection) -> &'static str {

@@ -41,7 +41,8 @@ fn v4_json_serializes_filtered_visual_query() {
 #[test]
 fn v4_markdown_discloses_difference_formula_and_sampling() {
     let markdown =
-        scatter_selection_evidence_v4_markdown(&sample_v4(ScatterDensityMode::FilteredDifference));
+        scatter_selection_evidence_v4_markdown(&sample_v4(ScatterDensityMode::FilteredDifference))
+            .unwrap();
     assert!(markdown.contains("Formula: `active_share_minus_full_baseline_share`"));
     assert!(markdown.contains("Sampled: true"));
     assert!(markdown.contains("Rendered points: 0"));
@@ -52,7 +53,9 @@ fn v4_omits_relief_when_presentation_is_not_relief() {
     let evidence = sample_v4(ScatterDensityMode::AbsoluteDensity);
     let json = scatter_selection_evidence_v4_json(&evidence).unwrap();
     assert!(!json.contains("\"relief\""));
-    assert!(!scatter_selection_evidence_v4_markdown(&evidence).contains("Relief Shading"));
+    assert!(!scatter_selection_evidence_v4_markdown(&evidence)
+        .unwrap()
+        .contains("Relief Shading"));
 }
 
 #[test]
