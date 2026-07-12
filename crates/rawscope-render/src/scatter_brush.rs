@@ -361,7 +361,7 @@ pub fn selected_region_summary_masked(
 /// Summarizes finalized scatter membership from one immutable selection snapshot.
 pub fn selected_region_summary_snapshot(
     points: &[ScatterPointRecord],
-    snapshot: &crate::SelectionSnapshot,
+    snapshot: &rawscope_analysis::selection::SelectionSnapshot,
     brush: ScatterBrushSelection,
     total_row_count: usize,
 ) -> SelectedRegionSummary {

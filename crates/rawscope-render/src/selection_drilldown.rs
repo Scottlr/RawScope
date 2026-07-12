@@ -1,13 +1,16 @@
 //! CPU-backed row drilldown for finalized scatter and timeline selections.
 
-use rawscope_analysis::drilldown::{DrilldownCompleteness, SourceUnavailability};
+use rawscope_analysis::{
+    drilldown::{DrilldownCompleteness, SourceUnavailability},
+    selection::SelectionSnapshot,
+};
 use rawscope_core::RowId;
 use rawscope_data::{
     FilterMask, LoadedSourceRow, LoadedSourceTable, ScatterPointKind, ScatterPointRecord,
     TimelineEventKind, TimelineEventRecord,
 };
 
-use crate::{ScatterBrushSelection, SelectionSnapshot, TimelineBrushSelection};
+use crate::{ScatterBrushSelection, TimelineBrushSelection};
 use rawscope_evidence::{insert_lowest_row_id_sample, RowIdSample};
 
 const DEFAULT_MAX_DRILLDOWN_ROWS: usize = 100;
@@ -92,9 +95,10 @@ pub fn scatter_selection_drilldown_snapshot(
         }
     }
     let displayed_row_count = rows.len();
-    let rows_are_sampled = snapshot.selected_count() > displayed_row_count;
+    let selected_row_count = usize::try_from(snapshot.selected_count()).unwrap_or(usize::MAX);
+    let rows_are_sampled = selected_row_count > displayed_row_count;
     SelectionDrilldown {
-        selected_row_count: snapshot.selected_count(),
+        selected_row_count,
         displayed_row_count,
         rows_are_sampled,
         columns,
@@ -221,9 +225,10 @@ pub fn timeline_selection_drilldown_snapshot(
         }
     }
     let displayed_row_count = rows.len();
-    let rows_are_sampled = snapshot.selected_count() > displayed_row_count;
+    let selected_row_count = usize::try_from(snapshot.selected_count()).unwrap_or(usize::MAX);
+    let rows_are_sampled = selected_row_count > displayed_row_count;
     SelectionDrilldown {
-        selected_row_count: snapshot.selected_count(),
+        selected_row_count,
         displayed_row_count,
         rows_are_sampled,
         columns,

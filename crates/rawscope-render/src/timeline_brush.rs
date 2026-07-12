@@ -182,7 +182,7 @@ impl TimelineSelectionSummary {
     /// Summarizes finalized timeline membership from one immutable snapshot.
     pub fn from_snapshot(
         events: &[TimelineEventRecord],
-        snapshot: &crate::SelectionSnapshot,
+        snapshot: &rawscope_analysis::selection::SelectionSnapshot,
         selection: TimelineBrushSelection,
         lane_count: u32,
     ) -> Self {

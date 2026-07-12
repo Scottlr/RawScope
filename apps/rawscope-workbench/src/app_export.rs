@@ -430,7 +430,7 @@ impl WorkbenchApp {
             .workbench_state
             .active_selection
             .as_ref()
-            .and_then(|selection| selection.snapshot.as_ref())
+            .and_then(|selection| selection.analysis_snapshot.as_ref())
             .map(|snapshot| snapshot.row_ids())
             .unwrap_or(evidence_v2.selected_row_id_sample.as_slice());
         Some(TimelineSelectionEvidenceV3::from_v2(

@@ -1,8 +1,8 @@
 //! Shared linked-selection publishing for the workbench.
 
+use rawscope_analysis::selection::SelectionSnapshot;
 use rawscope_core::{CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry};
-use rawscope_data::{DatasetIdentity, FilterMask};
-use rawscope_render::SelectionSnapshot;
+use rawscope_data::{DatasetIdentity, FilterMask, ScatterPointRecord, TimelineEventRecord};
 
 use crate::app::WorkbenchApp;
 
@@ -10,12 +10,69 @@ const SCATTER_VIEW_ID: ViewId = ViewId(1);
 const TIMELINE_VIEW_ID: ViewId = ViewId(2);
 const SELECTION_SAMPLE_LIMIT: usize = 10;
 
+fn scatter_membership(
+    points: &[ScatterPointRecord],
+    mask: &FilterMask,
+    brush: rawscope_render::ScatterBrushSelection,
+    grid_width: u32,
+    grid_height: u32,
+) -> (Vec<rawscope_core::RowId>, Vec<u32>) {
+    let mut row_ids = Vec::new();
+    let mut bins = Vec::new();
+    for (point, included) in points.iter().zip(mask.as_gpu_u32_slice()) {
+        if *included != 1 || !brush.contains_point(point) {
+            continue;
+        }
+        row_ids.push(point.row_id);
+        let x = (((point.x - brush.x_range.min) / brush.x_range.span()) * grid_width as f32)
+            .floor()
+            .clamp(0.0, (grid_width - 1) as f32) as u32;
+        let y = (((brush.y_range.max - point.y) / brush.y_range.span()) * grid_height as f32)
+            .floor()
+            .clamp(0.0, (grid_height - 1) as f32) as u32;
+        bins.push(y * grid_width + x);
+    }
+    (row_ids, bins)
+}
+
+fn timeline_membership(
+    events: &[TimelineEventRecord],
+    mask: &FilterMask,
+    selection: rawscope_render::TimelineBrushSelection,
+    lane_count: u32,
+    grid_width: u32,
+    grid_height: u32,
+) -> (Vec<rawscope_core::RowId>, Vec<u32>) {
+    let mut row_ids = Vec::new();
+    let mut bins = Vec::new();
+    let span = u128::from(selection.time_range.span());
+    for (event, included) in events.iter().zip(mask.as_gpu_u32_slice()) {
+        if *included != 1 || !selection.contains_event(event) {
+            continue;
+        }
+        row_ids.push(event.row_id);
+        let x = if event.timestamp == selection.time_range.max {
+            grid_width.saturating_sub(1)
+        } else {
+            let offset = u128::from(event.timestamp - selection.time_range.min);
+            u32::try_from(offset * u128::from(grid_width) / span)
+                .unwrap_or(grid_width.saturating_sub(1))
+                .min(grid_width.saturating_sub(1))
+        };
+        let y = (u64::from(event.lane) * u64::from(grid_height) / u64::from(lane_count))
+            .try_into()
+            .unwrap_or(grid_height.saturating_sub(1))
+            .min(grid_height.saturating_sub(1));
+        bins.push(y * grid_width + x);
+    }
+    (row_ids, bins)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ActiveLinkedSelection {
     pub(crate) visual_selection: VisualSelection,
     pub(crate) dataset_identity: DatasetIdentity,
-    pub(crate) snapshot: Option<SelectionSnapshot>,
-    pub(crate) analysis_snapshot: Option<rawscope_analysis::selection::SelectionSnapshot>,
+    pub(crate) analysis_snapshot: Option<SelectionSnapshot>,
 }
 
 impl WorkbenchApp {
@@ -41,49 +98,24 @@ impl WorkbenchApp {
                     .map(|evaluation| evaluation.mask.clone())
             })
             .unwrap_or_else(|| FilterMask::all_included(self.scatter.points.len()));
-        let filter_revision = self
+        let selection_id = self.next_selection_id();
+        let (selected_row_ids, selected_bins) =
+            scatter_membership(&self.scatter.points, &filter_mask, selection, 256, 256);
+        let analysis_snapshot = self
             .scatter_filters
             .cohort_snapshot
             .as_ref()
-            .map(|snapshot| snapshot.filter_revision())
-            .or_else(|| {
-                self.scatter_filters
-                    .evaluation
-                    .as_ref()
-                    .map(|evaluation| evaluation.revision)
-            })
-            .unwrap_or_default();
-        let selection_id = self.next_selection_id();
-        let snapshot = SelectionSnapshot::from_filtered_points(
-            selection_id,
-            &self.scatter.points,
-            &filter_mask,
-            selection,
-            256,
-            256,
-        )
-        .ok()
-        .and_then(|snapshot| {
-            snapshot
-                .with_context(filter_revision, SCATTER_VIEW_ID, SELECTION_SAMPLE_LIMIT)
+            .and_then(|cohort| {
+                SelectionSnapshot::from_parts(
+                    cohort.dataset_generation(),
+                    cohort.cohort_generation(),
+                    selection_id,
+                    selected_row_ids.iter().copied(),
+                    selected_bins.iter().copied(),
+                    SELECTION_SAMPLE_LIMIT,
+                )
                 .ok()
-        });
-        let selected_row_ids = snapshot
-            .as_ref()
-            .map(|snapshot| snapshot.row_ids().to_vec())
-            .unwrap_or_default();
-        let analysis_snapshot = snapshot.as_ref().and_then(|snapshot| {
-            let cohort = self.scatter_filters.cohort_snapshot.as_ref()?;
-            rawscope_analysis::selection::SelectionSnapshot::from_parts(
-                cohort.dataset_generation(),
-                cohort.cohort_generation(),
-                selection_id,
-                snapshot.row_ids().iter().copied(),
-                snapshot.selected_bins().iter().copied(),
-                SELECTION_SAMPLE_LIMIT,
-            )
-            .ok()
-        });
+            });
 
         self.workbench_state.active_selection = Some(ActiveLinkedSelection {
             visual_selection: VisualSelection::from_unsorted(
@@ -96,7 +128,6 @@ impl WorkbenchApp {
                 selected_row_ids,
             ),
             dataset_identity,
-            snapshot,
             analysis_snapshot,
         });
     }
@@ -120,25 +151,14 @@ impl WorkbenchApp {
             });
         let filter_mask = FilterMask::all_included(self.timeline.events.len());
         let selection_id = self.next_selection_id();
-        let snapshot = SelectionSnapshot::from_filtered_events(
-            selection_id,
+        let (selected_row_ids, _selected_bins) = timeline_membership(
             &self.timeline.events,
             &filter_mask,
             selection,
             lane_count,
             256,
             256,
-        )
-        .ok()
-        .and_then(|snapshot| {
-            snapshot
-                .with_context(Default::default(), TIMELINE_VIEW_ID, SELECTION_SAMPLE_LIMIT)
-                .ok()
-        });
-        let selected_row_ids = snapshot
-            .as_ref()
-            .map(|snapshot| snapshot.row_ids().to_vec())
-            .unwrap_or_default();
+        );
 
         let lane_range = match CoreLaneRange::try_new(
             selection.lane_range.start,
@@ -162,7 +182,6 @@ impl WorkbenchApp {
                 selected_row_ids,
             ),
             dataset_identity,
-            snapshot,
             analysis_snapshot: None,
         });
     }
