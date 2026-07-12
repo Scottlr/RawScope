@@ -67,6 +67,7 @@ pub enum GpuTimelineDensityError {
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
     DevicePoll(wgpu::PollError),
+    InvalidConfiguration(&'static str),
 }
 
 impl fmt::Display for GpuTimelineDensityError {
@@ -91,6 +92,9 @@ impl fmt::Display for GpuTimelineDensityError {
                 )
             }
             Self::DevicePoll(err) => write!(f, "failed while polling GPU device: {err}"),
+            Self::InvalidConfiguration(reason) => {
+                write!(f, "invalid timeline density configuration: {reason}")
+            }
         }
     }
 }
@@ -104,6 +108,7 @@ impl Error for GpuTimelineDensityError {
             Self::BufferMap(err) => Some(err),
             Self::BufferMapCallbackDropped(err) => Some(err),
             Self::DevicePoll(err) => Some(err),
+            Self::InvalidConfiguration(_) => None,
         }
     }
 }
@@ -162,6 +167,7 @@ pub async fn gpu_timeline_density_on_device(
     width: u32,
     height: u32,
 ) -> Result<GpuTimelineDensityGrid, GpuTimelineDensityError> {
+    validate_timeline_configuration(time_range, lane_count, width, height)?;
     let event_count =
         u32::try_from(events.len()).map_err(|_| GpuTimelineDensityError::EventCountTooLarge {
             event_count: events.len(),
@@ -201,6 +207,12 @@ pub(crate) fn dispatch_timeline_density(
     config: TimelineDensityComputeConfig,
     readback_counts: bool,
 ) -> Result<TimelineDensityComputeOutput, GpuTimelineDensityError> {
+    validate_timeline_configuration(
+        config.time_range,
+        config.lane_count,
+        config.grid_width,
+        config.grid_height,
+    )?;
     let event_count =
         u32::try_from(events.len()).map_err(|_| GpuTimelineDensityError::EventCountTooLarge {
             event_count: events.len(),
@@ -303,6 +315,30 @@ pub(crate) fn dispatch_timeline_density(
     })
 }
 
+fn validate_timeline_configuration(
+    time_range: U64Range,
+    lane_count: u32,
+    width: u32,
+    height: u32,
+) -> Result<(), GpuTimelineDensityError> {
+    if lane_count == 0 {
+        return Err(GpuTimelineDensityError::InvalidConfiguration(
+            "lane count must be positive",
+        ));
+    }
+    if width == 0 || height == 0 {
+        return Err(GpuTimelineDensityError::InvalidConfiguration(
+            "grid dimensions must be positive",
+        ));
+    }
+    if time_range.span() == 0 {
+        return Err(GpuTimelineDensityError::InvalidConfiguration(
+            "time range span must be positive",
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TimelineDispatchConfig {
     density: TimelineDensityComputeConfig,
@@ -386,7 +422,12 @@ fn create_dispatch_bind_groups(
 
 #[cfg(test)]
 mod tests {
-    use super::{timeline_dispatch_chunks, MAX_EVENTS_PER_DISPATCH};
+    use rawscope_core::U64Range;
+
+    use super::{
+        timeline_dispatch_chunks, validate_timeline_configuration, GpuTimelineDensityError,
+        MAX_EVENTS_PER_DISPATCH,
+    };
 
     #[test]
     fn dispatch_chunks_keep_each_dispatch_within_wgpu_limit() {
@@ -399,5 +440,13 @@ mod tests {
         assert_eq!(chunks[0].event_count, MAX_EVENTS_PER_DISPATCH);
         assert_eq!(chunks[1].event_start, MAX_EVENTS_PER_DISPATCH);
         assert_eq!(chunks[1].event_count, 10);
+    }
+
+    #[test]
+    fn invalid_timeline_configuration_is_rejected_before_empty_fast_path() {
+        assert!(matches!(
+            validate_timeline_configuration(U64Range::new(0, 1), 0, 0, 0),
+            Err(GpuTimelineDensityError::InvalidConfiguration(_))
+        ));
     }
 }
