@@ -1,6 +1,8 @@
 //! Private validated evidence semantics, independent of wire formats.
 
+mod aggregate_evidence;
 mod bundle;
+mod comparison;
 mod density_encoding;
 mod document;
 mod evidence_sample;
@@ -18,9 +20,16 @@ pub mod wire;
 pub use evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
 pub use markdown_escape::{escape_inline_code, escape_table_cell, portable_path_label};
 
+pub use aggregate_evidence::{
+    AggregateEvidenceBin, ScatterAggregateEvidenceContext, TimelineAggregateEvidenceContext,
+};
 pub use bundle::{
     BundleArtifactV2, BundleManifestError, BundleManifestV2, BundlePathError, BundleRelativePath,
     ContentChecksumV1, EvidenceArtifactKind, REPORT_BUNDLE_SCHEMA_VERSION_V2,
+};
+pub use comparison::{
+    ComparisonRatio, ScatterKindComparison, ScatterSelectionComparison, TimelineKindComparison,
+    TimelineSelectionComparison,
 };
 pub use density_encoding::{
     density_intensity, DensityEncoding, DensityNormalization, DensityPalette, DensityTransform,

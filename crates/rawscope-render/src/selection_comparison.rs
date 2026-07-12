@@ -3,21 +3,15 @@
 use rawscope_data::{
     FilterMask, ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
 };
+use rawscope_evidence::{
+    ComparisonRatio, ScatterKindComparison, ScatterSelectionComparison, TimelineKindComparison,
+    TimelineSelectionComparison,
+};
 
 use crate::{
     MissingnessSelectionSummary, SelectedCategoryCounts, SelectedEventTypeCounts,
     SelectedRegionSummary, TimelineSelectionSummary,
 };
-
-/// Share counts and percentages for one comparison bucket.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ComparisonRatio {
-    pub selected_count: usize,
-    pub baseline_count: usize,
-    pub selected_percentage: f32,
-    pub baseline_percentage: f32,
-    pub delta_percentage_points: f32,
-}
 
 pub fn scatter_selection_comparison_masked(
     points: &[ScatterPointRecord],
@@ -26,44 +20,6 @@ pub fn scatter_selection_comparison_masked(
 ) -> Result<ScatterSelectionComparison, crate::MaskAlignmentError> {
     let summary = crate::selected_region_summary_masked(points, mask, selection)?;
     Ok(scatter_selection_comparison(points, summary))
-}
-
-/// Comparison summary for one finalized scatter selection.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ScatterSelectionComparison {
-    pub selected_row_count: usize,
-    pub baseline_row_count: usize,
-    pub selected_percentage: f32,
-    pub point_kind_ratios: ScatterKindComparison,
-}
-
-/// Point-kind shares for scatter comparisons.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ScatterKindComparison {
-    pub cluster: ComparisonRatio,
-    pub background: ComparisonRatio,
-    pub outlier: ComparisonRatio,
-    pub unclassified: ComparisonRatio,
-}
-
-/// Comparison summary for one finalized timeline selection.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TimelineSelectionComparison {
-    pub selected_event_count: usize,
-    pub baseline_event_count: usize,
-    pub selected_percentage: f32,
-    pub event_kind_ratios: TimelineKindComparison,
-    pub lane_ratios: Vec<ComparisonRatio>,
-}
-
-/// Event-kind shares for timeline comparisons.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct TimelineKindComparison {
-    pub background: ComparisonRatio,
-    pub spike: ComparisonRatio,
-    pub stale_lane: ComparisonRatio,
-    pub high_value_band: ComparisonRatio,
-    pub unclassified: ComparisonRatio,
 }
 
 /// Comparison summary for one finalized missingness selection.

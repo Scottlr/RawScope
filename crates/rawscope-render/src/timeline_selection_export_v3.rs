@@ -259,7 +259,12 @@ pub fn timeline_aggregate_evidence_context(
     let bins = selected_bins
         .into_iter()
         .chain(densest_bins)
-        .map(AggregateEvidenceBin::from)
+        .map(|candidate| AggregateEvidenceBin {
+            bin_x: candidate.bin_x,
+            bin_y: candidate.bin_y,
+            count: candidate.count,
+            row_id_sample: candidate.row_ids.iter().map(|row_id| row_id.0).collect(),
+        })
         .collect();
 
     TimelineAggregateEvidenceContext {
@@ -606,17 +611,6 @@ struct CandidateBin<'a> {
     bin_y: u32,
     count: u32,
     row_ids: &'a [RowId],
-}
-
-impl From<CandidateBin<'_>> for AggregateEvidenceBin {
-    fn from(candidate: CandidateBin<'_>) -> Self {
-        Self {
-            bin_x: candidate.bin_x,
-            bin_y: candidate.bin_y,
-            count: candidate.count,
-            row_id_sample: candidate.row_ids.iter().map(|row_id| row_id.0).collect(),
-        }
-    }
 }
 
 fn candidate_bin<'a>(
