@@ -7,9 +7,9 @@ use rawscope_data::TimelineEventRecord;
 use rawscope_gpu::ComputeContext;
 
 use crate::gpu_density_pipeline::{
-    clear_output_buffer, create_density_bind_group, create_density_bind_group_layout,
-    create_density_compute_pipeline, create_storage_upload_buffer, create_uniform_upload_buffer,
-    readback_counts_from_buffer, GpuDensityReadbackError,
+    create_density_bind_group, create_density_bind_group_layout, create_density_compute_pipeline,
+    create_storage_upload_buffer, create_uniform_upload_buffer, readback_counts_from_buffer,
+    GpuDensityReadbackError,
 };
 use crate::gpu_timeline_density_pack::{pack_events, timeline_span_u32, TimelineParams};
 
@@ -237,8 +237,6 @@ pub(crate) fn dispatch_timeline_density(
             | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    clear_output_buffer(queue, &output_buffer, output_size_bytes);
-
     let readback_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("RawScope Timeline Density Readback Buffer"),
         size: output_size_bytes,
@@ -277,6 +275,7 @@ pub(crate) fn dispatch_timeline_density(
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("RawScope Timeline Density Encoder"),
     });
+    encoder.clear_buffer(&output_buffer, 0, None);
 
     {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {

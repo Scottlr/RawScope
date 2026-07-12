@@ -1,8 +1,12 @@
 //! Shared WGPU plumbing for density compute passes.
 
-use std::sync::mpsc::{self, RecvError};
+use std::{
+    sync::mpsc::{self, RecvError},
+    time::Duration,
+};
 
 const EMPTY_BUFFER_SIZE_BYTES: u64 = 4;
+const READBACK_WAIT_TIMEOUT: Duration = Duration::from_millis(100);
 
 #[derive(Debug)]
 pub(crate) enum GpuDensityReadbackError {
@@ -42,15 +46,6 @@ pub(crate) fn create_uniform_upload_buffer(
     });
     queue.write_buffer(&buffer, 0, bytes);
     buffer
-}
-
-pub(crate) fn clear_output_buffer(
-    queue: &wgpu::Queue,
-    buffer: &wgpu::Buffer,
-    output_size_bytes: u64,
-) {
-    let zeroed_output = vec![0_u8; output_size_bytes as usize];
-    queue.write_buffer(buffer, 0, &zeroed_output);
 }
 
 pub(crate) fn create_density_bind_group_layout(
@@ -156,7 +151,10 @@ pub(crate) fn readback_counts_from_buffer(
         let _ = sender.send(result);
     });
     device
-        .poll(wgpu::PollType::wait_indefinitely())
+        .poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(READBACK_WAIT_TIMEOUT),
+        })
         .map_err(GpuDensityReadbackError::DevicePoll)?;
 
     receiver
