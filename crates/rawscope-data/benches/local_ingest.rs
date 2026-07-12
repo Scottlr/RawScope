@@ -213,13 +213,13 @@ fn timeline_record_batch(row_count: usize) -> RecordBatch {
     .expect("timeline benchmark record batch should be valid")
 }
 
-fn write_csv_fixture(name: &str, contents: &str) -> PathBuf {
+fn write_csv_fixture(name: &str, contents: &str) -> BenchmarkFixture {
     let path = fixture_path(name, "csv");
     fs::write(&path, contents).expect("CSV benchmark fixture should be written");
-    path
+    BenchmarkFixture::new(path)
 }
 
-fn write_parquet_fixture(name: &str, batch: RecordBatch) -> PathBuf {
+fn write_parquet_fixture(name: &str, batch: RecordBatch) -> BenchmarkFixture {
     let path = fixture_path(name, "parquet");
     let file = File::create(&path).expect("Parquet benchmark fixture should be created");
     let schema = batch.schema();
@@ -229,7 +229,7 @@ fn write_parquet_fixture(name: &str, batch: RecordBatch) -> PathBuf {
         .write(&batch)
         .expect("Parquet benchmark batch should be written");
     writer.close().expect("Parquet writer should close cleanly");
-    path
+    BenchmarkFixture::new(path)
 }
 
 fn fixture_path(name: &str, extension: &str) -> PathBuf {
@@ -245,9 +245,26 @@ fn fixture_path(name: &str, extension: &str) -> PathBuf {
     path
 }
 
-#[allow(dead_code)]
-fn remove_fixture(path: &Path) {
-    let _ = fs::remove_file(path);
+struct BenchmarkFixture {
+    path: PathBuf,
+}
+
+impl BenchmarkFixture {
+    fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+}
+
+impl AsRef<Path> for BenchmarkFixture {
+    fn as_ref(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for BenchmarkFixture {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 criterion_group!(benches, local_ingest_benchmarks);
