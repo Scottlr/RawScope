@@ -39,11 +39,11 @@ pub enum ReadbackProgress<T> {
 /// A callback may publish exactly once without waiting for an event queue. The
 /// owning ticket polls and takes the result on its normal owner thread.
 #[derive(Debug)]
-pub struct ReadbackCompletion<T> {
-    result: Mutex<Option<Result<T, ReadbackError>>>,
+pub struct ReadbackCompletion<T, E = ReadbackError> {
+    result: Mutex<Option<Result<T, E>>>,
 }
 
-impl<T> ReadbackCompletion<T> {
+impl<T, E> ReadbackCompletion<T, E> {
     pub fn new() -> Self {
         Self {
             result: Mutex::new(None),
@@ -51,7 +51,7 @@ impl<T> ReadbackCompletion<T> {
     }
 
     /// Stores one terminal callback result. A second callback is rejected.
-    pub fn publish(&self, result: Result<T, ReadbackError>) -> bool {
+    pub fn publish(&self, result: Result<T, E>) -> bool {
         let Ok(mut slot) = self.result.lock() else {
             return false;
         };
@@ -62,12 +62,12 @@ impl<T> ReadbackCompletion<T> {
         true
     }
 
-    fn take(&self) -> Option<Result<T, ReadbackError>> {
+    pub fn take(&self) -> Option<Result<T, E>> {
         self.result.lock().ok()?.take()
     }
 }
 
-impl<T> Default for ReadbackCompletion<T> {
+impl<T, E> Default for ReadbackCompletion<T, E> {
     fn default() -> Self {
         Self::new()
     }
@@ -81,7 +81,7 @@ pub struct GpuReadbackTicket<T> {
     deadline: Instant,
     state: ReadbackState,
     result: Option<T>,
-    completion: Arc<ReadbackCompletion<T>>,
+    completion: Arc<ReadbackCompletion<T, ReadbackError>>,
 }
 
 impl<T> GpuReadbackTicket<T> {
@@ -121,7 +121,7 @@ impl<T> GpuReadbackTicket<T> {
         matches!(self.state, ReadbackState::Submitted)
     }
 
-    pub fn completion(&self) -> Arc<ReadbackCompletion<T>> {
+    pub fn completion(&self) -> Arc<ReadbackCompletion<T, ReadbackError>> {
         Arc::clone(&self.completion)
     }
 
