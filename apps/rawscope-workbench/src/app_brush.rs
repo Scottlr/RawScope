@@ -2,9 +2,9 @@
 
 use rawscope_render::{
     scatter_selection_drilldown, scatter_selection_drilldown_masked,
-    scatter_selection_drilldown_snapshot, selected_region_summary_masked, ScatterBrushDrag,
-    ScatterBrushSelection, ScatterSelectionEvidence, SelectedRegionSummary,
-    SelectionEvidenceConfig,
+    scatter_selection_drilldown_snapshot, selected_region_summary_masked,
+    selected_region_summary_snapshot, ScatterBrushDrag, ScatterBrushSelection,
+    ScatterSelectionEvidence, SelectedRegionSummary, SelectionEvidenceConfig,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -41,6 +41,10 @@ impl WorkbenchApp {
 
         self.finalize_brush_from_drag();
         self.publish_scatter_active_selection();
+        self.scatter.selection_summary = self
+            .scatter
+            .active_brush_selection
+            .and_then(|selection| self.scatter_selection_summary_snapshot(selection));
         self.build_selection_evidence();
         self.build_selection_drilldown();
         self.rebuild_active_comparison();
@@ -224,6 +228,30 @@ impl WorkbenchApp {
                     selection,
                 ))
             })
+    }
+
+    fn scatter_selection_summary_snapshot(
+        &self,
+        selection: ScatterBrushSelection,
+    ) -> Option<SelectedRegionSummary> {
+        let snapshot = self
+            .workbench_state
+            .active_selection
+            .as_ref()
+            .and_then(|active| active.snapshot.as_ref())?;
+        let total_row_count = self
+            .scatter_filters
+            .evaluation
+            .as_ref()
+            .map_or(self.scatter.points.len(), |evaluation| {
+                evaluation.included_count
+            });
+        Some(selected_region_summary_snapshot(
+            &self.scatter.points,
+            snapshot,
+            selection,
+            total_row_count,
+        ))
     }
 
     fn scatter_evidence_row_count(&self) -> usize {
