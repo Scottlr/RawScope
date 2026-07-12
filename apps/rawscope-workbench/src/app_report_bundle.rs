@@ -10,16 +10,16 @@ use std::{
 use rawscope_data::{DatasetProfileId, DatasetSource};
 use rawscope_evidence::{
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
-    ScatterSelectionEvidenceV2, SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND,
-    SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
+    ScatterSelectionEvidenceV2, TimelineSelectionEvidenceV2,
+    SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
+    TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 use rawscope_render::{
     scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
-    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
     timeline_selection_evidence_v3_json, timeline_selection_evidence_v3_markdown,
-    ScatterSelectionEvidenceV3, TimelineSelectionEvidenceV2, TimelineSelectionEvidenceV3,
+    ScatterSelectionEvidenceV3, TimelineSelectionEvidenceV3,
     SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
-    TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
     TIMELINE_SELECTION_EVIDENCE_V3_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 use serde::Serialize;

@@ -2,7 +2,7 @@
 
 use rawscope_evidence::{
     EvidenceContext, EvidenceDocument, EvidenceVisualContext, ScatterEvidenceView,
-    ScatterSelectionEvidenceV2,
+    ScatterSelectionEvidenceV2, TimelineEvidenceView, TimelineSelectionEvidenceV2,
 };
 use tracing::{error, info, warn};
 
@@ -12,9 +12,8 @@ use rawscope_render::{
     DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
     PointRevealStats, ScatterAggregateOverview, ScatterCohortEvidence, ScatterDensityMode,
     ScatterDensityPresentation, ScatterInspectionConfig, ScatterSelectionEvidenceV3,
-    ScatterSelectionEvidenceV4, ScatterVisualQueryV4, TimelineEvidenceView,
-    TimelineSelectionEvidenceV2, TimelineSelectionEvidenceV3, DIFFERENCE_BASELINE_ID,
-    DIFFERENCE_FORMULA_ID,
+    ScatterSelectionEvidenceV4, ScatterVisualQueryV4, TimelineSelectionEvidenceV3,
+    DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
 };
 
 use crate::{

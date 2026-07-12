@@ -7,14 +7,14 @@ use rawscope_data::{
 };
 use rawscope_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidenceV2, ScatterSelectionKindCounts,
+    SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
 };
 use rawscope_render::{
     scatter_selection_evidence_v4_json, AggregateEvidenceBin, ComparisonRatio, DensityEncoding,
     PointRevealEvidence, PointRevealMode, ScatterAggregateEvidenceContext, ScatterCohortEvidence,
     ScatterDensityMode, ScatterDensityPresentation, ScatterKindComparison,
     ScatterSelectionComparison, ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4,
-    ScatterSelectionEvidenceV5, ScatterVisualQueryV4, SelectedEventTypeCounts,
-    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
+    ScatterSelectionEvidenceV5, ScatterVisualQueryV4,
 };
 
 use crate::app_report_bundle::{

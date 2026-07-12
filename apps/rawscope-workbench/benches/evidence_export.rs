@@ -12,11 +12,13 @@ use rawscope_data::{
     DatasetIdentity, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
     ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
 };
+use rawscope_evidence::{
+    ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
+    SelectionEvidenceConfig, TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange,
+    TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
+};
 use rawscope_render::{
-    ScatterBrushSelection, ScatterEvidenceView, ScatterSelectionEvidence,
-    ScatterSelectionEvidenceV2, SelectionEvidenceConfig, TimelineBrushSelection,
-    TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
-    TimelineSelectionEvidenceV2,
+    timeline_selection_evidence_from_events, ScatterBrushSelection, TimelineBrushSelection,
 };
 use rawscope_workbench::benchmark_support::{
     write_scatter_report_bundle, write_timeline_report_bundle, BenchmarkRunMetadata,
@@ -213,7 +215,7 @@ fn timeline_evidence_fixture() -> TimelineSelectionEvidenceV2 {
             })
             .collect(),
     };
-    let v1 = TimelineSelectionEvidence::from_events(
+    let v1 = timeline_selection_evidence_from_events(
         &events,
         selection,
         8,

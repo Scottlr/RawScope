@@ -98,8 +98,9 @@ mod tests {
         SyntheticEventConfig, SyntheticPointCategory, SyntheticPointConfig, TimelineEventKind,
         TimelineEventRecord,
     };
+    use rawscope_evidence::TimelineLaneRange;
     use rawscope_render::{
-        ScatterBrushSelection, SelectedRegionSummary, TimelineBrushSelection, TimelineLaneRange,
+        ScatterBrushSelection, SelectedRegionSummary, TimelineBrushSelection,
         TimelineSelectionSummary,
     };
 

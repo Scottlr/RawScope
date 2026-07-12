@@ -2,9 +2,8 @@ use rawscope_core::{RowId, U64Range};
 use rawscope_data::{
     SyntheticDatasetMetadata, SyntheticEventType, TimelineEventKind, TimelineEventRecord,
 };
-use rawscope_render::{
-    TimelineBrushSelection, TimelineEvidenceConfig, TimelineLaneRange, TimelineSelectionEvidence,
-};
+use rawscope_evidence::{TimelineEvidenceConfig, TimelineLaneRange, TimelineSelectionEvidence};
+use rawscope_render::{timeline_selection_evidence_from_events, TimelineBrushSelection};
 
 fn event(
     row_id: u64,
@@ -42,7 +41,7 @@ fn events() -> Vec<TimelineEventRecord> {
 
 fn evidence_with_config(config: TimelineEvidenceConfig) -> TimelineSelectionEvidence {
     let source_events = events();
-    TimelineSelectionEvidence::from_events(
+    timeline_selection_evidence_from_events(
         &source_events,
         selection(),
         5,
@@ -79,7 +78,7 @@ fn empty_selection_produces_zero_count_and_empty_sample() {
         lane_range: TimelineLaneRange::new(0, 1),
     };
 
-    let evidence = TimelineSelectionEvidence::from_events(
+    let evidence = timeline_selection_evidence_from_events(
         &source_events,
         empty_selection,
         5,
@@ -154,7 +153,7 @@ fn evidence_uses_data_anchored_time_and_lane_selection() {
         lane_range: TimelineLaneRange::new(1, 3),
     };
 
-    let evidence = TimelineSelectionEvidence::from_events(
+    let evidence = timeline_selection_evidence_from_events(
         &source_events,
         selection,
         3,

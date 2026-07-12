@@ -5,12 +5,12 @@ use rawscope_data::{
     DatasetIdentity, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
     SyntheticDatasetMetadata, SyntheticEventType, TimelineEventKind, TimelineEventRecord,
 };
-use rawscope_render::{
+use rawscope_evidence::{
     timeline_selection_evidence_json, timeline_selection_evidence_markdown,
-    timeline_selection_evidence_v2_json, TimelineBrushSelection, TimelineEvidenceConfig,
-    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
-    TimelineSelectionEvidenceV2,
+    timeline_selection_evidence_v2_json, TimelineEvidenceConfig, TimelineEvidenceView,
+    TimelineLaneRange, TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
 };
+use rawscope_render::{timeline_selection_evidence_from_events, TimelineBrushSelection};
 
 fn event(
     row_id: u64,
@@ -43,7 +43,7 @@ fn timeline_evidence() -> TimelineSelectionEvidence {
         event(9, 500, 1, 50.0, SyntheticEventType::StaleLane),
     ];
 
-    TimelineSelectionEvidence::from_events(
+    timeline_selection_evidence_from_events(
         &events,
         selection(),
         4,
@@ -81,7 +81,7 @@ fn local_timeline_evidence_v2() -> TimelineSelectionEvidenceV2 {
         time_range: U64Range::new(90, 200),
         lane_range: TimelineLaneRange::new(0, 2),
     };
-    let v1 = TimelineSelectionEvidence::from_events(
+    let v1 = timeline_selection_evidence_from_events(
         &events,
         selection,
         2,
@@ -190,7 +190,7 @@ fn markdown_export_handles_empty_selection() {
         time_range: U64Range::new(900, 950),
         lane_range: TimelineLaneRange::new(0, 1),
     };
-    let evidence = TimelineSelectionEvidence::from_events(
+    let evidence = timeline_selection_evidence_from_events(
         &events,
         empty_selection,
         2,

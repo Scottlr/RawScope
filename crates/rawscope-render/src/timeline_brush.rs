@@ -1,35 +1,10 @@
 //! Timeline-density brush geometry and CPU-side selected-event summaries.
 
 use rawscope_core::U64Range;
-use rawscope_data::{SyntheticEventType, TimelineEventKind, TimelineEventRecord};
+use rawscope_data::{SyntheticEventType, TimelineEventRecord};
+use rawscope_evidence::{SelectedEventTypeCounts, TimelineLaneRange};
 
 use crate::{BrushScreenRect, BrushScreenSize, TimelineViewport};
-
-/// Half-open lane range selected by a finalized timeline brush.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TimelineLaneRange {
-    pub start: u32,
-    pub end_exclusive: u32,
-}
-
-impl TimelineLaneRange {
-    /// Creates a non-empty half-open lane range.
-    pub fn new(start: u32, end_exclusive: u32) -> Self {
-        assert!(
-            end_exclusive > start,
-            "lane range end must be greater than start"
-        );
-        Self {
-            start,
-            end_exclusive,
-        }
-    }
-
-    /// Returns true when the lane lies inside the half-open range.
-    pub fn contains(self, lane: u32) -> bool {
-        lane >= self.start && lane < self.end_exclusive
-    }
-}
 
 /// In-progress screen-space timeline brush drag.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -123,73 +98,6 @@ impl TimelineBrushSelection {
     /// Returns true when an event lies inside this brush's time and lane ranges.
     pub fn contains_event(self, event: &TimelineEventRecord) -> bool {
         self.time_range.contains(event.timestamp) && self.lane_range.contains(event.lane)
-    }
-}
-
-/// Counts selected synthetic events by event type.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct SelectedEventTypeCounts {
-    pub background: usize,
-    pub spike: usize,
-    pub stale_lane: usize,
-    pub high_value_band: usize,
-    pub unclassified: usize,
-}
-
-impl SelectedEventTypeCounts {
-    /// Returns the most frequent selected event type, if any events were selected.
-    pub fn top_event_type(self) -> Option<SyntheticEventType> {
-        let event_types = [
-            (SyntheticEventType::Background, self.background),
-            (SyntheticEventType::Spike, self.spike),
-            (SyntheticEventType::StaleLane, self.stale_lane),
-            (SyntheticEventType::HighValueBand, self.high_value_band),
-        ];
-
-        event_types
-            .into_iter()
-            .max_by_key(|(_, count)| *count)
-            .and_then(|(event_type, count)| (count > 0).then_some(event_type))
-    }
-
-    /// Returns the most frequent selected event kind, including unclassified local rows.
-    pub fn top_event_kind(self) -> Option<TimelineEventKind> {
-        let event_kinds = [
-            (
-                TimelineEventKind::Synthetic(SyntheticEventType::Background),
-                self.background,
-            ),
-            (
-                TimelineEventKind::Synthetic(SyntheticEventType::Spike),
-                self.spike,
-            ),
-            (
-                TimelineEventKind::Synthetic(SyntheticEventType::StaleLane),
-                self.stale_lane,
-            ),
-            (
-                TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand),
-                self.high_value_band,
-            ),
-            (TimelineEventKind::Unclassified, self.unclassified),
-        ];
-
-        event_kinds
-            .into_iter()
-            .max_by_key(|(_, count)| *count)
-            .and_then(|(kind, count)| (count > 0).then_some(kind))
-    }
-
-    fn add(&mut self, kind: TimelineEventKind) {
-        match kind {
-            TimelineEventKind::Synthetic(SyntheticEventType::Background) => self.background += 1,
-            TimelineEventKind::Synthetic(SyntheticEventType::Spike) => self.spike += 1,
-            TimelineEventKind::Synthetic(SyntheticEventType::StaleLane) => self.stale_lane += 1,
-            TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand) => {
-                self.high_value_band += 1
-            }
-            TimelineEventKind::Unclassified => self.unclassified += 1,
-        }
     }
 }
 
