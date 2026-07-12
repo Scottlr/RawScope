@@ -168,7 +168,7 @@ fn source_table(schema: &[LoadedColumnSchema], rows: &[::csv::StringRecord]) -> 
         .map(|(row_offset, row)| LoadedSourceRow {
             row_id: RowId(row_offset as u64),
             values: (0..schema.len())
-                .map(|column_index| row.get(column_index).unwrap_or("").trim().to_string())
+                .map(|column_index| row.get(column_index).unwrap_or("").to_string())
                 .collect(),
         })
         .collect();

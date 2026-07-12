@@ -89,6 +89,29 @@ pub struct StoredCell {
     normalized: CellState<NormalizedValue>,
 }
 
+/// Decoded CSV spelling retained alongside its independent analytical state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DecodedCsvCell {
+    raw: Arc<str>,
+    analytical: CellState<NormalizedValue>,
+}
+
+impl DecodedCsvCell {
+    pub fn new(raw: impl Into<Arc<str>>, analytical: CellState<NormalizedValue>) -> Self {
+        Self {
+            raw: raw.into(),
+            analytical,
+        }
+    }
+
+    pub fn raw(&self) -> &str {
+        &self.raw
+    }
+    pub fn analytical(&self) -> &CellState<NormalizedValue> {
+        &self.analytical
+    }
+}
+
 impl StoredCell {
     pub fn value(raw: SourceValue, normalized: NormalizedValue) -> Self {
         Self {

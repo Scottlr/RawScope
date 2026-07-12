@@ -13,8 +13,8 @@ use crate::DatasetIdentity;
 
 pub use budget::{DatasetBudgetError, DatasetMemoryBudget, DatasetMemoryUsage};
 pub use cell::{
-    CellRef, CellState, InvalidCell, InvalidCellReason, NormalizedValue, SourceUnavailableReason,
-    SourceValue, StoredCell,
+    CellRef, CellState, DecodedCsvCell, InvalidCell, InvalidCellReason, NormalizedValue,
+    SourceUnavailableReason, SourceValue, StoredCell,
 };
 pub use chunk::{ChunkValidationError, ColumnChunk, DatasetChunk};
 pub use schema::{DatasetColumn, DatasetSchema, DatasetSchemaError, StoreColumnKind};
