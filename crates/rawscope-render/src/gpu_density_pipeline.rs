@@ -1,7 +1,7 @@
 //! Shared WGPU plumbing for density compute passes.
 
 use std::{
-    sync::mpsc::{self, RecvError},
+    sync::mpsc::{self, RecvError, RecvTimeoutError},
     time::Duration,
 };
 
@@ -12,6 +12,7 @@ const READBACK_WAIT_TIMEOUT: Duration = Duration::from_millis(100);
 pub(crate) enum GpuDensityReadbackError {
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
+    BufferMapCallbackTimedOut,
     DevicePoll(wgpu::PollError),
 }
 
@@ -158,8 +159,13 @@ pub(crate) fn readback_counts_from_buffer(
         .map_err(GpuDensityReadbackError::DevicePoll)?;
 
     receiver
-        .recv()
-        .map_err(GpuDensityReadbackError::BufferMapCallbackDropped)?
+        .recv_timeout(READBACK_WAIT_TIMEOUT)
+        .map_err(|error| match error {
+            RecvTimeoutError::Timeout => GpuDensityReadbackError::BufferMapCallbackTimedOut,
+            RecvTimeoutError::Disconnected => {
+                GpuDensityReadbackError::BufferMapCallbackDropped(RecvError)
+            }
+        })?
         .map_err(GpuDensityReadbackError::BufferMap)?;
 
     let counts = {
