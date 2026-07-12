@@ -125,6 +125,22 @@ impl WorkbenchApp {
             return;
         };
 
+        if let Some(snapshot) = self.scatter_filters.cohort_snapshot.as_ref() {
+            let mask = snapshot.filter_mask();
+            self.scatter.marginal_summary = Some(
+                scatter_marginal_summary_masked(
+                    &self.scatter.points,
+                    &mask,
+                    viewport.x_range(),
+                    viewport.y_range(),
+                    MARGINAL_BIN_COUNT,
+                    MARGINAL_BIN_COUNT,
+                )
+                .expect("cohort snapshot remains aligned with scatter points"),
+            );
+            return;
+        }
+
         self.scatter.marginal_summary = self
             .scatter_filters
             .evaluation
