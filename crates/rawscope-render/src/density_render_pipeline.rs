@@ -1,5 +1,10 @@
 //! Shared fullscreen density render-pipeline plumbing.
 
+use std::num::NonZeroU64;
+
+const MIN_DENSITY_COUNT_BINDING_BYTES: u64 = 4;
+const MIN_DENSITY_PARAMS_BINDING_BYTES: u64 = 4;
+
 pub(crate) fn create_density_render_bind_group_layout(
     device: &wgpu::Device,
     label: &'static str,
@@ -13,7 +18,7 @@ pub(crate) fn create_density_render_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(MIN_DENSITY_COUNT_BINDING_BYTES),
                 },
                 count: None,
             },
@@ -23,7 +28,7 @@ pub(crate) fn create_density_render_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(MIN_DENSITY_PARAMS_BINDING_BYTES),
                 },
                 count: None,
             },
