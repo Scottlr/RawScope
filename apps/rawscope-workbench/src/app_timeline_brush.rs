@@ -39,6 +39,24 @@ impl WorkbenchApp {
 
         self.finalize_timeline_brush_from_drag();
         self.publish_timeline_active_selection();
+        if let (Some(selection), Some(snapshot)) = (
+            self.timeline.active_brush_selection,
+            self.workbench_state
+                .active_selection
+                .as_ref()
+                .and_then(|active| active.snapshot.as_ref()),
+        ) {
+            self.timeline.selection_summary = Some(TimelineSelectionSummary::from_snapshot(
+                &self.timeline.events,
+                snapshot,
+                selection,
+                self.timeline
+                    .viewport
+                    .map_or(selection.lane_range.end_exclusive, |viewport| {
+                        viewport.lane_count()
+                    }),
+            ));
+        }
         self.build_timeline_selection_evidence();
         self.build_timeline_selection_drilldown();
         self.rebuild_active_comparison();

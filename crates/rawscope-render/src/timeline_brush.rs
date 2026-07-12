@@ -270,6 +270,62 @@ impl TimelineSelectionSummary {
             selected_value_range,
         }
     }
+
+    /// Summarizes finalized timeline membership from one immutable snapshot.
+    pub fn from_snapshot(
+        events: &[TimelineEventRecord],
+        snapshot: &crate::SelectionSnapshot,
+        selection: TimelineBrushSelection,
+        lane_count: u32,
+    ) -> Self {
+        let mut selected_event_count = 0;
+        let mut selected_min_timestamp = u64::MAX;
+        let mut selected_max_timestamp = 0;
+        let mut selected_min_value = f32::INFINITY;
+        let mut selected_max_value = f32::NEG_INFINITY;
+        let mut lane_counts = vec![0; lane_count as usize];
+        let mut event_type_counts = SelectedEventTypeCounts::default();
+        for event in events {
+            if snapshot.row_ids().binary_search(&event.row_id).is_err() {
+                continue;
+            }
+            selected_event_count += 1;
+            selected_min_timestamp = selected_min_timestamp.min(event.timestamp);
+            selected_max_timestamp = selected_max_timestamp.max(event.timestamp);
+            selected_min_value = selected_min_value.min(event.value);
+            selected_max_value = selected_max_value.max(event.value);
+            if let Some(lane_count) = lane_counts.get_mut(event.lane as usize) {
+                *lane_count += 1;
+            }
+            event_type_counts.add(event.kind);
+        }
+        let selected_percentage = if events.is_empty() {
+            0.0
+        } else {
+            selected_event_count as f32 / events.len() as f32 * 100.0
+        };
+        Self {
+            selected_event_count,
+            total_event_count: events.len(),
+            selected_percentage,
+            selected_time_range: selection.time_range,
+            selected_lane_range: selection.lane_range,
+            top_lane: top_lane(&lane_counts),
+            top_event_type: event_type_counts.top_event_type(),
+            lane_counts,
+            event_type_counts,
+            selected_timestamp_range: selected_time_range(
+                selected_event_count,
+                selected_min_timestamp,
+                selected_max_timestamp,
+            ),
+            selected_value_range: selected_value_range(
+                selected_event_count,
+                selected_min_value,
+                selected_max_value,
+            ),
+        }
+    }
 }
 
 fn lane_range_from_screen_rect(
