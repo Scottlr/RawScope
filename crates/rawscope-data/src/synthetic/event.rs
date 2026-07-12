@@ -293,6 +293,6 @@ fn sample_inclusive(rng: &mut SyntheticRng, min: u64, max: u64) -> u64 {
     if min == max {
         return min;
     }
-    let max_exclusive = max.checked_add(1).unwrap_or(u64::MAX);
+    let max_exclusive = max.saturating_add(1);
     rng.u64_in_range(min, max_exclusive)
 }

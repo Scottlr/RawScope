@@ -223,9 +223,11 @@ mod tests {
     fn point_reveal_blend_follows_rows_per_pixel() {
         let points = points(50);
         let evaluation = evaluation(50, None);
-        let mut config = PointRevealConfig::default();
-        config.fully_visible_rows_per_pixel = 0.03;
-        config.hidden_rows_per_pixel = 0.25;
+        let config = PointRevealConfig {
+            fully_visible_rows_per_pixel: 0.03,
+            hidden_rows_per_pixel: 0.25,
+            ..PointRevealConfig::default()
+        };
 
         let sparse = select(&points, &evaluation.mask, 100, 100, config);
         let transitional = select(&points, &evaluation.mask, 20, 20, config);

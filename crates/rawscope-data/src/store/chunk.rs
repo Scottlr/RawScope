@@ -28,6 +28,10 @@ impl ColumnChunk {
     pub fn len(&self) -> usize {
         self.cells.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.cells.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

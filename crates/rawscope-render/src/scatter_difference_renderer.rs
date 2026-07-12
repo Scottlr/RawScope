@@ -195,6 +195,7 @@ impl ScatterDifferenceRenderer {
         self.render_blended(device, queue, encoder, target_view, plot_rect, true, 1.0);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render_blended(
         &self,
         device: &wgpu::Device,

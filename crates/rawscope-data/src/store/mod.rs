@@ -164,7 +164,7 @@ impl DatasetStoreBuilder {
         Self {
             identity,
             schema,
-            generation: generations.next(),
+            generation: generations.mint(),
             budget,
             chunks: Vec::new(),
             row_count: 0,

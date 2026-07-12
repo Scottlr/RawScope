@@ -32,7 +32,7 @@ impl<Owner> Default for GenerationCounter<Owner> {
 }
 
 impl<Owner> GenerationCounter<Owner> {
-    pub fn next(&mut self) -> Generation<Owner> {
+    pub fn mint(&mut self) -> Generation<Owner> {
         self.next = self.next.saturating_add(1).max(1);
         Generation {
             value: NonZeroU64::new(self.next).expect("generation counter starts at one"),

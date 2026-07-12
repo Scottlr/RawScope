@@ -59,16 +59,12 @@ impl EvidenceReportBundlePaths {
         initial_export_counter: u64,
     ) -> Self {
         let output_dir = output_dir.as_ref();
-        let export_counter = initial_export_counter;
-        loop {
-            let paths = Self::new(
-                output_dir,
-                bundle_dir_prefix,
-                export_timestamp_unix_ms,
-                export_counter,
-            );
-            return paths;
-        }
+        Self::new(
+            output_dir,
+            bundle_dir_prefix,
+            export_timestamp_unix_ms,
+            initial_export_counter,
+        )
     }
 
     fn new(

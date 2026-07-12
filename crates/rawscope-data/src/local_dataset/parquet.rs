@@ -286,14 +286,14 @@ fn read_parquet_batches(
     }
     let arrow_schema = builder.schema().as_ref().clone();
     reject_float16_schema(&arrow_schema)?;
-    let mut reader = builder
+    let reader = builder
         .build()
         .map_err(|source| DatasetLoadError::ParquetRead {
             path: path.to_path_buf(),
             source,
         })?;
     let mut batches = Vec::new();
-    while let Some(batch) = reader.next() {
+    for batch in reader {
         let batch = batch.map_err(|source| DatasetLoadError::ParquetRead {
             path: path.to_path_buf(),
             source: source.into(),
