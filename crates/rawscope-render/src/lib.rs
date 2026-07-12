@@ -184,8 +184,9 @@ pub use selection_comparison::{
 };
 pub use selection_drilldown::{
     scatter_selection_drilldown, scatter_selection_drilldown_masked,
-    scatter_selection_drilldown_snapshot, timeline_selection_drilldown, DrilldownColumn,
-    DrilldownConfig, DrilldownRow, SelectionDrilldown,
+    scatter_selection_drilldown_snapshot, timeline_selection_drilldown,
+    timeline_selection_drilldown_snapshot, DrilldownColumn, DrilldownConfig, DrilldownRow,
+    SelectionDrilldown,
 };
 pub use selection_snapshot::SelectionSnapshot;
 pub use timeline_brush::{

@@ -169,6 +169,38 @@ pub fn timeline_selection_drilldown(
     )
 }
 
+/// Builds timeline drilldown rows from an already-finalized immutable snapshot.
+pub fn timeline_selection_drilldown_snapshot(
+    events: &[TimelineEventRecord],
+    snapshot: &SelectionSnapshot,
+    source_rows: Option<&LoadedSourceTable>,
+    config: DrilldownConfig,
+) -> SelectionDrilldown {
+    let columns = source_rows
+        .map(source_columns)
+        .unwrap_or_else(timeline_fallback_columns);
+    let mut rows = Vec::new();
+    for event in events {
+        if snapshot.row_ids().binary_search(&event.row_id).is_err() {
+            continue;
+        }
+        let row = match source_rows {
+            Some(table) => source_row(table, event.row_id),
+            None => Some(timeline_fallback_row(event)),
+        };
+        if let Some(row) = row {
+            insert_lowest_row_id_sample(&mut rows, row, config.max_rows);
+        }
+    }
+    SelectionDrilldown {
+        selected_row_count: snapshot.selected_count(),
+        displayed_row_count: rows.len(),
+        rows_are_sampled: snapshot.selected_count() > rows.len(),
+        columns,
+        rows,
+    }
+}
+
 fn build_selection_drilldown<T>(
     records: &[T],
     columns: Vec<DrilldownColumn>,
