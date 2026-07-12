@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::{
     scatter_selection_evidence_v4_json, DifferenceDirectionEvidenceV5,
     PinnedDifferenceInspectionEvidenceV5, ScatterSelectionEvidenceV5, ScatterSelectionExportError,
+    SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION,
 };
 
 #[path = "scatter_selection_export_v5_artifact.rs"]
@@ -33,7 +34,7 @@ pub fn scatter_selection_evidence_v5_json(
     );
     object.insert(
         "schema_version".to_string(),
-        Value::from(evidence.schema_version),
+        Value::from(SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION),
     );
     if let Some(context) = &evidence.session_context {
         object.insert(
