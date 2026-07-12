@@ -3,7 +3,9 @@
 use rawscope_data::{FilterRevision, ScatterPointRecord};
 
 use crate::{
-    gpu_density_pipeline::{readback_counts_from_buffer, GpuDensityReadbackError},
+    gpu_density_pipeline::{
+        readback_counts_from_buffer, DensityReadbackOperation, GpuDensityReadbackError,
+    },
     gpu_scatter_density::GpuScatterDensityError,
     gpu_scatter_density_pack::ScatterParams,
     ScatterDensityRenderStats, ScatterDensityRendererConfig,
@@ -68,6 +70,7 @@ pub struct ScatterDensityGpuState {
     dataset_revision: u64,
     last_max_bin_count: u32,
     grid_generation: u64,
+    pending_full_readback: Option<DensityReadbackOperation>,
 }
 
 impl ScatterDensityGpuState {
@@ -132,6 +135,7 @@ impl ScatterDensityGpuState {
             dataset_revision,
             last_max_bin_count: 0,
             grid_generation: 0,
+            pending_full_readback: None,
         })
     }
 
@@ -241,6 +245,54 @@ impl ScatterDensityGpuState {
             },
             counts,
         })
+    }
+
+    /// Submits a full-count copy and starts a nonblocking map operation.
+    pub fn begin_full_readback(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Result<(), GpuScatterDensityError> {
+        if self.pending_full_readback.is_some() {
+            return Err(GpuScatterDensityError::ReadbackInProgress);
+        }
+        let count_size = count_size_bytes(self.grid_width, self.grid_height);
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("RawScope Resident Scatter Readback Copy"),
+        });
+        encoder.copy_buffer_to_buffer(
+            &self.count_buffers[self.active_count_buffer],
+            0,
+            &self.full_readback_buffer,
+            0,
+            count_size,
+        );
+        queue.submit(Some(encoder.finish()));
+        self.pending_full_readback = Some(
+            DensityReadbackOperation::start(
+                &self.full_readback_buffer,
+                (self.grid_width * self.grid_height) as usize,
+            )
+            .map_err(map_readback)?,
+        );
+        Ok(())
+    }
+
+    /// Advances the resident full-count readback without blocking.
+    pub fn poll_full_readback(
+        &mut self,
+        device: &wgpu::Device,
+    ) -> Result<Option<Vec<u32>>, GpuScatterDensityError> {
+        let Some(mut operation) = self.pending_full_readback.take() else {
+            return Ok(None);
+        };
+        match operation.poll(device).map_err(map_readback)? {
+            Some(counts) => Ok(Some(counts)),
+            None => {
+                self.pending_full_readback = Some(operation);
+                Ok(None)
+            }
+        }
     }
 }
 
