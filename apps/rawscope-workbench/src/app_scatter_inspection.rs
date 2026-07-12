@@ -60,14 +60,38 @@ pub(crate) struct PinnedEvidenceKeyValue {
 
 impl WorkbenchApp {
     pub(crate) fn rebuild_scatter_inspection_cache(&mut self) {
-        let (Some(viewport), Some(stats), Some(evaluation)) = (
-            self.scatter.viewport,
-            self.scatter.render_stats,
-            self.scatter_filters.evaluation.as_ref(),
-        ) else {
+        let (Some(viewport), Some(stats)) = (self.scatter.viewport, self.scatter.render_stats)
+        else {
             self.scatter_inspection = ScatterInspectionState::default();
             return;
         };
+        let (active_mask, active_revision, active_count) = self
+            .scatter_filters
+            .cohort_snapshot
+            .as_ref()
+            .map(|snapshot| {
+                (
+                    snapshot.filter_mask(),
+                    snapshot.filter_revision(),
+                    snapshot.included_row_count(),
+                )
+            })
+            .or_else(|| {
+                self.scatter_filters.evaluation.as_ref().map(|evaluation| {
+                    (
+                        evaluation.mask.clone(),
+                        evaluation.revision,
+                        evaluation.included_count as u64,
+                    )
+                })
+            })
+            .unwrap_or_else(|| {
+                (
+                    FilterMask::all_included(self.scatter.points.len()),
+                    FilterRevision::default(),
+                    self.scatter.points.len() as u64,
+                )
+            });
         let viewport_revision = self.render_schedule.settled_revision();
         let config = ScatterInspectionConfig {
             grid_width: stats.grid_width,
@@ -76,10 +100,10 @@ impl WorkbenchApp {
         };
         match build_scatter_inspection_grid(
             &self.scatter.points,
-            &evaluation.mask,
+            &active_mask,
             viewport.x_range(),
             viewport.y_range(),
-            evaluation.revision,
+            active_revision,
             config,
         ) {
             Ok(grid) => {
@@ -104,7 +128,7 @@ impl WorkbenchApp {
                         &baseline_counts,
                         &active_counts,
                         self.scatter.points.len() as u64,
-                        evaluation.included_count as u64,
+                        active_count,
                     )
                     .ok()
                 });
@@ -114,7 +138,7 @@ impl WorkbenchApp {
                 self.scatter_inspection.hovered = None;
                 self.scatter_inspection.hovered_summary = None;
                 self.scatter_inspection.cache_viewport_revision = viewport_revision;
-                self.scatter_inspection.cache_filter_revision = evaluation.revision;
+                self.scatter_inspection.cache_filter_revision = active_revision;
             }
             Err(_) => self.scatter_inspection = ScatterInspectionState::default(),
         }
@@ -150,13 +174,27 @@ impl WorkbenchApp {
             self.clear_scatter_inspection_hover();
             return;
         };
-        let Some(evaluation) = self.scatter_filters.evaluation.as_ref() else {
+        let active_revision = self
+            .scatter_filters
+            .cohort_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.filter_revision())
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| evaluation.revision)
+            })
+            .unwrap_or_default();
+        if self.scatter_filters.cohort_snapshot.is_none()
+            && self.scatter_filters.evaluation.is_none()
+        {
             self.clear_scatter_inspection_hover();
             return;
-        };
+        }
         let cache_is_current = self.scatter_inspection.cache_viewport_revision
             == self.render_schedule.settled_revision()
-            && self.scatter_inspection.cache_filter_revision == evaluation.revision;
+            && self.scatter_inspection.cache_filter_revision == active_revision;
         self.scatter_inspection.hovered = cache_is_current
             .then(|| {
                 self.scatter_inspection
