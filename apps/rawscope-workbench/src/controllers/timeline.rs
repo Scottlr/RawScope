@@ -1,6 +1,6 @@
 //! Private timeline-domain command owner.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct TimelineGeneration {
     pub(crate) dataset: u64,
     pub(crate) cohort: u64,
@@ -30,10 +30,7 @@ impl TimelineController {
             TimelineCommand::SetCohort { generation }
             | TimelineCommand::SetViewport { generation } => generation,
         };
-        if self
-            .generation
-            .is_some_and(|current| generation.dataset < current.dataset)
-        {
+        if self.generation.is_some_and(|current| generation < current) {
             return TimelineResult::RejectedStale { generation };
         }
         self.generation = Some(generation);
@@ -61,6 +58,29 @@ mod tests {
         let stale = TimelineGeneration {
             dataset: 3,
             cohort: 9,
+            viewport: 9,
+        };
+        assert_eq!(
+            controller.handle(TimelineCommand::SetCohort { generation: stale }),
+            TimelineResult::RejectedStale { generation: stale }
+        );
+        assert_eq!(controller.generation(), Some(current));
+    }
+
+    #[test]
+    fn timeline_owner_rejects_old_cohort_generations() {
+        let mut controller = TimelineController::default();
+        let current = TimelineGeneration {
+            dataset: 4,
+            cohort: 2,
+            viewport: 2,
+        };
+        controller.handle(TimelineCommand::SetViewport {
+            generation: current,
+        });
+        let stale = TimelineGeneration {
+            dataset: 4,
+            cohort: 1,
             viewport: 9,
         };
         assert_eq!(
