@@ -138,6 +138,10 @@ impl ScatterDifferenceRenderer {
             .update_filter_mask(queue, mask.as_gpu_u32_slice(), revision)
     }
 
+    pub fn validate_filter_mask(&self, mask: &FilterMask) -> Result<(), GpuScatterDensityError> {
+        self.active.validate_filter_mask(mask.as_gpu_u32_slice())
+    }
+
     pub fn update_fields(
         &mut self,
         device: &wgpu::Device,

@@ -318,6 +318,10 @@ impl ScatterDensityRenderer {
             .update_filter_mask(queue, mask.as_gpu_u32_slice(), revision)
     }
 
+    pub fn validate_filter_mask(&self, mask: &FilterMask) -> Result<(), GpuScatterDensityError> {
+        self.gpu_state.validate_filter_mask(mask.as_gpu_u32_slice())
+    }
+
     /// Returns the current render stats.
     pub fn stats(&self) -> ScatterDensityRenderStats {
         self.stats

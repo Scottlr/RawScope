@@ -100,6 +100,21 @@ impl WorkbenchApp {
             next_filters.is_active() && evaluation.included_count > 0;
         let evaluation_revision = evaluation.revision;
 
+        if let Some(renderer) = self.scatter.density_renderer.as_ref() {
+            if let Err(err) = renderer.validate_filter_mask(&evaluation.mask) {
+                self.scatter_filters.error = Some(err.to_string());
+                self.request_redraw();
+                return;
+            }
+        }
+        if let Some(renderer) = self.scatter.difference_renderer.as_ref() {
+            if let Err(err) = renderer.validate_filter_mask(&evaluation.mask) {
+                self.scatter_filters.error = Some(err.to_string());
+                self.request_redraw();
+                return;
+            }
+        }
+
         let upload_result = self
             .gpu
             .as_ref()
