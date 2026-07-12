@@ -48,9 +48,10 @@ pub use store::{
     SourceUnavailableReason, SourceValue, StoreColumnKind, StoredCell,
 };
 pub use synthetic::{
-    generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,
-    SyntheticEventDataset, SyntheticEventType, SyntheticPointCategory, SyntheticPointConfig,
-    SyntheticPointDataset,
+    generate_synthetic_events, generate_synthetic_points, try_generate_synthetic_events,
+    SyntheticEventConfig, SyntheticEventConfigError, SyntheticEventDataset, SyntheticEventType,
+    SyntheticPointCategory, SyntheticPointConfig, SyntheticPointDataset,
+    ValidatedSyntheticEventConfig,
 };
 pub use visual_field_catalog::{
     build_visual_field_catalog, CategoricalFieldSummary, CategoryValueCount, NumericFieldSummary,
