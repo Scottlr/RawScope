@@ -2,14 +2,13 @@
 
 use std::{
     fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 
-use rawscope_data::DatasetProfileId;
-
 use crate::{
-    parse_session_manifest, RawScopeSessionManifestV1, SessionDataFormat, SessionDatasetV1,
-    SessionManifestError, SessionViewV1,
+    parse_session_manifest, DatasetProfileId, RawScopeSessionManifestV1, SessionDataFormat,
+    SessionDatasetV1, SessionManifestError, SessionViewV1, MAX_SESSION_MANIFEST_BYTES,
 };
 
 /// A session manifest after local paths and optional profile ids are resolved.
@@ -26,7 +25,7 @@ pub struct ResolvedSessionDataset {
     pub path: PathBuf,
     pub format: SessionDataFormat,
     pub display_name: Option<String>,
-    pub limit: Option<usize>,
+    pub limit: Option<u64>,
     pub evidence_key: Option<String>,
 }
 
@@ -52,10 +51,35 @@ pub fn load_session_manifest(
     let requested_manifest_path = manifest_path.as_ref().to_path_buf();
     reject_uri_path(&requested_manifest_path)?;
     let manifest_path = canonical_file_path(&requested_manifest_path)?;
-    let json = fs::read_to_string(&manifest_path).map_err(|source| SessionManifestError::Io {
+    let metadata = fs::metadata(&manifest_path).map_err(|source| SessionManifestError::Io {
         path: manifest_path.clone(),
         source,
     })?;
+    if metadata.len() > MAX_SESSION_MANIFEST_BYTES {
+        return Err(SessionManifestError::ManifestTooLarge {
+            path: manifest_path,
+            max_bytes: MAX_SESSION_MANIFEST_BYTES,
+        });
+    }
+    let mut bytes = Vec::with_capacity((metadata.len() as usize).saturating_add(1));
+    fs::File::open(&manifest_path)
+        .map_err(|source| SessionManifestError::Io {
+            path: manifest_path.clone(),
+            source,
+        })?
+        .take(MAX_SESSION_MANIFEST_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|source| SessionManifestError::Io {
+            path: manifest_path.clone(),
+            source,
+        })?;
+    if bytes.len() as u64 > MAX_SESSION_MANIFEST_BYTES {
+        return Err(SessionManifestError::ManifestTooLarge {
+            path: manifest_path,
+            max_bytes: MAX_SESSION_MANIFEST_BYTES,
+        });
+    }
+    let json = String::from_utf8_lossy(&bytes);
     let manifest = parse_session_manifest(&json)?;
     resolve_manifest(manifest_path, manifest)
 }
@@ -129,7 +153,7 @@ fn resolve_profile(
 ) -> Result<Option<DatasetProfileId>, SessionManifestError> {
     profile
         .map(|value| {
-            rawscope_data::parse_dataset_profile_id(&value)
+            DatasetProfileId::parse(&value)
                 .map_err(|_| SessionManifestError::UnsupportedProfile { value })
         })
         .transpose()

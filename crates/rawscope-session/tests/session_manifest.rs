@@ -4,9 +4,8 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use rawscope_data::DatasetProfileId;
 use rawscope_session::{
-    load_session_manifest, parse_session_manifest, session_manifest_json,
+    load_session_manifest, parse_session_manifest, session_manifest_json, DatasetProfileId,
     RawScopeSessionManifestV1, ResolvedSessionView, SessionDataFormat, SessionDatasetV1,
     SessionManifestError, SessionViewV1, RAWSCOPE_SESSION_ARTIFACT_KIND,
     RAWSCOPE_SESSION_SCHEMA_VERSION,
@@ -211,7 +210,7 @@ fn resolved_profile_is_typed_without_changing_view_bindings() {
 fn manifest(
     path: &str,
     format: SessionDataFormat,
-    limit: Option<usize>,
+    limit: Option<u64>,
 ) -> RawScopeSessionManifestV1 {
     RawScopeSessionManifestV1 {
         artifact_kind: RAWSCOPE_SESSION_ARTIFACT_KIND.to_string(),

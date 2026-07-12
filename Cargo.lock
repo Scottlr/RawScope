@@ -2514,7 +2514,15 @@ dependencies = [
 name = "rawscope-session"
 version = "0.1.0"
 dependencies = [
- "rawscope-data",
+ "rawscope-session-contracts",
+ "serde_json",
+]
+
+[[package]]
+name = "rawscope-session-contracts"
+version = "0.1.0"
+dependencies = [
+ "rawscope-core",
  "serde",
  "serde_json",
 ]
