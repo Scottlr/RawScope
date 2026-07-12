@@ -7,9 +7,11 @@ use crate::DeviceLossReason;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GpuRuntimeSignal {
     UncapturedError {
+        generation: crate::DeviceGeneration,
         message: String,
     },
     DeviceLost {
+        generation: crate::DeviceGeneration,
         reason: DeviceLossReason,
         message: String,
     },
