@@ -36,6 +36,13 @@ HAS_ARROW = pa is not None and parquet is not None
 
 
 class DataframeAdapterTests(unittest.TestCase):
+    def test_adapter_selection_does_not_trust_module_name(self) -> None:
+        spoofed = type("Spoofed", (), {"__module__": "pandas.core.frame"})()
+        with self.assertRaises(rawscope.UnsupportedDataSource):
+            from rawscope.adapters import select_adapter
+
+            select_adapter(spoofed)
+
     @unittest.skipUnless(HAS_PANDAS, "pandas test extra is not installed")
     def test_pandas_dataframe_materializes_supported_parquet(self) -> None:
         dataframe = pd.DataFrame(
