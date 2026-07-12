@@ -187,6 +187,19 @@ impl WorkbenchApp {
                 )
             })
             .or_else(|| {
+                self.scatter_filters.cohort_snapshot.as_ref().map(|cohort| {
+                    let mask = cohort.filter_mask();
+                    scatter_selection_drilldown_masked(
+                        &self.scatter.points,
+                        &mask,
+                        selection,
+                        self.scatter.source_rows.as_ref(),
+                        rawscope_render::DrilldownConfig::default(),
+                    )
+                    .expect("cohort snapshot remains aligned with scatter points")
+                })
+            })
+            .or_else(|| {
                 self.scatter_filters
                     .evaluation
                     .as_ref()
@@ -216,11 +229,22 @@ impl WorkbenchApp {
         selection: ScatterBrushSelection,
     ) -> Option<SelectedRegionSummary> {
         self.scatter_filters
-            .evaluation
+            .cohort_snapshot
             .as_ref()
-            .map(|evaluation| {
-                selected_region_summary_masked(&self.scatter.points, &evaluation.mask, selection)
+            .map(|cohort| {
+                let mask = cohort.filter_mask();
+                selected_region_summary_masked(&self.scatter.points, &mask, selection)
+                    .expect("cohort snapshot remains aligned with scatter points")
+            })
+            .or_else(|| {
+                self.scatter_filters.evaluation.as_ref().map(|evaluation| {
+                    selected_region_summary_masked(
+                        &self.scatter.points,
+                        &evaluation.mask,
+                        selection,
+                    )
                     .expect("filter evaluation remains aligned with scatter points")
+                })
             })
             .or_else(|| {
                 Some(SelectedRegionSummary::from_points(
@@ -239,13 +263,17 @@ impl WorkbenchApp {
             .active_selection
             .as_ref()
             .and_then(|active| active.snapshot.as_ref())?;
-        let total_row_count = self
-            .scatter_filters
-            .evaluation
-            .as_ref()
-            .map_or(self.scatter.points.len(), |evaluation| {
-                evaluation.included_count
-            });
+        let total_row_count = self.scatter_filters.cohort_snapshot.as_ref().map_or_else(
+            || {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map_or(self.scatter.points.len(), |evaluation| {
+                        evaluation.included_count
+                    })
+            },
+            |cohort| cohort.included_row_count() as usize,
+        );
         Some(selected_region_summary_snapshot(
             &self.scatter.points,
             snapshot,
