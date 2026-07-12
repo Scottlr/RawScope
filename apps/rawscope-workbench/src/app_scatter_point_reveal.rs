@@ -70,9 +70,16 @@ impl WorkbenchApp {
         let plot_size = (plot.physical_rect.width, plot.physical_rect.height);
         let filter_revision = self
             .scatter_filters
-            .evaluation
+            .cohort_snapshot
             .as_ref()
-            .map_or(FilterRevision::default(), |evaluation| evaluation.revision);
+            .map(|snapshot| snapshot.filter_revision())
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| evaluation.revision)
+            })
+            .unwrap_or_default();
         let viewport_revision = self.render_schedule.settled_revision();
         let cache_is_current = !self.point_reveal.dirty
             && self.point_reveal.cache_viewport_revision == viewport_revision
@@ -81,11 +88,19 @@ impl WorkbenchApp {
         if cache_is_current {
             return;
         }
-        let mask = self
+        let cohort_mask = self
             .scatter_filters
-            .evaluation
+            .cohort_snapshot
             .as_ref()
-            .map(|evaluation| &evaluation.mask)
+            .map(|snapshot| snapshot.filter_mask());
+        let mask = cohort_mask
+            .as_ref()
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| &evaluation.mask)
+            })
             .or(self.point_reveal.all_rows_mask.as_ref());
         let Some(mask) = mask else { return };
         let selection = match select_points_for_reveal(
