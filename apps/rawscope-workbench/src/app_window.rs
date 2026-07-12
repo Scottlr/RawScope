@@ -1,6 +1,6 @@
 //! Window bootstrap and redraw helpers for the workbench shell.
 
-use std::error::Error;
+use std::{error::Error, io};
 
 use tracing::info;
 use winit::{dpi::LogicalSize, event_loop::ActiveEventLoop, window::Window};
@@ -15,15 +15,26 @@ impl WorkbenchApp {
         &mut self,
         event_loop: &ActiveEventLoop,
     ) -> Result<(), Box<dyn Error>> {
-        if self.window.is_some() {
-            return Ok(());
+        if self.window.is_none() {
+            let attributes = Window::default_attributes()
+                .with_title(WINDOW_TITLE)
+                .with_inner_size(LogicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT));
+            let window = std::sync::Arc::new(event_loop.create_window(attributes)?);
+            self.window = Some(window);
         }
+        self.start_gpu_initialization().map_err(|error| {
+            io::Error::other(format!("GPU startup job submission failed: {error:?}"))
+        })?;
+        Ok(())
+    }
 
-        let attributes = Window::default_attributes()
-            .with_title(WINDOW_TITLE)
-            .with_inner_size(LogicalSize::new(INITIAL_WIDTH, INITIAL_HEIGHT));
-        let window = std::sync::Arc::new(event_loop.create_window(attributes)?);
-        let gpu = pollster::block_on(rawscope_gpu::GpuContext::new(window.clone()))?;
+    pub(crate) fn finish_window_and_gpu(&mut self) -> Result<(), Box<dyn Error>> {
+        let Some(window) = self.window.as_ref().cloned() else {
+            return Ok(());
+        };
+        let Some(gpu) = self.gpu.take() else {
+            return Ok(());
+        };
         let adapter_info = gpu.adapter_info();
         info!(
             adapter = %adapter_info.adapter_name,
@@ -41,7 +52,6 @@ impl WorkbenchApp {
         }
 
         window.request_redraw();
-        self.window = Some(window);
         self.gpu = Some(gpu);
         self.initialize_ui_integration();
         self.update_window_title();

@@ -43,6 +43,7 @@ use crate::{
     app_visual_transition::WorkbenchVisualTransition,
     cli::{WorkbenchArgs, WorkbenchInput},
     demo::{DemoMode, PointCountPreset},
+    gpu_startup_job::{submit_gpu_initialization, GpuResolution},
     job_coordinator::{JobCoordinator, JobHandle, JobSubmitError, WorkbenchJobId},
     startup_job::{submit_startup_resolution, StartupResolution},
     startup_lifecycle::{StartupLifecycle, StartupRequestId},
@@ -102,6 +103,7 @@ pub struct WorkbenchApp {
     pub(crate) workbench_state: crate::workbench_state::WorkbenchState,
     pub(crate) startup_coordinator: Option<JobCoordinator>,
     pub(crate) startup_job: Option<(StartupRequestId, JobHandle, StartupResolution)>,
+    pub(crate) gpu_job: Option<(JobHandle, GpuResolution)>,
     pub(crate) startup_lifecycle: StartupLifecycle<WorkbenchStartup>,
 }
 
@@ -256,6 +258,39 @@ impl WorkbenchApp {
                 Err(error)
             }
         }
+    }
+
+    pub(crate) fn start_gpu_initialization(&mut self) -> Result<(), JobSubmitError> {
+        let Some(window) = self.window.as_ref().cloned() else {
+            return Ok(());
+        };
+        if self.gpu.is_some() || self.gpu_job.is_some() {
+            return Ok(());
+        }
+        let Some(coordinator) = self.startup_coordinator.as_ref() else {
+            return Err(JobSubmitError::ShuttingDown);
+        };
+        let (job, resolution) = submit_gpu_initialization(coordinator, window)?;
+        self.gpu_job = Some((job, resolution));
+        Ok(())
+    }
+
+    pub(crate) fn complete_gpu_job(&mut self, job_id: WorkbenchJobId) -> Result<bool, io::Error> {
+        let Some((job, resolution)) = self.gpu_job.take() else {
+            return Ok(false);
+        };
+        if job.id() != job_id {
+            self.gpu_job = Some((job, resolution));
+            return Ok(false);
+        }
+        let gpu = resolution.take().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "GPU startup job completed without a durable result",
+            )
+        })??;
+        self.gpu = Some(gpu);
+        Ok(true)
     }
 
     pub(crate) fn new(startup: WorkbenchStartup) -> Self {

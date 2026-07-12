@@ -22,11 +22,23 @@ impl ApplicationHandler<WorkbenchUserEvent> for WorkbenchApp {
                 match self.complete_startup_job(job_id) {
                     Ok(true) => {
                         if let Err(error) = self.create_window_and_gpu(event_loop) {
-                            error!(error = %error, "failed to initialize RawScope workbench after startup resolution");
+                            error!(error = %error, "failed to submit RawScope GPU initialization");
                             event_loop.exit();
                         }
                     }
-                    Ok(false) => {}
+                    Ok(false) => match self.complete_gpu_job(job_id) {
+                        Ok(true) => {
+                            if let Err(error) = self.finish_window_and_gpu() {
+                                error!(error = %error, "failed to prepare RawScope workbench after GPU initialization");
+                                event_loop.exit();
+                            }
+                        }
+                        Ok(false) => {}
+                        Err(error) => {
+                            error!(error = %error, "failed to resolve RawScope GPU initialization");
+                            event_loop.exit();
+                        }
+                    },
                     Err(error) => {
                         error!(error = %error, "failed to resolve RawScope startup session");
                         event_loop.exit();
