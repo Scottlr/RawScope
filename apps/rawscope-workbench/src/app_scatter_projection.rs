@@ -96,6 +96,18 @@ impl WorkbenchApp {
             renderer.validate_dataset(&projected.points)?;
         }
 
+        let filter_state = self
+            .scatter_filters
+            .cohort_snapshot
+            .as_ref()
+            .map(|snapshot| (snapshot.filter_mask(), snapshot.filter_revision()))
+            .or_else(|| {
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| (evaluation.mask.clone(), evaluation.revision))
+            });
+
         self.scatter.density_dataset_revision += 1;
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
@@ -106,9 +118,9 @@ impl WorkbenchApp {
                 &projected.points,
                 self.scatter.density_dataset_revision,
             )?;
-            if let Some(evaluation) = self.scatter_filters.evaluation.as_ref() {
-                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation.revision)?;
-                self.scatter_filters.last_uploaded_revision = evaluation.revision;
+            if let Some((mask, revision)) = filter_state.as_ref() {
+                renderer.update_filter_mask(gpu.queue(), mask, *revision)?;
+                self.scatter_filters.last_uploaded_revision = *revision;
             }
         }
         if let (Some(gpu), Some(renderer)) =
@@ -120,8 +132,8 @@ impl WorkbenchApp {
                 &projected.points,
                 self.scatter.density_dataset_revision,
             )?;
-            if let Some(evaluation) = self.scatter_filters.evaluation.as_ref() {
-                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation.revision)?;
+            if let Some((mask, revision)) = filter_state.as_ref() {
+                renderer.update_filter_mask(gpu.queue(), mask, *revision)?;
             }
         }
         self.scatter.difference_baseline_dirty = true;
