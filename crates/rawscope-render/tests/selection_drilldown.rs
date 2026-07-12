@@ -113,6 +113,8 @@ fn scatter_drilldown_uses_lowest_selected_row_ids_from_source_rows() {
     assert_eq!(drilldown.rows[0].row_id, RowId(2));
     assert_eq!(drilldown.rows[0].values, vec!["10", "alpha"]);
     assert_eq!(drilldown.rows[1].row_id, RowId(5));
+    assert!(drilldown.completeness.sampled_due_to_limit());
+    assert!(drilldown.completeness.unavailable().is_empty());
 }
 
 #[test]

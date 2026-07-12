@@ -4,6 +4,7 @@ pub mod axis;
 pub mod cohort;
 pub mod density;
 pub mod diff;
+pub mod drilldown;
 pub mod inspection;
 pub mod missingness;
 pub mod profile;
