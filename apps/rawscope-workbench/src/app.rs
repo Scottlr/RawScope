@@ -44,7 +44,6 @@ use crate::{
     cli::WorkbenchInput,
     demo::{DemoMode, PointCountPreset},
     timeline_render_schedule::TimelineRenderSchedule,
-    ui::WorkbenchSurface,
     ui_plot_surface::PlotSurfaceLayout,
     ui_shell::WorkbenchShellState,
 };
@@ -83,7 +82,6 @@ pub struct WorkbenchApp {
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
     pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
     pub(crate) next_selection_id: SelectionId,
-    pub(crate) visible_surface: WorkbenchSurface,
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) comparison_source_rows: Option<LoadedSourceTable>,

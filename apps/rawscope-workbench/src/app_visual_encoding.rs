@@ -52,7 +52,7 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn set_density_transform(&mut self, transform: DensityTransform) {
-        if self.visible_surface != WorkbenchSurface::Primary {
+        if self.workbench_state.visible_surface != WorkbenchSurface::Primary {
             return;
         }
 
@@ -90,7 +90,9 @@ impl WorkbenchApp {
         &mut self,
         presentation: ScatterDensityPresentation,
     ) {
-        if self.visible_surface != WorkbenchSurface::Primary || !self.demo_mode.is_scatter() {
+        if self.workbench_state.visible_surface != WorkbenchSurface::Primary
+            || !self.demo_mode.is_scatter()
+        {
             return;
         }
         if self.scatter.density_presentation == presentation {

@@ -173,7 +173,7 @@ impl DensityEncodingUiState {
 }
 
 pub(crate) fn density_encoding_ui_state(app: &WorkbenchApp) -> Option<DensityEncodingUiState> {
-    if app.visible_surface != WorkbenchSurface::Primary {
+    if app.workbench_state.visible_surface != WorkbenchSurface::Primary {
         return None;
     }
 

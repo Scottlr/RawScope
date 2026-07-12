@@ -61,7 +61,7 @@ fn scatter_inspection_ui_state_with_pin(
             .cloned()
     });
     (app.demo_mode.is_scatter()
-        && app.visible_surface == WorkbenchSurface::Primary
+        && app.workbench_state.visible_surface == WorkbenchSurface::Primary
         && app.scatter_filters.evaluation.is_some())
     .then(|| ScatterInspectionUiState {
         hovered_bin_rect: hovered.as_ref().and_then(|hit| logical_bin_rect(app, hit)),

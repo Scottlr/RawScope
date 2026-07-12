@@ -1,7 +1,9 @@
 //! Composition-root ownership for active truth and its operational projections.
 
 use crate::{
-    active_generation::ActiveWorkbenchState, degraded_state::DegradedStateStore, ui::ExportStatus,
+    active_generation::ActiveWorkbenchState,
+    degraded_state::DegradedStateStore,
+    ui::{ExportStatus, WorkbenchSurface},
     ui_projection_cache::UiProjectionCache,
 };
 use rawscope_render::DatasetDiffSummary;
@@ -14,6 +16,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) export_status: ExportStatus,
     pub(crate) evidence_export_counter: u64,
     pub(crate) dataset_diff_summary: Option<DatasetDiffSummary>,
+    pub(crate) visible_surface: WorkbenchSurface,
 }
 
 #[cfg(test)]

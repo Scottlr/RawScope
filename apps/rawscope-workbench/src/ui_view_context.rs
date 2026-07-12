@@ -32,7 +32,7 @@ pub(crate) struct WorkbenchViewContextUiState {
 
 /// Build an egui-ready view projection for the current primary surface.
 pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes> {
-    if app.visible_surface != WorkbenchSurface::Primary {
+    if app.workbench_state.visible_surface != WorkbenchSurface::Primary {
         return None;
     }
 
@@ -113,7 +113,7 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
 
 /// Build an egui-ready summary projection for the current primary surface.
 pub(crate) fn view_context_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewContextUiState> {
-    if app.visible_surface != WorkbenchSurface::Primary {
+    if app.workbench_state.visible_surface != WorkbenchSurface::Primary {
         return None;
     }
 
