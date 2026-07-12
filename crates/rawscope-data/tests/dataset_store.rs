@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use rawscope_core::{ColumnId, RowId};
 use rawscope_data::{
-    CellRef, ColumnChunk, DatasetChunk, DatasetEvidenceKey, DatasetIdentity, DatasetMemoryBudget,
-    DatasetSchema, DatasetStoreBuilder, InvalidCell, InvalidCellReason, NormalizedValue,
-    SourceValue, StoreColumnKind, StoredCell,
+    CellRef, CellState, ColumnChunk, DatasetChunk, DatasetEvidenceKey, DatasetIdentity,
+    DatasetMemoryBudget, DatasetSchema, DatasetStoreBuilder, DecodedCsvCell, InvalidCell,
+    InvalidCellReason, NormalizedValue, SourceValue, StoreColumnKind, StoredCell,
 };
 
 fn schema() -> DatasetSchema {
@@ -13,6 +13,19 @@ fn schema() -> DatasetSchema {
         ("score", StoreColumnKind::F64),
     ])
     .expect("fixture schema is valid")
+}
+
+#[test]
+fn decoded_csv_cell_preserves_raw_spelling_separately_from_normalized_state() {
+    let cell = DecodedCsvCell::new(
+        Arc::<str>::from("  0042 "),
+        CellState::Value(NormalizedValue::I64(42)),
+    );
+    assert_eq!(cell.raw(), "  0042 ");
+    assert!(matches!(
+        cell.analytical(),
+        CellState::Value(NormalizedValue::I64(42))
+    ));
 }
 
 fn chunk(row_id_start: u64, score: f64) -> DatasetChunk {

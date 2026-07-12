@@ -44,8 +44,8 @@ pub use store::{
     CellRef, CellState, ChunkValidationError, ColumnChunk, DatasetAccessError, DatasetBudgetError,
     DatasetChunk, DatasetColumn, DatasetGeneration, DatasetGenerationCounter, DatasetMemoryBudget,
     DatasetMemoryUsage, DatasetSchema, DatasetSchemaError, DatasetStore, DatasetStoreBuilder,
-    DatasetStoreError, DatasetStoreOwner, InvalidCell, InvalidCellReason, NormalizedValue,
-    SourceUnavailableReason, SourceValue, StoreColumnKind, StoredCell,
+    DatasetStoreError, DatasetStoreOwner, DecodedCsvCell, InvalidCell, InvalidCellReason,
+    NormalizedValue, SourceUnavailableReason, SourceValue, StoreColumnKind, StoredCell,
 };
 pub use synthetic::{
     generate_synthetic_events, generate_synthetic_points, try_generate_synthetic_events,
