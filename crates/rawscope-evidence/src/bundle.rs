@@ -170,9 +170,7 @@ impl BundleManifestV2 {
                     path: path.to_owned(),
                 });
             }
-            if artifact.checksum.algorithm.trim().is_empty()
-                || artifact.checksum.value.trim().is_empty()
-            {
+            if !valid_sha256_checksum(&artifact.checksum) {
                 return Err(BundleManifestError::InvalidChecksum {
                     path: path.to_owned(),
                 });
@@ -180,6 +178,12 @@ impl BundleManifestV2 {
         }
         Ok(())
     }
+}
+
+fn valid_sha256_checksum(checksum: &ContentChecksumV1) -> bool {
+    checksum.algorithm.eq_ignore_ascii_case("sha256")
+        && checksum.value.len() == 64
+        && checksum.value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 #[cfg(test)]
@@ -210,7 +214,7 @@ mod tests {
             length_bytes: 10,
             checksum: ContentChecksumV1 {
                 algorithm: "sha256".into(),
-                value: "abc".into(),
+                value: "0".repeat(64),
             },
         };
         let manifest = BundleManifestV2 {
@@ -226,6 +230,28 @@ mod tests {
         assert!(matches!(
             manifest.validate(),
             Err(BundleManifestError::DuplicatePath { .. })
+        ));
+    }
+
+    #[test]
+    fn manifest_validation_rejects_non_sha256_checksums() {
+        let manifest = BundleManifestV2 {
+            bundle_schema_version: REPORT_BUNDLE_SCHEMA_VERSION_V2,
+            artifacts: vec![BundleArtifactV2 {
+                kind: EvidenceArtifactKind::ScatterEvidence,
+                schema_version: 6,
+                relative_path: BundleRelativePath::parse("evidence.json").unwrap(),
+                length_bytes: 1,
+                checksum: ContentChecksumV1 {
+                    algorithm: "md5".into(),
+                    value: "0".repeat(32),
+                },
+            }],
+        };
+
+        assert!(matches!(
+            manifest.validate(),
+            Err(BundleManifestError::InvalidChecksum { .. })
         ));
     }
 }
