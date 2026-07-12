@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use rawscope_core::{RowId, SelectionId};
-use rawscope_data::{FilterMask, ScatterPointRecord};
+use rawscope_data::{FilterMask, ScatterPointRecord, TimelineEventRecord};
 
-use crate::ScatterBrushSelection;
+use crate::{ScatterBrushSelection, TimelineBrushSelection};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SelectionSnapshot {
@@ -55,6 +55,57 @@ impl SelectionSnapshot {
         })
     }
 
+    pub fn from_filtered_events(
+        selection_id: SelectionId,
+        events: &[TimelineEventRecord],
+        mask: &FilterMask,
+        selection: TimelineBrushSelection,
+        lane_count: u32,
+        grid_width: u32,
+        grid_height: u32,
+    ) -> Result<Self, &'static str> {
+        if events.len() != mask.len() {
+            return Err("selection events and filter mask are misaligned");
+        }
+        if lane_count == 0 || grid_width == 0 || grid_height == 0 {
+            return Err("selection timeline dimensions must be positive");
+        }
+        let span = u128::from(selection.time_range.span());
+        if span == 0 {
+            return Err("selection timeline range must have positive span");
+        }
+        let mut row_ids = Vec::new();
+        let mut bins = Vec::new();
+        for (event, included) in events.iter().zip(mask.as_gpu_u32_slice()) {
+            if *included != 1 || !selection.contains_event(event) {
+                continue;
+            }
+            row_ids.push(event.row_id);
+            let x = if event.timestamp == selection.time_range.max {
+                grid_width - 1
+            } else {
+                let offset = u128::from(event.timestamp - selection.time_range.min);
+                u32::try_from(offset * u128::from(grid_width) / span)
+                    .unwrap_or(grid_width - 1)
+                    .min(grid_width - 1)
+            };
+            let y = (u64::from(event.lane) * u64::from(grid_height) / u64::from(lane_count))
+                .try_into()
+                .unwrap_or(grid_height - 1)
+                .min(grid_height - 1);
+            bins.push(y * grid_width + x);
+        }
+        row_ids.sort_unstable();
+        row_ids.dedup();
+        bins.sort_unstable();
+        bins.dedup();
+        Ok(Self {
+            selection_id,
+            row_ids: row_ids.into(),
+            selected_bins: bins.into(),
+        })
+    }
+
     pub fn selection_id(&self) -> SelectionId {
         self.selection_id
     }
@@ -71,9 +122,11 @@ impl SelectionSnapshot {
 
 #[cfg(test)]
 mod tests {
+    use crate::TimelineLaneRange;
+
     use super::*;
     use rawscope_core::{F32Range, RowId, SelectionId};
-    use rawscope_data::{FilterMask, ScatterPointKind};
+    use rawscope_data::{FilterMask, ScatterPointKind, TimelineEventKind, TimelineEventRecord};
 
     #[test]
     fn filtered_snapshot_keeps_unsampled_bins_from_complete_membership() {
@@ -106,5 +159,41 @@ mod tests {
         .unwrap();
         assert_eq!(snapshot.row_ids(), &[RowId(0), RowId(1)]);
         assert_eq!(snapshot.selected_bins(), &[1, 2]);
+    }
+
+    #[test]
+    fn timeline_snapshot_applies_filter_before_ids_and_bins() {
+        let events = vec![
+            TimelineEventRecord {
+                row_id: RowId(0),
+                timestamp: 10,
+                lane: 0,
+                value: 1.0,
+                kind: TimelineEventKind::Unclassified,
+            },
+            TimelineEventRecord {
+                row_id: RowId(1),
+                timestamp: 90,
+                lane: 1,
+                value: 1.0,
+                kind: TimelineEventKind::Unclassified,
+            },
+        ];
+        let selection = TimelineBrushSelection {
+            time_range: rawscope_core::U64Range::new(0, 100),
+            lane_range: TimelineLaneRange::new(0, 2),
+        };
+        let snapshot = SelectionSnapshot::from_filtered_events(
+            SelectionId(2),
+            &events,
+            &FilterMask::from_u32(vec![1, 0]),
+            selection,
+            2,
+            2,
+            2,
+        )
+        .unwrap();
+        assert_eq!(snapshot.row_ids(), &[RowId(0)]);
+        assert_eq!(snapshot.selected_bins(), &[0]);
     }
 }
