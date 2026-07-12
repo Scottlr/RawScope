@@ -39,6 +39,7 @@ mod controllers;
 #[allow(dead_code)]
 mod degraded_state;
 mod demo;
+mod gpu_startup_job;
 mod job_coordinator;
 #[allow(dead_code)]
 mod operation_error;
