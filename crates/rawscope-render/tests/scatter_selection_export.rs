@@ -214,7 +214,7 @@ fn scatter_v2_markdown_contains_source_rows_for_local_csv() {
     let markdown = scatter_selection_evidence_v2_markdown(&local_selection_evidence_v2());
 
     assert!(markdown.contains("CPU-side selection evidence"));
-    assert!(markdown.contains("Source: local_csv (C:/data/latency.csv, limit 3)"));
+    assert!(markdown.contains("Source: local_csv (latency.csv, limit 3)"));
     assert!(markdown.contains("Field bindings: x=latency_ms, y=payload_size"));
     assert!(markdown.contains("## Sampled Source Rows"));
     assert!(markdown.contains("Columns: latency_ms | payload_size | label"));

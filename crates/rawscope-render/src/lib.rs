@@ -13,6 +13,7 @@ mod gpu_scatter_density;
 mod gpu_scatter_density_pack;
 mod gpu_timeline_density;
 mod gpu_timeline_density_pack;
+mod markdown_escape;
 mod mask_alignment;
 mod missingness_reference;
 mod plot_geometry;

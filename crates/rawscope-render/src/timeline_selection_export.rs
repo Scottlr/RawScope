@@ -7,6 +7,7 @@ use rawscope_data::{
 };
 use serde::Serialize;
 
+use crate::markdown_escape::{escape_table_cell, portable_path_label};
 use crate::{
     SelectedEventTypeCounts, SelectedSourceRowSample, SelectedTimelineEventSample,
     SelectedTimelineEventSampleV2, TimelineEvidenceView, TimelineLaneRange,
@@ -226,13 +227,22 @@ pub fn timeline_selection_evidence_v2_markdown(evidence: &TimelineSelectionEvide
     } else {
         markdown.push_str(&format!(
             "Columns: {}\n\n",
-            evidence.selected_source_column_names.join(" | ")
+            evidence
+                .selected_source_column_names
+                .iter()
+                .map(|value| escape_table_cell(value))
+                .collect::<Vec<_>>()
+                .join(" | ")
         ));
         for row in &evidence.selected_source_row_sample {
             markdown.push_str(&format!(
                 "- Row {}: {}\n",
                 row.row_id.0,
-                row.values.join(" | ")
+                row.values
+                    .iter()
+                    .map(|value| escape_table_cell(value))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
             ));
         }
     }
@@ -677,12 +687,15 @@ fn format_dataset_source(source: &DatasetSource) -> String {
             format!("synthetic (seed {seed}, generator {generator})")
         }
         DatasetSource::LocalCsv { path, limit } => match limit {
-            Some(limit) => format!("local_csv ({}, limit {limit})", path.display()),
-            None => format!("local_csv ({})", path.display()),
+            Some(limit) => format!("local_csv ({}, limit {limit})", portable_path_label(path)),
+            None => format!("local_csv ({})", portable_path_label(path)),
         },
         DatasetSource::LocalParquet { path, limit } => match limit {
-            Some(limit) => format!("local_parquet ({}, limit {limit})", path.display()),
-            None => format!("local_parquet ({})", path.display()),
+            Some(limit) => format!(
+                "local_parquet ({}, limit {limit})",
+                portable_path_label(path)
+            ),
+            None => format!("local_parquet ({})", portable_path_label(path)),
         },
     }
 }

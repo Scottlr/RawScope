@@ -497,19 +497,27 @@ fn dataset_source_label(source: &DatasetSource) -> String {
         }
         DatasetSource::LocalCsv { path, limit } => format!(
             "local_csv:{}{}",
-            path.display(),
+            portable_dataset_label(path),
             limit
                 .map(|value| format!(":limit={value}"))
                 .unwrap_or_default()
         ),
         DatasetSource::LocalParquet { path, limit } => format!(
             "local_parquet:{}{}",
-            path.display(),
+            portable_dataset_label(path),
             limit
                 .map(|value| format!(":limit={value}"))
                 .unwrap_or_default()
         ),
     }
+}
+
+fn portable_dataset_label(path: &std::path::Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("dataset")
+        .to_string()
 }
 
 fn dataset_profile_context_line(profile_id: Option<DatasetProfileId>) -> String {
