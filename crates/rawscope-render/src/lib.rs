@@ -162,9 +162,9 @@ pub use scatter_selection_export::{
     SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 pub use scatter_selection_export_v3::{
-    scatter_aggregate_evidence_context, scatter_selection_evidence_v3_json,
-    scatter_selection_evidence_v3_markdown, ScatterSelectionExportError,
-    SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+    scatter_aggregate_evidence_context, scatter_aggregate_evidence_context_for_bins,
+    scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
+    ScatterSelectionExportError, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
 };
 pub use scatter_selection_export_v4::{
     scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown,

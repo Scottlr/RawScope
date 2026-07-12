@@ -181,7 +181,7 @@ pub fn scatter_aggregate_evidence_context(
         .iter()
         .map(|row_id| row_id.0)
         .collect::<HashSet<_>>();
-    let mut selected_bins = overview
+    let selected_bin_indices = overview
         .bins
         .iter()
         .enumerate()
@@ -190,7 +190,26 @@ pub fn scatter_aggregate_evidence_context(
                 .row_ids
                 .iter()
                 .any(|row_id| selected_row_id_set.contains(&row_id.0));
-            intersects_selected_sample.then(|| candidate_bin(index, overview.grid_width, bin))
+            intersects_selected_sample.then_some(index)
+        })
+        .collect::<Vec<_>>();
+    scatter_aggregate_evidence_context_for_bins(overview, &selected_bin_indices)
+}
+
+/// Builds aggregate context from complete selected-bin membership.
+pub fn scatter_aggregate_evidence_context_for_bins(
+    overview: &ScatterAggregateOverview,
+    selected_bin_indices: &[usize],
+) -> ScatterAggregateEvidenceContext {
+    let selected_bin_index_set = selected_bin_indices.iter().copied().collect::<HashSet<_>>();
+    let mut selected_bins = overview
+        .bins
+        .iter()
+        .enumerate()
+        .filter_map(|(index, bin)| {
+            selected_bin_index_set
+                .contains(&index)
+                .then(|| candidate_bin(index, overview.grid_width, bin))
         })
         .collect::<Vec<_>>();
     selected_bins.sort_by(|left, right| {
