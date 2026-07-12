@@ -8,19 +8,19 @@ use rawscope_data::{
 };
 use rawscope_evidence::{
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
+    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
-    ScatterSelectionGeometry, SelectionEvidenceConfig,
+    ScatterSelectionGeometry, SelectionEvidenceConfig, TimelineEvidenceConfig,
+    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
 };
 use rawscope_render::{
     scatter_aggregate_evidence_context, scatter_selection_comparison,
     scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
     timeline_aggregate_evidence_context, timeline_selection_comparison,
-    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
-    timeline_selection_evidence_v3_markdown, AggregateBinSample, DensityEncoding,
-    ScatterAggregateOverview, ScatterBrushSelection, ScatterSelectionEvidenceV3,
-    SelectedRegionSummary, TimelineAggregateOverview, TimelineBrushSelection,
-    TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
-    TimelineSelectionEvidenceV2, TimelineSelectionEvidenceV3, TimelineSelectionSummary,
+    timeline_selection_evidence_from_events, timeline_selection_evidence_v3_markdown,
+    AggregateBinSample, DensityEncoding, ScatterAggregateOverview, ScatterBrushSelection,
+    ScatterSelectionEvidenceV3, SelectedRegionSummary, TimelineAggregateOverview,
+    TimelineBrushSelection, TimelineSelectionEvidenceV3, TimelineSelectionSummary,
 };
 
 fn scatter_points() -> Vec<ScatterPointRecord> {
@@ -235,7 +235,7 @@ fn timeline_source_rows() -> LoadedSourceTable {
 
 fn timeline_evidence_v2() -> TimelineSelectionEvidenceV2 {
     let events = timeline_events();
-    let v1 = TimelineSelectionEvidence::from_events(
+    let v1 = timeline_selection_evidence_from_events(
         &events,
         timeline_selection(),
         3,

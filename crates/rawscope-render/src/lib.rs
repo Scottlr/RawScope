@@ -44,7 +44,6 @@ mod timeline_density_renderer;
 mod timeline_resident;
 mod timeline_selection_evidence;
 mod timeline_selection_evidence_v3;
-mod timeline_selection_export;
 mod timeline_selection_export_v3;
 mod timeline_viewport;
 mod view_axes;
@@ -91,6 +90,11 @@ pub use missingness_reference::{
     MissingnessSelection, MissingnessSelectionSummary,
 };
 pub use plot_geometry::{PlotGeometryError, PlotPointPx, PlotRectPx};
+pub use rawscope_evidence::{
+    SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
+    TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
+    TimelineSelectionEvidenceV2,
+};
 pub use scatter_brush::{
     selected_region_summary_masked, selected_region_summary_snapshot, BrushScreenPoint,
     BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
@@ -176,10 +180,7 @@ pub use selection_drilldown::{
     SelectionDrilldown,
 };
 pub use selection_snapshot::SelectionSnapshot;
-pub use timeline_brush::{
-    SelectedEventTypeCounts, TimelineBrushDrag, TimelineBrushSelection, TimelineLaneRange,
-    TimelineSelectionSummary,
-};
+pub use timeline_brush::{TimelineBrushDrag, TimelineBrushSelection, TimelineSelectionSummary};
 pub use timeline_density_renderer::{
     TimelineDensityRenderStats, TimelineDensityRenderer, TimelineDensityRendererConfig,
 };
@@ -187,19 +188,10 @@ pub use timeline_resident::{
     PendingTimelineField, TimelineFieldGeneration, TimelineFieldState, TimelineResidentError,
     TimelineResidentState, TimelineUpdateQuality, TimelineUpdateRequest,
 };
-pub use timeline_selection_evidence::{
-    SelectedTimelineEventSample, SelectedTimelineEventSampleV2, TimelineEvidenceConfig,
-    TimelineEvidenceView, TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
-};
+pub use timeline_selection_evidence::timeline_selection_evidence_from_events;
 pub use timeline_selection_evidence_v3::{
     TimelineAggregateEvidenceContext, TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
     TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
-};
-pub use timeline_selection_export::{
-    timeline_selection_evidence_json, timeline_selection_evidence_markdown,
-    timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
-    TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_SCHEMA_VERSION,
-    TIMELINE_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, TIMELINE_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 pub use timeline_selection_export_v3::{
     timeline_aggregate_evidence_context, timeline_selection_evidence_v3_json,

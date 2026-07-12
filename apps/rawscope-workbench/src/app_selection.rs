@@ -197,7 +197,8 @@ mod tests {
         LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable, ScatterPointKind,
         ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
     };
-    use rawscope_render::{ScatterBrushSelection, TimelineBrushSelection, TimelineLaneRange};
+    use rawscope_evidence::TimelineLaneRange;
+    use rawscope_render::{ScatterBrushSelection, TimelineBrushSelection};
 
     use super::*;
     use crate::demo::DemoMode;

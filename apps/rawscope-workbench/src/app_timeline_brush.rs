@@ -1,8 +1,10 @@
 //! Timeline brush interaction helpers for the workbench timeline-density demo.
 
+use rawscope_evidence::TimelineEvidenceConfig;
 use rawscope_render::{
-    timeline_selection_drilldown, timeline_selection_drilldown_snapshot, BrushScreenRect,
-    TimelineBrushDrag, TimelineEvidenceConfig, TimelineSelectionEvidence, TimelineSelectionSummary,
+    timeline_selection_drilldown, timeline_selection_drilldown_snapshot,
+    timeline_selection_evidence_from_events, BrushScreenRect, TimelineBrushDrag,
+    TimelineSelectionSummary,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -173,7 +175,7 @@ impl WorkbenchApp {
             return;
         };
 
-        self.timeline.selection_evidence = Some(TimelineSelectionEvidence::from_events(
+        self.timeline.selection_evidence = Some(timeline_selection_evidence_from_events(
             &self.timeline.events,
             selection,
             viewport.lane_count(),
@@ -291,7 +293,8 @@ mod tests {
     use rawscope_data::{
         generate_synthetic_events, SyntheticEventConfig, TimelineEventKind, TimelineEventRecord,
     };
-    use rawscope_render::{SelectionDrilldown, TimelineBrushSelection, TimelineLaneRange};
+    use rawscope_evidence::TimelineLaneRange;
+    use rawscope_render::{SelectionDrilldown, TimelineBrushSelection};
 
     use super::*;
     use crate::demo::DemoMode;

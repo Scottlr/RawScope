@@ -7,13 +7,12 @@ use rawscope_data::{
 };
 use serde::Serialize;
 
+use crate::{escape_table_cell, portable_path_label, SelectedSourceRowSample};
 use crate::{
     SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
     TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2,
 };
-use rawscope_evidence::SelectedSourceRowSample;
-use rawscope_evidence::{escape_table_cell, portable_path_label};
 
 /// Artifact kind used by timeline selection evidence JSON and export manifests.
 pub const TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND: &str = "timeline-selection-evidence";
