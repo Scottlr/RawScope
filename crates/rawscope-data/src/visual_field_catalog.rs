@@ -100,6 +100,9 @@ fn summarize_column(
         LoadedColumnKind::Empty => VisualFieldSummary::Empty {
             missing_count: source.rows.len(),
         },
+        LoadedColumnKind::Unsupported => VisualFieldSummary::Empty {
+            missing_count: source.rows.len(),
+        },
     }
 }
 
