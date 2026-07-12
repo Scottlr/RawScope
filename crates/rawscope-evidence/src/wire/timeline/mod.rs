@@ -56,6 +56,10 @@ pub enum TimelineWireError {
     InvalidArtifactKind,
     MissingSchemaVersion,
     InvalidSchemaVersion,
+    MissingRequiredField {
+        version: u32,
+        field: &'static str,
+    },
     UnsupportedSchemaVersion(u32),
 }
 
@@ -85,6 +89,10 @@ impl fmt::Display for TimelineWireError {
             Self::InvalidSchemaVersion => {
                 formatter.write_str("timeline evidence schema_version is not an integer")
             }
+            Self::MissingRequiredField { version, field } => write!(
+                formatter,
+                "timeline evidence v{version} is missing required field {field}"
+            ),
             Self::UnsupportedSchemaVersion(version) => write!(
                 formatter,
                 "timeline evidence schema version {version} is unsupported"
@@ -125,14 +133,32 @@ fn inspect(bytes: &[u8]) -> Result<u32, TimelineWireError> {
     if kind != TIMELINE_ARTIFACT_KIND {
         return Err(TimelineWireError::InvalidArtifactKind);
     }
-    object
+    let version = object
         .get("schema_version")
         .ok_or(TimelineWireError::MissingSchemaVersion)?
         .as_u64()
         .ok_or(TimelineWireError::InvalidSchemaVersion)
         .and_then(|version| {
             u32::try_from(version).map_err(|_| TimelineWireError::InvalidSchemaVersion)
-        })
+        })?;
+    let required_field = if version == 1 {
+        "dataset_metadata"
+    } else {
+        "dataset_identity"
+    };
+    if !object.contains_key(required_field) {
+        return Err(TimelineWireError::MissingRequiredField {
+            version,
+            field: required_field,
+        });
+    }
+    if !object.contains_key("selected_event_count") {
+        return Err(TimelineWireError::MissingRequiredField {
+            version,
+            field: "selected_event_count",
+        });
+    }
+    Ok(version)
 }
 
 fn decode_version(
@@ -151,7 +177,7 @@ mod tests {
     use super::*;
 
     fn artifact(version: u32) -> Vec<u8> {
-        format!(r#"{{"artifact_kind":"{TIMELINE_ARTIFACT_KIND}","schema_version":{version}}}"#)
+        format!(r#"{{"artifact_kind":"{TIMELINE_ARTIFACT_KIND}","schema_version":{version},"dataset_metadata":{{}},"dataset_identity":{{}},"selected_event_count":0}}"#)
             .into_bytes()
     }
 
@@ -169,6 +195,13 @@ mod tests {
         assert_eq!(
             decode(&artifact(4)),
             Err(TimelineWireError::UnsupportedSchemaVersion(4))
+        );
+        assert_eq!(
+            decode(br#"{"artifact_kind":"timeline-selection-evidence","schema_version":2}"#),
+            Err(TimelineWireError::MissingRequiredField {
+                version: 2,
+                field: "dataset_identity"
+            })
         );
         assert_eq!(
             decode(&vec![b' '; MAX_TIMELINE_ARTIFACT_BYTES + 1]),
