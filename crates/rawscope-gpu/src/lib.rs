@@ -16,6 +16,7 @@ pub use error::{GpuError, GpuRuntimeSignal};
 pub use limits::{GpuLimitError, GpuResourcePlan};
 pub use policy::{AdapterPolicy, FallbackPolicy};
 pub use readback::{
-    GpuReadbackTicket, ReadbackError, ReadbackGeneration, ReadbackProgress, ReadbackState,
+    GpuReadbackTicket, ReadbackCompletion, ReadbackError, ReadbackGeneration, ReadbackProgress,
+    ReadbackState,
 };
 pub use recovery::{DeviceGeneration, DeviceLossReason, GpuRecoveryState};
