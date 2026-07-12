@@ -1,12 +1,12 @@
 //! Minimal WGPU context for surface configuration and clear-frame presentation.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tracing::{info, warn};
 use wgpu::{CurrentSurfaceTexture, SurfaceTexture, TextureView};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{AdapterPolicy, GpuAdapterInfo, GpuError};
+use crate::{AdapterPolicy, GpuAdapterInfo, GpuError, GpuRuntimeSignal};
 
 /// Result of attempting to present one frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +27,7 @@ pub struct GpuContext {
     config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
     adapter_info: GpuAdapterInfo,
+    runtime_signals: Arc<Mutex<Vec<GpuRuntimeSignal>>>,
 }
 
 impl GpuContext {
@@ -70,6 +71,25 @@ impl GpuContext {
             .await
             .map_err(GpuError::RequestDevice)?;
 
+        let runtime_signals = Arc::new(Mutex::new(Vec::new()));
+        let uncaptured_signals = Arc::clone(&runtime_signals);
+        device.on_uncaptured_error(Arc::new(move |error| {
+            if let Ok(mut signals) = uncaptured_signals.lock() {
+                signals.push(GpuRuntimeSignal::UncapturedError {
+                    message: error.to_string(),
+                });
+            }
+        }));
+        let lost_signals = Arc::clone(&runtime_signals);
+        device.set_device_lost_callback(move |reason, message| {
+            if let Ok(mut signals) = lost_signals.lock() {
+                signals.push(GpuRuntimeSignal::DeviceLost {
+                    reason: format!("{reason:?}"),
+                    message,
+                });
+            }
+        });
+
         let config = surface
             .get_default_config(&adapter, size.width, size.height)
             .ok_or(GpuError::MissingSurfaceConfig)?;
@@ -100,6 +120,7 @@ impl GpuContext {
             config,
             size,
             adapter_info,
+            runtime_signals,
         })
     }
 
@@ -121,6 +142,14 @@ impl GpuContext {
     /// Returns the configured surface format.
     pub fn surface_format(&self) -> wgpu::TextureFormat {
         self.config.format
+    }
+
+    /// Drains uncaptured validation/device-loss signals observed by WGPU.
+    pub fn drain_runtime_signals(&self) -> Vec<GpuRuntimeSignal> {
+        self.runtime_signals
+            .lock()
+            .map(|mut signals| std::mem::take(&mut *signals))
+            .unwrap_or_default()
     }
 
     /// Reconfigures the surface after a window resize.
