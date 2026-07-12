@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
 from .adapters import DataframeAdapter, select_adapter
@@ -18,7 +19,6 @@ from .models import (
     DataframeSchemaError,
     InvalidSession,
     PreparedSession,
-    RawScopeError,
     ScatterView,
     TimelineView,
     require_text,
@@ -44,10 +44,6 @@ def prepare_dataframe(
         manifest_path = bundle_dir / "analysis.rawscope.json"
     else:
         bundle_dir, manifest_path = _destination_paths(destination)
-        if bundle_dir.exists():
-            raise RawScopeError(
-                f"persistent dataframe destination already exists: {bundle_dir}"
-            )
         bundle_dir.parent.mkdir(parents=True, exist_ok=True)
         staging_dir = Path(
             tempfile.mkdtemp(prefix=f".{bundle_dir.name}.rawscope-", dir=bundle_dir.parent)
@@ -74,7 +70,7 @@ def prepare_dataframe(
         raise
     if staged_bundle:
         final_bundle_dir, final_manifest_path = _destination_paths(destination)
-        os.replace(bundle_dir, final_bundle_dir)
+        _publish_staged_bundle(bundle_dir, final_bundle_dir)
         bundle_dir = final_bundle_dir
         manifest_path = final_manifest_path
         dataset_path = final_bundle_dir / "data.parquet"
@@ -84,6 +80,25 @@ def prepare_dataframe(
         dataset_path=dataset_path.resolve(),
         persistent=not temporary_bundle,
     )
+
+
+def _publish_staged_bundle(staged_bundle: Path, final_bundle: Path) -> None:
+    """Publish a complete generation while retaining the previous one on failure."""
+
+    previous_bundle: Path | None = None
+    if final_bundle.exists():
+        previous_bundle = final_bundle.with_name(
+            f".{final_bundle.name}.previous-{uuid.uuid4().hex}"
+        )
+        os.replace(final_bundle, previous_bundle)
+    try:
+        os.replace(staged_bundle, final_bundle)
+    except Exception:
+        if previous_bundle is not None and not final_bundle.exists():
+            os.replace(previous_bundle, final_bundle)
+        raise
+    if previous_bundle is not None:
+        shutil.rmtree(previous_bundle)
 
 
 def _validate_dataframe(
