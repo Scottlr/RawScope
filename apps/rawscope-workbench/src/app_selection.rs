@@ -1,13 +1,14 @@
 //! Shared linked-selection publishing for the workbench.
 
 use rawscope_core::{CoreLaneRange, SelectionId, ViewId, VisualSelection, VisualSelectionGeometry};
-use rawscope_data::{DatasetIdentity, FilterMask};
+use rawscope_data::{DatasetIdentity, FilterMask, FilterRevision};
 use rawscope_render::SelectionSnapshot;
 
 use crate::app::WorkbenchApp;
 
 const SCATTER_VIEW_ID: ViewId = ViewId(1);
 const TIMELINE_VIEW_ID: ViewId = ViewId(2);
+const SELECTION_SAMPLE_LIMIT: usize = 10;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ActiveLinkedSelection {
@@ -33,6 +34,11 @@ impl WorkbenchApp {
             .as_ref()
             .map(|evaluation| evaluation.mask.clone())
             .unwrap_or_else(|| FilterMask::all_included(self.scatter.points.len()));
+        let filter_revision = self
+            .scatter_filters
+            .evaluation
+            .as_ref()
+            .map_or(FilterRevision::default(), |evaluation| evaluation.revision);
         let selection_id = self.next_selection_id();
         let snapshot = SelectionSnapshot::from_filtered_points(
             selection_id,
@@ -42,7 +48,12 @@ impl WorkbenchApp {
             256,
             256,
         )
-        .ok();
+        .ok()
+        .and_then(|snapshot| {
+            snapshot
+                .with_context(filter_revision, SCATTER_VIEW_ID, SELECTION_SAMPLE_LIMIT)
+                .ok()
+        });
         let selected_row_ids = snapshot
             .as_ref()
             .map(|snapshot| snapshot.row_ids().to_vec())
@@ -91,7 +102,12 @@ impl WorkbenchApp {
             256,
             256,
         )
-        .ok();
+        .ok()
+        .and_then(|snapshot| {
+            snapshot
+                .with_context(Default::default(), TIMELINE_VIEW_ID, SELECTION_SAMPLE_LIMIT)
+                .ok()
+        });
         let selected_row_ids = snapshot
             .as_ref()
             .map(|snapshot| snapshot.row_ids().to_vec())

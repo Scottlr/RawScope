@@ -2,16 +2,19 @@
 
 use std::sync::Arc;
 
-use rawscope_core::{RowId, SelectionId};
-use rawscope_data::{FilterMask, ScatterPointRecord, TimelineEventRecord};
+use rawscope_core::{RowId, SelectionId, ViewId};
+use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord, TimelineEventRecord};
 
 use crate::{ScatterBrushSelection, TimelineBrushSelection};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SelectionSnapshot {
     selection_id: SelectionId,
+    filter_revision: FilterRevision,
+    view_id: ViewId,
     row_ids: Arc<[RowId]>,
     selected_bins: Arc<[u32]>,
+    samples: Arc<[RowId]>,
 }
 
 impl SelectionSnapshot {
@@ -50,8 +53,11 @@ impl SelectionSnapshot {
         bins.dedup();
         Ok(Self {
             selection_id,
+            filter_revision: FilterRevision::default(),
+            view_id: ViewId(0),
             row_ids: row_ids.into(),
             selected_bins: bins.into(),
+            samples: Arc::from([]),
         })
     }
 
@@ -101,13 +107,37 @@ impl SelectionSnapshot {
         bins.dedup();
         Ok(Self {
             selection_id,
+            filter_revision: FilterRevision::default(),
+            view_id: ViewId(0),
             row_ids: row_ids.into(),
             selected_bins: bins.into(),
+            samples: Arc::from([]),
         })
+    }
+
+    pub fn with_context(
+        mut self,
+        filter_revision: FilterRevision,
+        view_id: ViewId,
+        sample_limit: usize,
+    ) -> Result<Self, &'static str> {
+        if sample_limit == 0 {
+            return Err("selection sample limit must be positive");
+        }
+        self.filter_revision = filter_revision;
+        self.view_id = view_id;
+        self.samples = self.row_ids.iter().copied().take(sample_limit).collect();
+        Ok(self)
     }
 
     pub fn selection_id(&self) -> SelectionId {
         self.selection_id
+    }
+    pub fn filter_revision(&self) -> FilterRevision {
+        self.filter_revision
+    }
+    pub fn view_id(&self) -> ViewId {
+        self.view_id
     }
     pub fn row_ids(&self) -> &[RowId] {
         &self.row_ids
@@ -118,6 +148,12 @@ impl SelectionSnapshot {
     pub fn selected_count(&self) -> usize {
         self.row_ids.len()
     }
+    pub fn selected_count_u64(&self) -> u64 {
+        self.row_ids.len() as u64
+    }
+    pub fn samples(&self) -> &[RowId] {
+        &self.samples
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +161,7 @@ mod tests {
     use crate::TimelineLaneRange;
 
     use super::*;
-    use rawscope_core::{F32Range, RowId, SelectionId};
+    use rawscope_core::{F32Range, RowId, SelectionId, ViewId};
     use rawscope_data::{FilterMask, ScatterPointKind, TimelineEventKind, TimelineEventRecord};
 
     #[test]
@@ -195,5 +231,41 @@ mod tests {
         .unwrap();
         assert_eq!(snapshot.row_ids(), &[RowId(0)]);
         assert_eq!(snapshot.selected_bins(), &[0]);
+    }
+
+    #[test]
+    fn snapshot_context_bounds_samples_without_changing_complete_bins() {
+        let points = vec![
+            ScatterPointRecord {
+                row_id: RowId(0),
+                x: 0.1,
+                y: 0.1,
+                kind: ScatterPointKind::Unclassified,
+            },
+            ScatterPointRecord {
+                row_id: RowId(1),
+                x: 0.9,
+                y: 0.9,
+                kind: ScatterPointKind::Unclassified,
+            },
+        ];
+        let snapshot = SelectionSnapshot::from_filtered_points(
+            SelectionId(3),
+            &points,
+            &FilterMask::all_included(2),
+            ScatterBrushSelection {
+                x_range: F32Range::new(0.0, 1.0),
+                y_range: F32Range::new(0.0, 1.0),
+            },
+            2,
+            2,
+        )
+        .unwrap()
+        .with_context(FilterRevision(7), ViewId(9), 1)
+        .unwrap();
+        assert_eq!(snapshot.filter_revision(), FilterRevision(7));
+        assert_eq!(snapshot.view_id(), ViewId(9));
+        assert_eq!(snapshot.samples(), &[RowId(0)]);
+        assert_eq!(snapshot.selected_bins(), &[1, 2]);
     }
 }
