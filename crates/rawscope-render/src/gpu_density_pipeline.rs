@@ -1,11 +1,8 @@
 //! Shared WGPU plumbing for density compute passes.
 
-use std::{
-    mem::size_of,
-    num::NonZeroU64,
-    sync::mpsc::{self, RecvError, RecvTimeoutError},
-    time::Duration,
-};
+use std::{mem::size_of, num::NonZeroU64, sync::mpsc::RecvError, time::Duration};
+
+use rawscope_gpu::ReadbackCompletion;
 
 const EMPTY_BUFFER_SIZE_BYTES: u64 = 4;
 const READBACK_WAIT_TIMEOUT: Duration = Duration::from_millis(100);
@@ -13,6 +10,10 @@ const READBACK_WAIT_TIMEOUT: Duration = Duration::from_millis(100);
 #[derive(Debug)]
 pub(crate) enum GpuDensityReadbackError {
     BufferMap(wgpu::BufferAsyncError),
+    #[expect(
+        dead_code,
+        reason = "retained as a compatibility classification for legacy callback failures"
+    )]
     BufferMapCallbackDropped(RecvError),
     BufferMapCallbackTimedOut,
     ReadbackSizeOverflow,
@@ -160,9 +161,11 @@ pub(crate) fn readback_counts_from_buffer(
         .checked_mul(size_of::<u32>())
         .ok_or(GpuDensityReadbackError::ReadbackSizeOverflow)?;
     let readback_slice = readback_buffer.slice(..);
-    let (sender, receiver) = mpsc::channel();
+    let completion = ReadbackCompletion::<(), wgpu::BufferAsyncError>::new();
+    let callback_completion = std::sync::Arc::new(completion);
+    let callback_completion_handle = std::sync::Arc::clone(&callback_completion);
     readback_slice.map_async(wgpu::MapMode::Read, move |result| {
-        let _ = sender.send(result);
+        let _ = callback_completion_handle.publish(result);
     });
     device
         .poll(wgpu::PollType::Wait {
@@ -171,15 +174,10 @@ pub(crate) fn readback_counts_from_buffer(
         })
         .map_err(GpuDensityReadbackError::DevicePoll)?;
 
-    receiver
-        .recv_timeout(READBACK_WAIT_TIMEOUT)
-        .map_err(|error| match error {
-            RecvTimeoutError::Timeout => GpuDensityReadbackError::BufferMapCallbackTimedOut,
-            RecvTimeoutError::Disconnected => {
-                GpuDensityReadbackError::BufferMapCallbackDropped(RecvError)
-            }
-        })?
-        .map_err(GpuDensityReadbackError::BufferMap)?;
+    let map_result = callback_completion
+        .take()
+        .ok_or(GpuDensityReadbackError::BufferMapCallbackTimedOut)?;
+    map_result.map_err(GpuDensityReadbackError::BufferMap)?;
 
     let counts = {
         let mapped = readback_slice.get_mapped_range();
