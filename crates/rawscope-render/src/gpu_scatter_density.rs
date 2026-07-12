@@ -49,6 +49,7 @@ pub enum GpuScatterDensityError {
         mask_len: usize,
     },
     MissingReadbackCounts,
+    ReadbackInProgress,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
     BufferMapCallbackTimedOut,
@@ -77,6 +78,9 @@ impl fmt::Display for GpuScatterDensityError {
                 f,
                 "GPU scatter-density full readback was requested but not returned"
             ),
+            Self::ReadbackInProgress => {
+                write!(f, "GPU scatter-density full readback is already in progress")
+            }
             Self::BufferMap(error) => {
                 write!(f, "failed to map GPU scatter-density readback: {error}")
             }
@@ -113,7 +117,8 @@ impl Error for GpuScatterDensityError {
             Self::DevicePoll(error) => Some(error),
             Self::PointCountTooLarge { .. }
             | Self::FilterMaskLengthMismatch { .. }
-            | Self::MissingReadbackCounts => None,
+            | Self::MissingReadbackCounts
+            | Self::ReadbackInProgress => None,
             Self::BufferMapCallbackTimedOut => None,
             Self::ReadbackSizeOverflow | Self::ReadbackBufferTooSmall { .. } => None,
         }
