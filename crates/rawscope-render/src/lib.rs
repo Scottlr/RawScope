@@ -39,7 +39,6 @@ mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_resident;
 mod timeline_selection_evidence;
-mod timeline_selection_evidence_v3;
 mod timeline_selection_export_v3;
 mod timeline_viewport;
 mod view_axes;
@@ -105,6 +104,10 @@ pub use rawscope_evidence::{
     SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
     TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2,
+};
+pub use rawscope_evidence::{
+    TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
+    TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use scatter_brush::{
     selected_region_summary_masked, selected_region_summary_snapshot, BrushScreenPoint,
@@ -191,10 +194,6 @@ pub use timeline_resident::{
     TimelineResidentState, TimelineUpdateQuality, TimelineUpdateRequest,
 };
 pub use timeline_selection_evidence::timeline_selection_evidence_from_events;
-pub use timeline_selection_evidence_v3::{
-    TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
-    TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
-};
 pub use timeline_selection_export_v3::{
     timeline_aggregate_evidence_context, timeline_selection_evidence_v3_json,
     timeline_selection_evidence_v3_markdown, TimelineSelectionExportError,

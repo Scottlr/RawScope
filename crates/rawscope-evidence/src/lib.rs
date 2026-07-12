@@ -16,6 +16,7 @@ mod scatter_selection_export;
 mod scatter_selection_export_v3;
 mod schema;
 mod timeline_selection_evidence;
+mod timeline_selection_evidence_v3;
 mod timeline_selection_export;
 pub mod wire;
 
@@ -74,6 +75,10 @@ pub use timeline_selection_evidence::{
     SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
     TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2,
+};
+pub use timeline_selection_evidence_v3::{
+    TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
+    TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use timeline_selection_export::{
     timeline_selection_evidence_json, timeline_selection_evidence_markdown,
