@@ -34,6 +34,7 @@ mod app_visual_transition;
 mod app_window;
 mod cli;
 mod demo;
+mod job_coordinator;
 mod ui;
 mod ui_comparison;
 mod ui_controls;
