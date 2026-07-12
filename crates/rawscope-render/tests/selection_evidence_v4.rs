@@ -108,6 +108,34 @@ fn v4_rejects_incoherent_difference_without_filter() {
     );
 }
 
+#[test]
+fn v4_validation_rejects_mutated_schema_and_percentage() {
+    let mut evidence = sample_v4(ScatterDensityMode::AbsoluteDensity);
+    evidence.schema_version = 99;
+    assert_eq!(
+        evidence.validate(),
+        Err(ScatterSelectionEvidenceV4Error::InvalidSchemaVersion)
+    );
+
+    let mut evidence = sample_v4(ScatterDensityMode::AbsoluteDensity);
+    evidence.selected_percentage = f32::NAN;
+    assert_eq!(
+        evidence.validate(),
+        Err(ScatterSelectionEvidenceV4Error::InvalidSelectedPercentage)
+    );
+}
+
+#[test]
+fn v4_validation_rejects_samples_larger_than_selected_count() {
+    let mut evidence = sample_v4(ScatterDensityMode::AbsoluteDensity);
+    evidence.selected_row_id_sample = vec![RowId(1), RowId(2)];
+    evidence.selected_row_count = 1;
+    assert_eq!(
+        evidence.validate(),
+        Err(ScatterSelectionEvidenceV4Error::InvalidSelectedSample)
+    );
+}
+
 fn sample_v4(mode: ScatterDensityMode) -> ScatterSelectionEvidenceV4 {
     let query = match mode {
         ScatterDensityMode::AbsoluteDensity => ScatterVisualQueryV4 {

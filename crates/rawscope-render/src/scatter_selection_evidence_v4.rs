@@ -86,6 +86,7 @@ pub struct PinnedScatterInspectionEvidence {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScatterSelectionEvidenceV4Error {
+    InvalidSchemaVersion,
     IncoherentCohort,
     DifferenceRequiresFilter,
     DifferenceConfigMismatch,
@@ -97,11 +98,14 @@ pub enum ScatterSelectionEvidenceV4Error {
     InvalidReliefConfig,
     InvalidPointRevealCounts,
     InvalidPinnedInspection,
+    InvalidSelectedPercentage,
+    InvalidSelectedSample,
 }
 
 impl fmt::Display for ScatterSelectionEvidenceV4Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
+            Self::InvalidSchemaVersion => "scatter evidence v4 schema version must be exactly 4",
             Self::IncoherentCohort => "scatter evidence cohort counts do not add up",
             Self::DifferenceRequiresFilter => "difference evidence requires an active filter",
             Self::DifferenceConfigMismatch => "difference mode and config must be present together",
@@ -123,6 +127,8 @@ impl fmt::Display for ScatterSelectionEvidenceV4Error {
             Self::InvalidReliefConfig => "relief evidence config is invalid",
             Self::InvalidPointRevealCounts => "point reveal rendered count exceeds eligible count",
             Self::InvalidPinnedInspection => "pinned inspection sample disclosure is incoherent",
+            Self::InvalidSelectedPercentage => "scatter evidence selected percentage is incoherent",
+            Self::InvalidSelectedSample => "scatter evidence selected sample is incoherent",
         };
         formatter.write_str(message)
     }
@@ -149,7 +155,7 @@ impl ScatterSelectionEvidenceV4 {
         }) {
             return Err(ScatterSelectionEvidenceV4Error::InvalidPinnedInspection);
         }
-        Ok(Self {
+        let result = Self {
             schema_version: SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
             dataset_identity: evidence.dataset_identity.clone(),
             active_dataset_profile: evidence.active_dataset_profile,
@@ -164,7 +170,39 @@ impl ScatterSelectionEvidenceV4 {
             comparison: evidence.comparison.clone(),
             aggregate_context: evidence.aggregate_context.clone(),
             pinned_inspection,
-        })
+        };
+        result.validate()?;
+        Ok(result)
+    }
+
+    pub fn validate(&self) -> Result<(), ScatterSelectionEvidenceV4Error> {
+        if self.schema_version != SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION {
+            return Err(ScatterSelectionEvidenceV4Error::InvalidSchemaVersion);
+        }
+        validate_visual_query(
+            &self.visual_query,
+            &self.cohort,
+            self.dataset_identity.row_count,
+            self.selected_row_count,
+        )?;
+        if !self.selected_percentage.is_finite()
+            || !(0.0..=100.0).contains(&self.selected_percentage)
+        {
+            return Err(ScatterSelectionEvidenceV4Error::InvalidSelectedPercentage);
+        }
+        if self.selected_row_id_sample.len() > self.selected_row_count
+            || self.selected_record_sample.len() > self.selected_row_count
+            || self.selected_source_row_sample.len() > self.selected_row_count
+        {
+            return Err(ScatterSelectionEvidenceV4Error::InvalidSelectedSample);
+        }
+        if self.pinned_inspection.as_ref().is_some_and(|pin| {
+            pin.row_id_sample.len() > pin.sample_limit
+                || pin.row_id_sample.len() > pin.row_count as usize
+        }) {
+            return Err(ScatterSelectionEvidenceV4Error::InvalidPinnedInspection);
+        }
+        Ok(())
     }
 }
 

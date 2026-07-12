@@ -16,6 +16,12 @@ pub const SCATTER_SELECTION_EVIDENCE_V5_ARTIFACT_KIND: &str =
 pub fn scatter_selection_evidence_v5_json(
     evidence: &ScatterSelectionEvidenceV5,
 ) -> Result<String, ScatterSelectionExportError> {
+    evidence.validate().map_err(|error| {
+        serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            error.to_string(),
+        ))
+    })?;
     let mut payload: Value =
         serde_json::from_str(&scatter_selection_evidence_v4_json_from_v5(evidence)?)?;
     let object = payload
