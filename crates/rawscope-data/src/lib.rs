@@ -28,8 +28,8 @@ pub use dataset_profile::{
     ScatterDatasetProfileDefaults, ScatterDatasetProfileHints, TimelineDatasetProfileBinding,
 };
 pub use evidence_key::{
-    validate_evidence_key, BoundDatasetEvidenceKey, BoundEvidenceKeyError, DatasetEvidenceKey,
-    EvidenceKeyValidationError,
+    validate_evidence_key, validate_evidence_key_with_budget, BoundDatasetEvidenceKey,
+    BoundEvidenceKeyError, DatasetEvidenceKey, EvidenceKeyIndexBudget, EvidenceKeyValidationError,
 };
 pub use ingest::{
     CancellationCheck, ChunkRowCount, IngestionError, IngestionPlan, IngestionProgress,
