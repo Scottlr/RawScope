@@ -2,6 +2,7 @@
 
 use std::{
     mem::size_of,
+    num::NonZeroU64,
     sync::mpsc::{self, RecvError, RecvTimeoutError},
     time::Duration,
 };
@@ -58,6 +59,9 @@ pub(crate) fn create_uniform_upload_buffer(
 pub(crate) fn create_density_bind_group_layout(
     device: &wgpu::Device,
     label: &'static str,
+    input_min_binding_size: u64,
+    params_min_binding_size: u64,
+    output_min_binding_size: u64,
 ) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some(label),
@@ -68,7 +72,7 @@ pub(crate) fn create_density_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(input_min_binding_size),
                 },
                 count: None,
             },
@@ -78,7 +82,7 @@ pub(crate) fn create_density_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(params_min_binding_size),
                 },
                 count: None,
             },
@@ -88,7 +92,7 @@ pub(crate) fn create_density_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: false },
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(output_min_binding_size),
                 },
                 count: None,
             },
