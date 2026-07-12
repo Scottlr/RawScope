@@ -11,6 +11,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) degraded: DegradedStateStore,
     pub(crate) ui_projection_cache: UiProjectionCache,
     pub(crate) export_status: ExportStatus,
+    pub(crate) evidence_export_counter: u64,
 }
 
 #[cfg(test)]
