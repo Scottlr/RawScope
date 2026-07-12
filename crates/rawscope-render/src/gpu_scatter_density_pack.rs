@@ -22,8 +22,22 @@ pub struct GpuQuantization {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisualPackingError {
+    InvalidDomain,
     NonFinite { row_id: rawscope_core::RowId },
     OutsideDomain { row_id: rawscope_core::RowId },
+}
+
+impl GpuQuantization {
+    pub fn validate(self) -> Result<(), VisualPackingError> {
+        let domains = [(self.x_min, self.x_max), (self.y_min, self.y_max)];
+        if domains
+            .iter()
+            .any(|(min, max)| !min.is_finite() || !max.is_finite() || max <= min)
+        {
+            return Err(VisualPackingError::InvalidDomain);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,6 +51,7 @@ pub fn pack_scatter_points(
     points: &[ProjectedScatterPoint],
     quantization: GpuQuantization,
 ) -> Result<Vec<PackedScatterPoint>, VisualPackingError> {
+    quantization.validate()?;
     let x_span = quantization.x_max - quantization.x_min;
     let y_span = quantization.y_max - quantization.y_min;
     points
@@ -164,5 +179,20 @@ mod tests {
             pack_scatter_points(&outside, quantization),
             Err(VisualPackingError::OutsideDomain { .. })
         ));
+    }
+
+    #[test]
+    fn packing_rejects_invalid_quantization_domains_before_rows() {
+        let invalid = GpuQuantization {
+            x_min: 1.0,
+            x_max: 1.0,
+            y_min: 0.0,
+            y_max: 1.0,
+        };
+        assert_eq!(invalid.validate(), Err(VisualPackingError::InvalidDomain));
+        assert_eq!(
+            pack_scatter_points(&[], invalid),
+            Err(VisualPackingError::InvalidDomain)
+        );
     }
 }
