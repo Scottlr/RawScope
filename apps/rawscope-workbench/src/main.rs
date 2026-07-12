@@ -63,6 +63,8 @@ mod ui_missingness;
 mod ui_pinned_inspection;
 mod ui_plot_axes;
 mod ui_plot_surface;
+#[allow(dead_code)]
+mod ui_projection_cache;
 mod ui_relief;
 mod ui_scatter_inspection;
 mod ui_shell;

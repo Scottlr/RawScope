@@ -13,6 +13,10 @@ use crate::render_coordinator::SettledRenderGeneration;
 pub(crate) struct WorkbenchGenerationId(u64);
 
 impl WorkbenchGenerationId {
+    pub(crate) const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
     pub(crate) const fn get(self) -> u64 {
         self.0
     }
