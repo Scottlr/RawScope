@@ -7,6 +7,7 @@ use std::{
 
 use rawscope_core::{F32Range, RowId, U64Range};
 
+use super::lane_label::NormalizedLaneLabel;
 use crate::{
     local_dataset::{
         ensure_supported_csv, validate_row_limit, DatasetLoadError, LoadedColumnKind,
@@ -365,7 +366,10 @@ pub(super) fn lane_id_for_value(
     lane_ids: &mut HashMap<String, u32>,
     lane_labels: &mut Vec<String>,
 ) -> Result<u32, DatasetLoadError> {
-    if let Some(lane) = lane_ids.get(&value) {
+    let normalized = NormalizedLaneLabel::parse(&value)
+        .ok_or_else(|| invalid_value("lane", 0, &value, "a non-empty normalized lane label"))?;
+    let normalized_value = normalized.as_str();
+    if let Some(lane) = lane_ids.get(normalized_value) {
         return Ok(*lane);
     }
 
@@ -373,8 +377,8 @@ pub(super) fn lane_id_for_value(
         u32::try_from(lane_labels.len()).map_err(|_| DatasetLoadError::TooManyLanes {
             lane_count: lane_labels.len(),
         })?;
-    lane_ids.insert(value.clone(), next_lane);
-    lane_labels.push(value);
+    lane_ids.insert(normalized_value.to_string(), next_lane);
+    lane_labels.push(normalized_value.to_string());
     Ok(next_lane)
 }
 
