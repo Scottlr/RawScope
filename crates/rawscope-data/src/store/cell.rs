@@ -86,6 +86,7 @@ pub enum CellState<T> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredCell {
     raw: Option<SourceValue>,
+    raw_lexeme: Option<Arc<str>>,
     normalized: CellState<NormalizedValue>,
 }
 
@@ -110,32 +111,65 @@ impl DecodedCsvCell {
     pub fn analytical(&self) -> &CellState<NormalizedValue> {
         &self.analytical
     }
+
+    pub fn into_stored_cell(self) -> StoredCell {
+        let raw_lexeme = Some(Arc::clone(&self.raw));
+        let raw_value = SourceValue::Utf8(self.raw);
+        let normalized = self.analytical;
+        match normalized {
+            CellState::Value(value) => StoredCell {
+                raw: Some(raw_value),
+                raw_lexeme,
+                normalized: CellState::Value(value),
+            },
+            CellState::Missing => StoredCell {
+                raw: Some(raw_value),
+                raw_lexeme,
+                normalized: CellState::Missing,
+            },
+            CellState::Invalid(invalid) => StoredCell {
+                raw: Some(raw_value),
+                raw_lexeme,
+                normalized: CellState::Invalid(invalid),
+            },
+        }
+    }
 }
 
 impl StoredCell {
     pub fn value(raw: SourceValue, normalized: NormalizedValue) -> Self {
+        let raw_lexeme = raw_lexeme(&raw);
         Self {
             raw: Some(raw),
+            raw_lexeme,
             normalized: CellState::Value(normalized),
         }
     }
 
     pub fn missing(raw: Option<SourceValue>) -> Self {
+        let raw_lexeme = raw.as_ref().and_then(raw_lexeme);
         Self {
             raw,
+            raw_lexeme,
             normalized: CellState::Missing,
         }
     }
 
     pub fn invalid(raw: Option<SourceValue>, invalid: InvalidCell) -> Self {
+        let raw_lexeme = raw.as_ref().and_then(raw_lexeme);
         Self {
             raw,
+            raw_lexeme,
             normalized: CellState::Invalid(invalid),
         }
     }
 
     pub fn raw(&self) -> Option<&SourceValue> {
         self.raw.as_ref()
+    }
+
+    pub fn raw_text(&self) -> Option<&str> {
+        self.raw_lexeme.as_deref()
     }
 
     pub fn normalized(&self) -> &CellState<NormalizedValue> {
@@ -158,6 +192,17 @@ impl StoredCell {
             CellState::Missing => CellRef::Missing,
             CellState::Invalid(invalid) => CellRef::Invalid(invalid),
         }
+    }
+}
+
+fn raw_lexeme(value: &SourceValue) -> Option<Arc<str>> {
+    match value {
+        SourceValue::Utf8(value) => Some(Arc::clone(value)),
+        SourceValue::Bool(_)
+        | SourceValue::I64(_)
+        | SourceValue::U64(_)
+        | SourceValue::F64(_)
+        | SourceValue::TimestampMicros(_) => None,
     }
 }
 
