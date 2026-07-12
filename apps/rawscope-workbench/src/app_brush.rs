@@ -2,8 +2,9 @@
 
 use rawscope_render::{
     scatter_selection_drilldown, scatter_selection_drilldown_masked,
-    selected_region_summary_masked, ScatterBrushDrag, ScatterBrushSelection,
-    ScatterSelectionEvidence, SelectedRegionSummary, SelectionEvidenceConfig,
+    scatter_selection_drilldown_snapshot, selected_region_summary_masked, ScatterBrushDrag,
+    ScatterBrushSelection, ScatterSelectionEvidence, SelectedRegionSummary,
+    SelectionEvidenceConfig,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -39,9 +40,9 @@ impl WorkbenchApp {
         }
 
         self.finalize_brush_from_drag();
+        self.publish_scatter_active_selection();
         self.build_selection_evidence();
         self.build_selection_drilldown();
-        self.publish_scatter_active_selection();
         self.rebuild_active_comparison();
         self.log_selection_summary("finalized");
         self.log_selection_evidence();
@@ -165,27 +166,44 @@ impl WorkbenchApp {
             return;
         };
 
-        self.scatter.selection_drilldown = self
-            .scatter_filters
-            .evaluation
+        let snapshot = self
+            .workbench_state
+            .active_selection
             .as_ref()
-            .map(|evaluation| {
-                scatter_selection_drilldown_masked(
+            .and_then(|selection| selection.snapshot.as_ref())
+            .cloned();
+        self.scatter.selection_drilldown = snapshot
+            .as_ref()
+            .map(|snapshot| {
+                scatter_selection_drilldown_snapshot(
                     &self.scatter.points,
-                    &evaluation.mask,
-                    selection,
+                    snapshot,
                     self.scatter.source_rows.as_ref(),
                     rawscope_render::DrilldownConfig::default(),
                 )
-                .expect("filter evaluation remains aligned with scatter points")
             })
             .or_else(|| {
-                Some(scatter_selection_drilldown(
-                    &self.scatter.points,
-                    selection,
-                    self.scatter.source_rows.as_ref(),
-                    rawscope_render::DrilldownConfig::default(),
-                ))
+                self.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| {
+                        scatter_selection_drilldown_masked(
+                            &self.scatter.points,
+                            &evaluation.mask,
+                            selection,
+                            self.scatter.source_rows.as_ref(),
+                            rawscope_render::DrilldownConfig::default(),
+                        )
+                        .expect("filter evaluation remains aligned with scatter points")
+                    })
+                    .or_else(|| {
+                        Some(scatter_selection_drilldown(
+                            &self.scatter.points,
+                            selection,
+                            self.scatter.source_rows.as_ref(),
+                            rawscope_render::DrilldownConfig::default(),
+                        ))
+                    })
             });
     }
 

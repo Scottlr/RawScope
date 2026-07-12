@@ -182,8 +182,9 @@ pub use selection_comparison::{
     TimelineKindComparison, TimelineSelectionComparison,
 };
 pub use selection_drilldown::{
-    scatter_selection_drilldown, scatter_selection_drilldown_masked, timeline_selection_drilldown,
-    DrilldownColumn, DrilldownConfig, DrilldownRow, SelectionDrilldown,
+    scatter_selection_drilldown, scatter_selection_drilldown_masked,
+    scatter_selection_drilldown_snapshot, timeline_selection_drilldown, DrilldownColumn,
+    DrilldownConfig, DrilldownRow, SelectionDrilldown,
 };
 pub use selection_snapshot::SelectionSnapshot;
 pub use timeline_brush::{
