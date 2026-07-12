@@ -8,3 +8,6 @@ publish = false
 [dependencies]
 rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
 rawscope-data = { version = "0.1.0", path = "../rawscope-data" }
+
+[dev-dependencies]
+proptest = { workspace = true }

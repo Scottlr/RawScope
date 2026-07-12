@@ -1,0 +1,36 @@
+[package]
+name = "rawscope-fuzz"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+description = "Private bounded semantic fuzz targets for RawScope"
+
+[dependencies]
+libfuzzer-sys = "0.4.9"
+rawscope-data = { path = "../crates/rawscope-data", features = ["csv", "parquet"] }
+rawscope-session-contracts = { path = "../crates/rawscope-session-contracts" }
+
+[[bin]]
+name = "session_manifest_v1"
+path = "fuzz_targets/session_manifest_v1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "csv_ingest_bounded"
+path = "fuzz_targets/csv_ingest_bounded.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parquet_dispatch_bounded"
+path = "fuzz_targets/parquet_dispatch_bounded.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

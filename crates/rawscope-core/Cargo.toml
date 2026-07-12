@@ -7,3 +7,6 @@ publish = false
 description = "Dependency-free checked domain contracts for RawScope"
 
 [dependencies]
+
+[dev-dependencies]
+proptest = { workspace = true }
