@@ -1,0 +1,3 @@
+//! Versioned evidence wire readers kept separate from canonical semantics.
+
+pub mod scatter;

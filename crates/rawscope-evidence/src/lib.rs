@@ -4,6 +4,7 @@ mod bundle;
 mod document;
 mod provenance;
 mod quantization;
+pub mod wire;
 
 pub use bundle::{
     BundleArtifactV2, BundleManifestError, BundleManifestV2, BundlePathError, BundleRelativePath,
