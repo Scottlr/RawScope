@@ -245,6 +245,10 @@ impl WorkbenchApp {
     }
 }
 
+#[expect(
+    clippy::field_reassign_with_default,
+    reason = "fixtures intentionally mutate scenario-specific fields"
+)]
 #[cfg(test)]
 mod tests {
     use rawscope_core::{RowId, U64Range};

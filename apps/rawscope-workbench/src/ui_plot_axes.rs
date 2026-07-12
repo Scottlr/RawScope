@@ -96,6 +96,10 @@ pub(crate) fn show_plot_axes(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "axis drawing receives independent painter and style seams"
+)]
 fn draw_x_axis(
     painter: &Painter,
     plot_painter: &Painter,
@@ -144,6 +148,10 @@ fn draw_x_axis(
     );
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "axis drawing receives independent painter and style seams"
+)]
 fn draw_y_axis(
     painter: &Painter,
     plot_painter: &Painter,
@@ -220,6 +228,10 @@ fn tick_label_is_visible(
     index == 0 || index + 1 == tick_count || index.is_multiple_of(stride)
 }
 
+#[expect(
+    clippy::items_after_test_module,
+    reason = "keep the local guide-label helper adjacent to its focused tests"
+)]
 #[cfg(test)]
 mod tests {
     use egui::{pos2, Rect};

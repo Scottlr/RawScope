@@ -84,6 +84,10 @@ fn total_cell_count(grid: &MissingnessGrid) -> u64 {
     grid.cells.iter().map(|cell| cell.total_count as u64).sum()
 }
 
+#[expect(
+    clippy::field_reassign_with_default,
+    reason = "fixtures intentionally mutate scenario-specific fields"
+)]
 #[cfg(test)]
 mod tests {
     use rawscope_core::{F32Range, RowId, U64Range};

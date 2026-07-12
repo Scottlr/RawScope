@@ -34,7 +34,15 @@ mod app_visual_transition;
 mod app_window;
 mod cli;
 mod demo;
+#[expect(
+    dead_code,
+    reason = "staged coordinator foundation is integrated by a follow-up task"
+)]
 mod job_coordinator;
+#[expect(
+    dead_code,
+    reason = "staged startup lifecycle foundation is integrated by a follow-up task"
+)]
 mod startup_lifecycle;
 mod ui;
 mod ui_comparison;

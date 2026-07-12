@@ -59,11 +59,20 @@ impl EvidenceReportBundlePaths {
         initial_export_counter: u64,
     ) -> Self {
         let output_dir = output_dir.as_ref();
+        let mut export_counter = initial_export_counter;
+        while output_dir
+            .join(format!(
+                "{bundle_dir_prefix}-{export_timestamp_unix_ms}-{export_counter}"
+            ))
+            .exists()
+        {
+            export_counter = export_counter.saturating_add(1);
+        }
         Self::new(
             output_dir,
             bundle_dir_prefix,
             export_timestamp_unix_ms,
-            initial_export_counter,
+            export_counter,
         )
     }
 

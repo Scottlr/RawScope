@@ -89,9 +89,10 @@ impl DatasetDisplayIdentity {
 }
 
 fn local_short_name(path: &std::path::Path) -> String {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.is_empty())
+    let path_text = path.to_string_lossy();
+    path_text
+        .rsplit(['/', '\\'])
+        .find(|name| !name.is_empty())
         .unwrap_or("local dataset")
         .to_string()
 }

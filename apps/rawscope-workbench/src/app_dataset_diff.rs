@@ -98,6 +98,10 @@ fn comparison_load_error(path: &Path, message: String) -> io::Error {
     )
 }
 
+#[expect(
+    clippy::field_reassign_with_default,
+    reason = "fixtures intentionally mutate scenario-specific fields"
+)]
 #[cfg(test)]
 mod tests {
     use super::*;
