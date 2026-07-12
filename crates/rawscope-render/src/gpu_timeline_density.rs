@@ -1,6 +1,6 @@
 //! GPU timeline-density compute reference for correctness checks.
 
-use std::{error::Error, fmt, sync::mpsc::RecvError};
+use std::{error::Error, fmt, mem::size_of, sync::mpsc::RecvError};
 
 use rawscope_core::{DensityCountGrid, GridSize, U64Range};
 use rawscope_data::TimelineEventRecord;
@@ -11,7 +11,9 @@ use crate::gpu_density_pipeline::{
     create_storage_upload_buffer, create_uniform_upload_buffer, readback_counts_from_buffer,
     GpuDensityReadbackError,
 };
-use crate::gpu_timeline_density_pack::{pack_events, timeline_span_u32, TimelineParams};
+use crate::gpu_timeline_density_pack::{
+    pack_events, timeline_span_u32, GpuTimelineEvent, TimelineParams,
+};
 
 const WORKGROUP_SIZE: u32 = 64;
 const MAX_DISPATCH_WORKGROUPS_PER_DIMENSION: u32 = 65_535;
@@ -285,8 +287,13 @@ pub(crate) fn dispatch_timeline_density(
         label: Some("RawScope Timeline Density Shader"),
         source: wgpu::ShaderSource::Wgsl(SHADER_SOURCE.into()),
     });
-    let bind_group_layout =
-        create_density_bind_group_layout(device, "RawScope Timeline Density Bind Group Layout");
+    let bind_group_layout = create_density_bind_group_layout(
+        device,
+        "RawScope Timeline Density Bind Group Layout",
+        size_of::<GpuTimelineEvent>() as u64,
+        size_of::<TimelineParams>() as u64,
+        size_of::<u32>() as u64,
+    );
     let pipeline = create_density_compute_pipeline(
         device,
         "RawScope Timeline Density Pipeline Layout",
