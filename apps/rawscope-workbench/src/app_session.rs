@@ -138,7 +138,7 @@ impl WorkbenchApp {
         &mut self,
         source: &LoadedSourceTable,
     ) -> Result<(), io::Error> {
-        let Some(pending) = self.pending_session.as_ref() else {
+        let Some(pending) = self.workbench_state.pending_session.as_ref() else {
             self.active_session = None;
             return Ok(());
         };
