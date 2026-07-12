@@ -32,6 +32,7 @@ pub(super) const SCATTER_NUMERIC_TYPE_EXPECTATION: &str =
 pub(super) const TIMELINE_TIME_TYPE_EXPECTATION: &str = "integer timestamp values";
 pub(super) const TIMELINE_LANE_TYPE_EXPECTATION: &str =
     "string or non-negative integer lane values";
+#[cfg(feature = "parquet")]
 pub(super) const PARQUET_RECORD_BATCH_SIZE_ROWS: usize = 1_024;
 
 /// Stable chunk identifier for chunked local datasets.
