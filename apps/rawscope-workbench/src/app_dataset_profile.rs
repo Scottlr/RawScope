@@ -292,7 +292,7 @@ mod tests {
             app.workbench_state.active_dataset_profile,
             Some(DatasetProfileId::LichessGames)
         );
-        assert!(app.comparison_source_rows.is_some());
+        assert!(app.workbench_state.comparison_source_rows.is_some());
         remove_fixture(&primary_path);
         remove_fixture(&compare_path);
     }

@@ -82,7 +82,6 @@ pub struct WorkbenchApp {
     pub(crate) next_selection_id: SelectionId,
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
-    pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
     pub(crate) scatter: ScatterWorkbenchState,
     pub(crate) timeline: TimelineWorkbenchState,
     pub(crate) cursor_position: Option<PhysicalPosition<f64>>,

@@ -22,7 +22,7 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn clear_dataset_diff_state(&mut self) {
-        self.comparison_source_rows = None;
+        self.workbench_state.comparison_source_rows = None;
         self.workbench_state.dataset_diff_summary = None;
         if self.workbench_state.visible_surface == WorkbenchSurface::DatasetDiff {
             self.workbench_state.visible_surface = WorkbenchSurface::Primary;
@@ -33,10 +33,10 @@ impl WorkbenchApp {
         &mut self,
         comparison_source_rows: Option<LoadedSourceTable>,
     ) {
-        self.comparison_source_rows = comparison_source_rows;
+        self.workbench_state.comparison_source_rows = comparison_source_rows;
         self.workbench_state.dataset_diff_summary = self
             .current_source_rows()
-            .zip(self.comparison_source_rows.as_ref())
+            .zip(self.workbench_state.comparison_source_rows.as_ref())
             .map(|(before, after)| dataset_diff_summary(before, after));
 
         if self.workbench_state.dataset_diff_summary.is_none()
@@ -212,7 +212,7 @@ mod tests {
             row_count: 200_000,
         });
 
-        assert!(app.comparison_source_rows.is_none());
+        assert!(app.workbench_state.comparison_source_rows.is_none());
         assert!(app.workbench_state.dataset_diff_summary.is_none());
         assert_eq!(
             app.workbench_state.visible_surface,
