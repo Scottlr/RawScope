@@ -30,6 +30,7 @@ mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
 mod scatter_resident;
+mod scatter_transition;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_evidence_v4;
@@ -131,6 +132,9 @@ pub use scatter_relief::{
 pub use scatter_resident::{
     ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
     ScatterViewGenerationCounter,
+};
+pub use scatter_transition::{
+    transition_decision, ScatterTransitionField, TransitionDecision,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,
