@@ -6,6 +6,7 @@ mod dataset_profile;
 mod evidence_key;
 mod local_dataset;
 mod scatter_projection;
+mod store;
 mod synthetic;
 mod visual_field_catalog;
 mod visual_record;
@@ -25,7 +26,10 @@ pub use dataset_profile::{
     DatasetProfileValidationError, DatasetProfileValidationMismatch, ScatterDatasetProfileBinding,
     ScatterDatasetProfileDefaults, ScatterDatasetProfileHints, TimelineDatasetProfileBinding,
 };
-pub use evidence_key::{validate_evidence_key, DatasetEvidenceKey, EvidenceKeyValidationError};
+pub use evidence_key::{
+    validate_evidence_key, BoundDatasetEvidenceKey, BoundEvidenceKeyError, DatasetEvidenceKey,
+    EvidenceKeyValidationError,
+};
 pub use local_dataset::{
     load_dataset_schema, load_parquet_scatter_dataset, load_parquet_timeline_dataset,
     load_scatter_dataset, load_timeline_dataset, DatasetChunkId, DatasetLoadError,
@@ -35,6 +39,13 @@ pub use local_dataset::{
 pub use scatter_projection::{
     project_scatter_points, ProjectedScatterData, ScatterProjection, ScatterProjectionError,
     ScatterProjectionLabels, ScatterProjectionSpec,
+};
+pub use store::{
+    CellRef, CellState, ChunkValidationError, ColumnChunk, DatasetAccessError, DatasetBudgetError,
+    DatasetChunk, DatasetColumn, DatasetGeneration, DatasetGenerationCounter, DatasetMemoryBudget,
+    DatasetMemoryUsage, DatasetSchema, DatasetSchemaError, DatasetStore, DatasetStoreBuilder,
+    DatasetStoreError, DatasetStoreOwner, InvalidCell, InvalidCellReason, NormalizedValue,
+    SourceUnavailableReason, SourceValue, StoreColumnKind, StoredCell,
 };
 pub use synthetic::{
     generate_synthetic_events, generate_synthetic_points, SyntheticEventConfig,
