@@ -2,6 +2,12 @@
 
 use std::{error::Error, fmt};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GpuRuntimeSignal {
+    UncapturedError { message: String },
+    DeviceLost { reason: String, message: String },
+}
+
 /// Errors returned by the RawScope GPU bootstrap layer.
 #[derive(Debug)]
 pub enum GpuError {
