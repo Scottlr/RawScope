@@ -141,7 +141,7 @@ impl From<GpuDensityReadbackError> for GpuScatterDensityError {
     }
 }
 
-pub async fn gpu_scatter_density(
+pub fn gpu_scatter_density(
     context: &ComputeContext,
     points: &[ScatterPointRecord],
     x_range: F32Range,
@@ -158,10 +158,9 @@ pub async fn gpu_scatter_density(
         width,
         height,
     )
-    .await
 }
 
-pub async fn gpu_scatter_density_on_device(
+pub fn gpu_scatter_density_on_device(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     points: &[ScatterPointRecord],
@@ -187,7 +186,7 @@ pub async fn gpu_scatter_density_on_device(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn gpu_scatter_density_masked(
+pub fn gpu_scatter_density_masked(
     context: &ComputeContext,
     points: &[ScatterPointRecord],
     mask: &FilterMask,

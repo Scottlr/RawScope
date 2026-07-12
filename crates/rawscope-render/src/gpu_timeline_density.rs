@@ -176,7 +176,7 @@ pub(crate) struct TimelineDensityComputeConfig {
 ///
 /// This correctness path returns counts only. Timeline rendering, brushing, and
 /// row evidence remain deferred to later timeline milestones.
-pub async fn gpu_timeline_density(
+pub fn gpu_timeline_density(
     context: &ComputeContext,
     events: &[TimelineEventRecord],
     time_range: U64Range,
@@ -193,11 +193,10 @@ pub async fn gpu_timeline_density(
         width,
         height,
     )
-    .await
 }
 
 /// Bins timeline events using an existing WGPU device and queue.
-pub async fn gpu_timeline_density_on_device(
+pub fn gpu_timeline_density_on_device(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     events: &[TimelineEventRecord],

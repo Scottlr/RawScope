@@ -32,7 +32,6 @@ fn gpu_timeline_density_matches_cpu_reference_for_synthetic_events() {
             width,
             height,
         )
-        .await
         .expect("GPU timeline-density should complete");
 
         assert_eq!(gpu_grid.width(), width);
@@ -65,7 +64,6 @@ fn gpu_timeline_density_matches_cpu_reference_for_edges_and_out_of_range_events(
         let cpu_grid = timeline_density(&events, time_range, lane_count, width, height);
         let gpu_grid =
             gpu_timeline_density(&context, &events, time_range, lane_count, width, height)
-                .await
                 .expect("GPU timeline-density should complete");
 
         assert_eq!(gpu_grid.counts(), cpu_counts(&cpu_grid));
@@ -102,7 +100,6 @@ fn gpu_timeline_density_preserves_injected_pattern_bins() {
             width,
             height,
         )
-        .await
         .expect("GPU timeline-density should complete");
 
         assert_eq!(gpu_grid.counts(), cpu_counts(&cpu_grid));

@@ -38,7 +38,6 @@ fn gpu_scatter_density_matches_cpu_reference_for_synthetic_points() {
             width,
             height,
         )
-        .await
         .expect("GPU scatter-density should complete");
 
         assert_eq!(gpu_grid.width(), width);
@@ -69,7 +68,6 @@ fn gpu_scatter_density_matches_cpu_reference_for_edges_and_out_of_range_points()
 
         let cpu_grid = scatter_density(&points, x_range, y_range, width, height);
         let gpu_grid = gpu_scatter_density(&context, &points, x_range, y_range, width, height)
-            .await
             .expect("GPU scatter-density should complete");
 
         assert_eq!(gpu_grid.counts(), cpu_counts(&cpu_grid));
@@ -111,7 +109,6 @@ fn gpu_difference_matches_cpu_reference() {
             2,
             2,
         )
-        .await
         .unwrap();
         let cpu_baseline = scatter_density(&points, range, range, 2, 2);
         let gpu_difference = normalized_difference_density(
@@ -236,9 +233,8 @@ fn settled_gpu_density_matches_cpu_reference_after_pan() {
         let panned_x = F32Range::new(15.0, 75.0);
         let panned_y = F32Range::new(10.0, 70.0);
         let cpu = scatter_density(&dataset.points, panned_x, panned_y, 32, 32);
-        let gpu = gpu_scatter_density(&context, &dataset.points, panned_x, panned_y, 32, 32)
-            .await
-            .unwrap();
+        let gpu =
+            gpu_scatter_density(&context, &dataset.points, panned_x, panned_y, 32, 32).unwrap();
         assert_eq!(gpu.counts(), cpu_counts(&cpu));
     });
 }
@@ -280,7 +276,6 @@ fn gpu_filter_mask_matches_cpu_filtered_density() {
             10,
             10,
         )
-        .await
         .unwrap();
 
         assert_eq!(gpu.counts(), cpu_counts(&cpu));
