@@ -2558,6 +2558,7 @@ dependencies = [
  "egui-winit",
  "iconflow",
  "pollster",
+ "rawscope-analysis",
  "rawscope-core",
  "rawscope-data",
  "rawscope-gpu",
