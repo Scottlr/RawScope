@@ -27,17 +27,9 @@ pub struct EvidenceProvenanceV1 {
     pub absolute_path_sensitive: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ProvenancePolicy {
     pub include_sensitive_absolute_path: bool,
-}
-
-impl Default for ProvenancePolicy {
-    fn default() -> Self {
-        Self {
-            include_sensitive_absolute_path: false,
-        }
-    }
 }
 
 impl EvidenceProvenanceV1 {

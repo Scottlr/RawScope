@@ -49,10 +49,10 @@ impl BundleRelativePath {
         if components.iter().any(|component| component.is_empty()) {
             return Err(BundlePathError::NotNormalized);
         }
-        if components.iter().any(|component| *component == "..") {
+        if components.contains(&"..") {
             return Err(BundlePathError::ParentTraversal);
         }
-        if components.iter().any(|component| *component == ".") {
+        if components.contains(&".") {
             return Err(BundlePathError::NotNormalized);
         }
         Ok(Self(value))
