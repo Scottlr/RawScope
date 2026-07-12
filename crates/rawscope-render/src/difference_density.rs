@@ -2,6 +2,8 @@
 
 use std::{error::Error, fmt};
 
+pub use rawscope_analysis::inspection::DifferenceInspection;
+
 pub const DIFFERENCE_FIXED_POINT_SCALE: u32 = 1_000_000_000;
 
 /// A shader-friendly split representation of a ratio.
@@ -74,15 +76,6 @@ impl Default for DifferenceDensityConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DifferenceInspection {
-    pub baseline_count: u32,
-    pub active_count: u32,
-    pub baseline_share: f64,
-    pub active_share: f64,
-    pub delta: f64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DifferenceDensityStats {
     pub baseline_total: u64,
     pub active_total: u64,
@@ -104,12 +97,15 @@ impl DifferenceDensityGrid {
     ) -> Option<DifferenceInspection> {
         let baseline_count = *baseline_counts.get(index)?;
         let active_count = *active_counts.get(index)?;
-        Some(difference_inspection(
-            baseline_count,
-            active_count,
-            self.stats.baseline_total,
-            self.stats.active_total,
-        ))
+        Some(
+            difference_inspection(
+                baseline_count,
+                active_count,
+                self.stats.baseline_total,
+                self.stats.active_total,
+            )
+            .ok()?,
+        )
     }
 }
 
@@ -151,7 +147,9 @@ pub fn normalized_difference_density(
         .iter()
         .zip(active_counts)
         .map(|(&baseline, &active)| {
-            difference_inspection(baseline, active, baseline_total, active_total).delta
+            difference_inspection(baseline, active, baseline_total, active_total)
+                .expect("validated density totals")
+                .delta
         })
         .collect::<Vec<_>>();
     let max_abs_delta = deltas
@@ -172,16 +170,13 @@ pub fn difference_inspection(
     active_count: u32,
     baseline_total: u64,
     active_total: u64,
-) -> DifferenceInspection {
-    let baseline_share = f64::from(baseline_count) / baseline_total as f64;
-    let active_share = f64::from(active_count) / active_total as f64;
-    DifferenceInspection {
+) -> Result<DifferenceInspection, rawscope_analysis::inspection::DifferenceNormalizationError> {
+    rawscope_analysis::inspection::inspect_difference(
         baseline_count,
         active_count,
-        baseline_share,
-        active_share,
-        delta: active_share - baseline_share,
-    }
+        baseline_total,
+        active_total,
+    )
 }
 
 pub fn fixed_point_max_abs_delta(delta: f64) -> u32 {

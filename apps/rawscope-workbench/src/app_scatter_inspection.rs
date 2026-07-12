@@ -336,7 +336,7 @@ pub(crate) fn difference_summary_for_hit(
     app.scatter_inspection
         .difference_distribution
         .as_ref()
-        .map(|distribution| distribution.summarize_counts(baseline_count, hit.count))
+        .and_then(|distribution| distribution.summarize_counts(baseline_count, hit.count))
 }
 
 #[cfg(test)]
