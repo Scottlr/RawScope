@@ -70,6 +70,18 @@ impl<T> GpuReadbackTicket<T> {
     }
 
     pub fn complete(&mut self, result: Result<T, ReadbackError>) -> bool {
+        self.complete_for_device(self.device_generation, result)
+    }
+
+    /// Completes only when the callback belongs to this ticket's device generation.
+    pub fn complete_for_device(
+        &mut self,
+        device_generation: DeviceGeneration,
+        result: Result<T, ReadbackError>,
+    ) -> bool {
+        if device_generation != self.device_generation {
+            return false;
+        }
         if !matches!(self.state, ReadbackState::Submitted) {
             return false;
         }
@@ -81,6 +93,14 @@ impl<T> GpuReadbackTicket<T> {
             Err(error) => self.state = ReadbackState::Failed(error),
         }
         true
+    }
+
+    /// Terminalizes a pending ticket after its owning device is lost.
+    pub fn cancel_for_device_loss(&mut self, device_generation: DeviceGeneration) -> bool {
+        if device_generation != self.device_generation {
+            return false;
+        }
+        self.complete_for_device(device_generation, Err(ReadbackError::DeviceLost))
     }
 
     pub fn cancel(&mut self) -> bool {
@@ -163,5 +183,23 @@ mod tests {
         assert!(cancelled.cancel());
         assert_eq!(cancelled.take_result(), ReadbackProgress::Cancelled);
         assert!(!cancelled.complete(Ok(1)));
+    }
+
+    #[test]
+    fn stale_device_callbacks_and_loss_cannot_publish_results() {
+        let now = Instant::now();
+        let mut ticket = GpuReadbackTicket::submitted(
+            ReadbackGeneration(3),
+            DeviceGeneration(7),
+            now,
+            Duration::from_secs(1),
+        );
+        assert!(!ticket.complete_for_device(DeviceGeneration(8), Ok(42_u32)));
+        assert!(ticket.cancel_for_device_loss(DeviceGeneration(7)));
+        assert_eq!(
+            ticket.take_result(),
+            ReadbackProgress::Failed(ReadbackError::DeviceLost)
+        );
+        assert!(!ticket.complete_for_device(DeviceGeneration(7), Ok(42)));
     }
 }
