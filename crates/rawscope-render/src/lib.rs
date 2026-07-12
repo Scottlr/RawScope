@@ -40,6 +40,7 @@ mod scatter_selection_export_v5;
 mod scatter_viewport;
 mod selection_comparison;
 mod selection_drilldown;
+mod selection_snapshot;
 mod timeline_brush;
 mod timeline_density_renderer;
 mod timeline_selection_evidence;
@@ -172,6 +173,7 @@ pub use selection_drilldown::{
     scatter_selection_drilldown, scatter_selection_drilldown_masked, timeline_selection_drilldown,
     DrilldownColumn, DrilldownConfig, DrilldownRow, SelectionDrilldown,
 };
+pub use selection_snapshot::SelectionSnapshot;
 pub use timeline_brush::{
     SelectedEventTypeCounts, TimelineBrushDrag, TimelineBrushSelection, TimelineLaneRange,
     TimelineSelectionSummary,
