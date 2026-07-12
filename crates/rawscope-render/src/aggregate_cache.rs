@@ -1,7 +1,8 @@
 //! Bounded aggregate overviews used by evidence and workbench context.
 
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, num::NonZeroU32};
 
+use rawscope_analysis::density::{bin_f32, bin_u64, BinIndex, BinPlacement};
 use rawscope_core::{F32Range, RowId, U64Range};
 use rawscope_data::{ScatterPointRecord, TimelineEventRecord};
 
@@ -77,10 +78,14 @@ pub fn scatter_aggregate_overview(
         config.max_row_ids_per_bin,
     );
     for point in points {
-        let Some(x_bin) = bin_f32(point.x, x_range, config.grid_width) else {
+        let Some(x_bin) =
+            in_domain_bin(bin_f32(point.x, x_range, non_zero_bins(config.grid_width)))
+        else {
             continue;
         };
-        let Some(y_bin) = bin_f32(point.y, y_range, config.grid_height) else {
+        let Some(y_bin) =
+            in_domain_bin(bin_f32(point.y, y_range, non_zero_bins(config.grid_height)))
+        else {
             continue;
         };
 
@@ -121,7 +126,11 @@ pub fn timeline_aggregate_overview(
         config.max_row_ids_per_bin,
     );
     for event in events {
-        let Some(x_bin) = bin_u64(event.timestamp, time_range, config.grid_width) else {
+        let Some(x_bin) = in_domain_bin(bin_u64(
+            event.timestamp,
+            time_range,
+            non_zero_bins(config.grid_width),
+        )) else {
             continue;
         };
         let Some(y_bin) = bin_lane(event.lane, lane_count, config.grid_height) else {
@@ -180,33 +189,17 @@ fn bin_index(grid_width: u32, x_bin: u32, y_bin: u32) -> usize {
     (y_bin as usize) * (grid_width as usize) + (x_bin as usize)
 }
 
-fn bin_f32(value: f32, range: F32Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
-    }
-
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-
-    let normalized = (value - range.min) / range.span();
-    let raw_bin = (normalized * bin_count as f32).floor() as u32;
-    Some(raw_bin.min(bin_count - 1))
+fn non_zero_bins(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("aggregate grid dimensions are validated")
 }
 
-fn bin_u64(value: u64, range: U64Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
+fn in_domain_bin(
+    result: Result<BinPlacement, rawscope_analysis::density::BinningError>,
+) -> Option<u32> {
+    match result.ok()? {
+        BinPlacement::InDomain(BinIndex(index)) => Some(index),
+        BinPlacement::BeforeDomain | BinPlacement::AfterDomain => None,
     }
-
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-
-    let offset = u128::from(value - range.min);
-    let span = u128::from(range.span());
-    let raw_bin = (offset * u128::from(bin_count) / span) as u32;
-    Some(raw_bin.min(bin_count - 1))
 }
 
 fn bin_lane(lane: u32, lane_count: u32, height: u32) -> Option<u32> {
