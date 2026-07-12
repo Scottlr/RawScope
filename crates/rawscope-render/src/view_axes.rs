@@ -1,17 +1,9 @@
 //! Axis and lane context for density views.
 
+pub use rawscope_analysis::axis::format_axis_value;
+use rawscope_analysis::axis::{clamp_tick_count, numeric_axis_ticks, u64_axis_ticks};
+pub use rawscope_analysis::axis::{AxisTick, AxisValueFormat};
 use rawscope_core::{F32Range, U64Range};
-
-const MIN_AXIS_TICK_COUNT: usize = 2;
-const MAX_AXIS_TICKS: usize = 9;
-
-/// Explicit numeric label formatting for an axis.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AxisValueFormat {
-    Integer,
-    Decimal { max_fraction_digits: u8 },
-    Compact,
-}
 
 /// Data-space equation represented by a scatter reference guide.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -44,13 +36,6 @@ pub struct ScatterAxesOptions {
     pub x_format: AxisValueFormat,
     pub y_format: AxisValueFormat,
     pub guides: Vec<ScatterReferenceGuide>,
-}
-
-/// Axis tick for scalar projections.
-#[derive(Debug, Clone, PartialEq)]
-pub struct AxisTick {
-    pub fraction: f32,
-    pub label: String,
 }
 
 /// Single numeric axis projection with a display label and evenly distributed ticks.
@@ -117,16 +102,16 @@ pub fn scatter_axes_context_with_options(
     y_label: impl Into<String>,
     options: ScatterAxesOptions,
 ) -> ScatterAxesContext {
-    let tick_count = clamp_tick_count(options.target_tick_count).min(MAX_AXIS_TICKS);
+    let tick_count = clamp_tick_count(options.target_tick_count);
 
     ScatterAxesContext {
         x: NumericAxisContext {
             label: x_label.into(),
-            ticks: nice_numeric_axis_ticks(x_range, tick_count, options.x_format),
+            ticks: numeric_axis_ticks(x_range, tick_count, options.x_format),
         },
         y: NumericAxisContext {
             label: y_label.into(),
-            ticks: nice_numeric_axis_ticks(y_range, tick_count, options.y_format),
+            ticks: numeric_axis_ticks(y_range, tick_count, options.y_format),
         },
         guides: options
             .guides
@@ -151,128 +136,9 @@ pub fn timeline_axes_context(
     TimelineAxesContext {
         time: NumericAxisContext {
             label: "time".to_string(),
-            ticks: u64_axis_ticks(time_range.min, time_range.max, time_tick_count, |value| {
-                value.to_string()
-            }),
+            ticks: u64_axis_ticks(time_range.min, time_range.max, time_tick_count),
         },
         lanes,
-    }
-}
-
-fn clamp_tick_count(requested: usize) -> usize {
-    requested.clamp(MIN_AXIS_TICK_COUNT, MAX_AXIS_TICKS)
-}
-
-fn nice_numeric_axis_ticks(
-    range: F32Range,
-    target_tick_count: usize,
-    format: AxisValueFormat,
-) -> Vec<AxisTick> {
-    let span = range.span();
-    if !span.is_finite() || span <= 0.0 || target_tick_count < 2 {
-        return Vec::new();
-    }
-
-    let raw_step = span / (target_tick_count.saturating_sub(1)) as f32;
-    let magnitude = 10.0_f32.powf(raw_step.abs().log10().floor());
-    let normalized = raw_step / magnitude;
-    let step_factor = if normalized <= 1.0 {
-        1.0
-    } else if normalized <= 2.0 {
-        2.0
-    } else if normalized <= 5.0 {
-        5.0
-    } else {
-        10.0
-    };
-    let step = step_factor * magnitude;
-    let first = (range.min / step).ceil() * step;
-    let mut ticks = Vec::new();
-    let interval_limit = MAX_AXIS_TICKS.saturating_sub(1);
-    for tick_index in 0..=interval_limit {
-        let value = first + (tick_index as f32 * step);
-        if !value.is_finite() || value > range.max + step * 0.0001 {
-            break;
-        }
-        if ticks.last().is_some_and(|tick: &AxisTick| {
-            tick.fraction >= ((value - range.min) / span).clamp(0.0, 1.0)
-        }) {
-            break;
-        }
-        let fraction = ((value - range.min) / span).clamp(0.0, 1.0);
-        let label = format_axis_value(value, format);
-        if ticks
-            .last()
-            .is_none_or(|tick: &AxisTick| tick.label != label)
-        {
-            ticks.push(AxisTick { fraction, label });
-        }
-    }
-    ticks
-}
-
-fn u64_axis_ticks(
-    min: u64,
-    max: u64,
-    tick_count: usize,
-    format_label: impl Fn(u64) -> String,
-) -> Vec<AxisTick> {
-    if tick_count == 0 {
-        return Vec::new();
-    }
-
-    let span = u128::from(max) - u128::from(min);
-    let last_index = tick_count - 1;
-    let last_index_f64 = last_index as f64;
-
-    (0..tick_count)
-        .map(|tick_index| {
-            let fraction = if last_index == 0 {
-                0.0
-            } else {
-                (tick_index as f64) / last_index_f64
-            };
-            let value = if last_index == 0 {
-                min
-            } else {
-                let numerator = span * u128::from(tick_index as u64);
-                let denominator = u128::from(last_index as u64);
-                let offset = (numerator + denominator / 2) / denominator;
-                u64::try_from(u128::from(min) + offset).unwrap_or(max)
-            };
-            AxisTick {
-                fraction: (fraction as f32).clamp(0.0, 1.0),
-                label: format_label(value),
-            }
-        })
-        .collect()
-}
-
-pub fn format_axis_value(value: f32, format: AxisValueFormat) -> String {
-    match format {
-        AxisValueFormat::Integer => format!("{value:.0}"),
-        AxisValueFormat::Decimal {
-            max_fraction_digits,
-        } => {
-            let digits = usize::from(max_fraction_digits.min(6));
-            let formatted = format!("{value:.digits$}");
-            formatted
-                .trim_end_matches('0')
-                .trim_end_matches('.')
-                .to_string()
-        }
-        AxisValueFormat::Compact if value.abs() >= 1_000_000.0 => {
-            format!("{:.1}M", value / 1_000_000.0)
-        }
-        AxisValueFormat::Compact if value.abs() >= 1_000.0 => {
-            format!("{:.1}k", value / 1_000.0)
-        }
-        AxisValueFormat::Compact => format_axis_value(
-            value,
-            AxisValueFormat::Decimal {
-                max_fraction_digits: 1,
-            },
-        ),
     }
 }
 
