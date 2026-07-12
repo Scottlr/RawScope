@@ -15,7 +15,7 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use rawscope_core::{F32Range, RowId, U64Range};
 
 use crate::{
-    local_dataset::csv::{csv_row_number, invalid_value, lane_id_for_value},
+    local_dataset::csv::{csv_row_number, lane_id_for_value},
     local_dataset::{
         DatasetChunkId, DatasetLoadError, LoadedColumnKind, LoadedColumnSchema,
         LoadedColumnarChunk, LoadedColumnarDataset, LoadedScatterDataset, LoadedSourceRow,
@@ -66,8 +66,10 @@ pub fn load_parquet_scatter_dataset(
 
         for row_index in 0..chunk_row_count {
             let row_number = parquet_row_number(global_row_offset, row_index);
-            let x = numeric_cell_as_f32(x_array, row_index, x_column, row_number)?;
-            let y = numeric_cell_as_f32(y_array, row_index, y_column, row_number)?;
+            let x =
+                numeric_cell_as_f32(path, chunk_index, x_array, row_index, x_column, row_number)?;
+            let y =
+                numeric_cell_as_f32(path, chunk_index, y_array, row_index, y_column, row_number)?;
             let row_id = RowId((global_row_offset + row_index) as u64);
 
             x_min = x_min.min(x);
@@ -82,7 +84,7 @@ pub fn load_parquet_scatter_dataset(
             });
             source_rows.push(LoadedSourceRow {
                 row_id,
-                values: source_row_values(batch, row_index)?,
+                values: source_row_values(path, chunk_index, batch, row_index)?,
             });
         }
 
@@ -131,7 +133,9 @@ pub fn load_dataset_schema(
     _limit: Option<usize>,
 ) -> Result<Vec<LoadedColumnSchema>, DatasetLoadError> {
     let path = path.as_ref();
-    Ok(parquet_schema(&read_parquet_schema(path)?))
+    let schema = read_parquet_schema(path)?;
+    reject_float16_schema(&schema)?;
+    Ok(parquet_schema(&schema))
 }
 
 /// Loads a local timeline dataset from Parquet and binds explicit time/lane columns.
@@ -174,8 +178,22 @@ pub fn load_parquet_timeline_dataset(
 
         for row_index in 0..chunk_row_count {
             let row_number = parquet_row_number(global_row_offset, row_index);
-            let timestamp = integer_timestamp_cell(time_array, row_index, time_column, row_number)?;
-            let lane_value = lane_cell_as_string(lane_array, row_index, lane_column, row_number)?;
+            let timestamp = integer_timestamp_cell(
+                path,
+                chunk_index,
+                time_array,
+                row_index,
+                time_column,
+                row_number,
+            )?;
+            let lane_value = lane_cell_as_string(
+                path,
+                chunk_index,
+                lane_array,
+                row_index,
+                lane_column,
+                row_number,
+            )?;
             let lane = lane_id_for_value(lane_value, &mut lane_ids, &mut lane_labels)?;
             let row_id = RowId((global_row_offset + row_index) as u64);
 
@@ -190,7 +208,7 @@ pub fn load_parquet_timeline_dataset(
             });
             source_rows.push(LoadedSourceRow {
                 row_id,
-                values: source_row_values(batch, row_index)?,
+                values: source_row_values(path, chunk_index, batch, row_index)?,
             });
         }
 
@@ -267,6 +285,7 @@ fn read_parquet_batches(
         builder = builder.with_limit(max_rows);
     }
     let arrow_schema = builder.schema().as_ref().clone();
+    reject_float16_schema(&arrow_schema)?;
     let mut reader = builder
         .build()
         .map_err(|source| DatasetLoadError::ParquetRead {
@@ -311,9 +330,10 @@ fn loaded_column_kind(data_type: &DataType) -> LoadedColumnKind {
         | DataType::UInt16
         | DataType::UInt32
         | DataType::UInt64 => LoadedColumnKind::Integer,
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => LoadedColumnKind::Float,
+        DataType::Float32 | DataType::Float64 => LoadedColumnKind::Float,
         DataType::Null => LoadedColumnKind::Empty,
-        _ => LoadedColumnKind::String,
+        DataType::Utf8 | DataType::LargeUtf8 => LoadedColumnKind::String,
+        _ => LoadedColumnKind::Unsupported,
     }
 }
 
@@ -348,7 +368,6 @@ fn ensure_numeric_column(
             | DataType::UInt16
             | DataType::UInt32
             | DataType::UInt64
-            | DataType::Float16
             | DataType::Float32
             | DataType::Float64
     ) {
@@ -419,13 +438,22 @@ fn ensure_lane_column(
 }
 
 fn numeric_cell_as_f32(
+    path: &Path,
+    batch_index: usize,
     array: &dyn Array,
     row_index: usize,
     column: &str,
     row_number: usize,
 ) -> Result<f32, DatasetLoadError> {
     if array.is_null(row_index) {
-        return Err(invalid_value(column, row_number, "", "a non-empty value"));
+        return Err(parquet_invalid_value(
+            path,
+            batch_index,
+            row_number,
+            column,
+            "",
+            "a non-empty value",
+        ));
     }
 
     let parsed = match array.data_type() {
@@ -491,9 +519,11 @@ fn numeric_cell_as_f32(
     if parsed.is_finite() {
         Ok(parsed)
     } else {
-        Err(invalid_value(
-            column,
+        Err(parquet_invalid_value(
+            path,
+            batch_index,
             row_number,
+            column,
             &display_array_value(array, row_index)?,
             SCATTER_NUMERIC_TYPE_EXPECTATION,
         ))
@@ -501,13 +531,22 @@ fn numeric_cell_as_f32(
 }
 
 fn integer_timestamp_cell(
+    path: &Path,
+    batch_index: usize,
     array: &dyn Array,
     row_index: usize,
     column: &str,
     row_number: usize,
 ) -> Result<u64, DatasetLoadError> {
     if array.is_null(row_index) {
-        return Err(invalid_value(column, row_number, "", "a non-empty value"));
+        return Err(parquet_invalid_value(
+            path,
+            batch_index,
+            row_number,
+            column,
+            "",
+            "a non-empty value",
+        ));
     }
 
     match array.data_type() {
@@ -517,6 +556,8 @@ fn integer_timestamp_cell(
                 .downcast_ref::<Int8Array>()
                 .unwrap()
                 .value(row_index) as i64,
+            path,
+            batch_index,
             column,
             row_number,
         ),
@@ -526,6 +567,8 @@ fn integer_timestamp_cell(
                 .downcast_ref::<Int16Array>()
                 .unwrap()
                 .value(row_index) as i64,
+            path,
+            batch_index,
             column,
             row_number,
         ),
@@ -535,6 +578,8 @@ fn integer_timestamp_cell(
                 .downcast_ref::<Int32Array>()
                 .unwrap()
                 .value(row_index) as i64,
+            path,
+            batch_index,
             column,
             row_number,
         ),
@@ -544,6 +589,8 @@ fn integer_timestamp_cell(
                 .downcast_ref::<Int64Array>()
                 .unwrap()
                 .value(row_index),
+            path,
+            batch_index,
             column,
             row_number,
         ),
@@ -575,11 +622,19 @@ fn integer_timestamp_cell(
     }
 }
 
-fn signed_timestamp(value: i64, column: &str, row_number: usize) -> Result<u64, DatasetLoadError> {
+fn signed_timestamp(
+    value: i64,
+    path: &Path,
+    batch_index: usize,
+    column: &str,
+    row_number: usize,
+) -> Result<u64, DatasetLoadError> {
     u64::try_from(value).map_err(|_| {
-        invalid_value(
-            column,
+        parquet_invalid_value(
+            path,
+            batch_index,
             row_number,
+            column,
             &value.to_string(),
             TIMELINE_TIME_TYPE_EXPECTATION,
         )
@@ -587,13 +642,22 @@ fn signed_timestamp(value: i64, column: &str, row_number: usize) -> Result<u64, 
 }
 
 fn lane_cell_as_string(
+    path: &Path,
+    batch_index: usize,
     array: &dyn Array,
     row_index: usize,
     column: &str,
     row_number: usize,
 ) -> Result<String, DatasetLoadError> {
     if array.is_null(row_index) {
-        return Err(invalid_value(column, row_number, "", "a non-empty value"));
+        return Err(parquet_invalid_value(
+            path,
+            batch_index,
+            row_number,
+            column,
+            "",
+            "a non-empty value",
+        ));
     }
 
     match array.data_type() {
@@ -666,14 +730,63 @@ fn lane_cell_as_string(
 }
 
 fn source_row_values(
+    path: &Path,
+    batch_index: usize,
     batch: &RecordBatch,
     row_index: usize,
 ) -> Result<Vec<String>, DatasetLoadError> {
     batch
         .columns()
         .iter()
-        .map(|column| display_array_value(column.as_ref(), row_index))
+        .enumerate()
+        .map(|(column_index, column)| {
+            if !is_display_supported(column.data_type()) {
+                return Err(DatasetLoadError::ParquetInvalidColumnValue {
+                    path: path.to_path_buf(),
+                    batch_index,
+                    row_index,
+                    column: batch.schema().field(column_index).name().to_string(),
+                    value: column.data_type().to_string(),
+                    expected: "a supported Parquet value type",
+                });
+            }
+            display_array_value(column.as_ref(), row_index)
+        })
         .collect()
+}
+
+fn reject_float16_schema(schema: &Schema) -> Result<(), DatasetLoadError> {
+    if let Some(field) = schema
+        .fields()
+        .iter()
+        .find(|field| matches!(field.data_type(), DataType::Float16))
+    {
+        return Err(DatasetLoadError::UnsupportedParquetColumnType {
+            column: field.name().to_string(),
+            expected: "supported Parquet scalar types (Float16 is not supported)",
+            actual: field.data_type().to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn is_display_supported(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Utf8
+            | DataType::LargeUtf8
+            | DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Float32
+            | DataType::Float64
+            | DataType::Null
+    )
 }
 
 fn display_array_value(array: &dyn Array, row_index: usize) -> Result<String, DatasetLoadError> {
@@ -765,6 +878,74 @@ fn parquet_read_error(path: &Path, message: String) -> DatasetLoadError {
     }
 }
 
+fn parquet_invalid_value(
+    path: &Path,
+    batch_index: usize,
+    row_index: usize,
+    column: &str,
+    value: &str,
+    expected: &'static str,
+) -> DatasetLoadError {
+    DatasetLoadError::ParquetInvalidColumnValue {
+        path: path.to_path_buf(),
+        batch_index,
+        row_index,
+        column: column.to_string(),
+        value: value.to_string(),
+        expected,
+    }
+}
+
 fn parquet_row_number(global_row_offset: usize, chunk_row_index: usize) -> usize {
     csv_row_number(global_row_offset + chunk_row_index)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    use arrow_array::{ArrayRef, BooleanArray, RecordBatch};
+    use arrow_schema::{Field, Schema};
+
+    #[test]
+    fn float16_is_classified_as_unsupported() {
+        assert_eq!(
+            loaded_column_kind(&DataType::Float16),
+            LoadedColumnKind::Unsupported
+        );
+        assert!(reject_float16_schema(&Schema::new(vec![Field::new(
+            "value",
+            DataType::Float16,
+            false,
+        )]))
+        .is_err());
+    }
+
+    #[test]
+    fn unsupported_source_values_return_parquet_context() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "flag",
+            DataType::Boolean,
+            false,
+        )]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(BooleanArray::from(vec![true])) as ArrayRef],
+        )
+        .unwrap();
+
+        let error = source_row_values(Path::new("fixture.parquet"), 2, &batch, 4)
+            .expect_err("unsupported source values must not be fabricated");
+        assert!(matches!(
+            error,
+            DatasetLoadError::ParquetInvalidColumnValue {
+                batch_index: 2,
+                row_index: 4,
+                column,
+                value,
+                ..
+            } if column == "flag" && value == "Boolean"
+        ));
+    }
 }

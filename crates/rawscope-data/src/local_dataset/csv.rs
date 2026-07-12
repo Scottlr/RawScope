@@ -274,6 +274,7 @@ fn infer_column_kind(current: LoadedColumnKind, value: &str) -> LoadedColumnKind
             LoadedColumnKind::Empty => LoadedColumnKind::Integer,
             LoadedColumnKind::Integer | LoadedColumnKind::Float => current,
             LoadedColumnKind::String => LoadedColumnKind::String,
+            LoadedColumnKind::Unsupported => LoadedColumnKind::Unsupported,
         };
     }
 

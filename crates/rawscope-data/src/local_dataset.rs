@@ -51,6 +51,7 @@ pub enum LoadedColumnKind {
     Integer,
     Float,
     String,
+    Unsupported,
 }
 
 impl LoadedColumnKind {
@@ -74,6 +75,7 @@ impl fmt::Display for LoadedColumnKind {
             Self::Integer => write!(f, "integer"),
             Self::Float => write!(f, "float"),
             Self::String => write!(f, "string"),
+            Self::Unsupported => write!(f, "unsupported"),
         }
     }
 }
@@ -170,6 +172,14 @@ pub enum DatasetLoadError {
         expected: &'static str,
         actual: String,
     },
+    ParquetInvalidColumnValue {
+        path: PathBuf,
+        batch_index: usize,
+        row_index: usize,
+        column: String,
+        value: String,
+        expected: &'static str,
+    },
     InvalidColumnValue {
         column: String,
         row_number: usize,
@@ -228,6 +238,18 @@ impl fmt::Display for DatasetLoadError {
                 f,
                 "unsupported Parquet type for column '{column}': expected {expected}, actual {actual}"
             ),
+            Self::ParquetInvalidColumnValue {
+                path,
+                batch_index,
+                row_index,
+                column,
+                value,
+                expected,
+            } => write!(
+                f,
+                "invalid value in Parquet '{}' at batch {batch_index}, row {row_index}, column '{column}': expected {expected}, got '{value}'",
+                path.display()
+            ),
             Self::InvalidColumnValue {
                 column,
                 row_number,
@@ -257,6 +279,7 @@ impl Error for DatasetLoadError {
             Self::CsvRead { source, .. } => Some(source),
             Self::ParquetRead { source, .. } => Some(source),
             Self::UnsupportedParquetColumnType { .. }
+            | Self::ParquetInvalidColumnValue { .. }
             | Self::UnsupportedFileFormat { .. }
             | Self::MissingColumn { .. }
             | Self::UnsupportedColumnType { .. }
