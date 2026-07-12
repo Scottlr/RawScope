@@ -321,3 +321,33 @@ fn decoded_cell(
     };
     DecodedCsvCell::new(raw, analytical)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn csv_decoding_keeps_raw_spelling_separate_from_normalized_value() {
+        let stored = decoded_cell(RowId(4), ColumnId::new(2), StoreColumnKind::I64, "  0042 ")
+            .into_stored_cell();
+
+        assert_eq!(stored.raw_text(), Some("  0042 "));
+        assert_eq!(
+            stored.normalized(),
+            &CellState::Value(NormalizedValue::I64(42))
+        );
+    }
+
+    #[test]
+    fn csv_invalid_and_missing_cells_keep_their_decoded_source_text() {
+        let invalid = decoded_cell(RowId(5), ColumnId::new(1), StoreColumnKind::U64, " nope ")
+            .into_stored_cell();
+        let missing =
+            decoded_cell(RowId(6), ColumnId::new(1), StoreColumnKind::F64, "  ").into_stored_cell();
+
+        assert_eq!(invalid.raw_text(), Some(" nope "));
+        assert!(matches!(invalid.normalized(), CellState::Invalid(_)));
+        assert_eq!(missing.raw_text(), Some("  "));
+        assert_eq!(missing.normalized(), &CellState::Missing);
+    }
+}
