@@ -5,7 +5,6 @@ use std::{error::Error, path::PathBuf, sync::Arc};
 use egui::Context as EguiContext;
 use egui_wgpu::Renderer as EguiRenderer;
 use egui_winit::State as EguiWinitState;
-use rawscope_core::SelectionId;
 use rawscope_data::{
     generate_synthetic_points, load_scatter_dataset, DatasetIdentity, LoadedSourceTable,
     ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
@@ -79,7 +78,6 @@ pub struct WorkbenchApp {
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
     pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
-    pub(crate) next_selection_id: SelectionId,
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) scatter: ScatterWorkbenchState,

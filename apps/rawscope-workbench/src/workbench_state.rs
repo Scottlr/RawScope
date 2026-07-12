@@ -6,6 +6,7 @@ use crate::{
     ui::{ExportStatus, WorkbenchSurface},
     ui_projection_cache::UiProjectionCache,
 };
+use rawscope_core::SelectionId;
 use rawscope_data::DatasetProfileId;
 use rawscope_data::{LoadedSourceTable, SyntheticDatasetMetadata};
 use rawscope_render::DatasetDiffSummary;
@@ -22,6 +23,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) dataset_metadata: Option<SyntheticDatasetMetadata>,
     pub(crate) active_dataset_profile: Option<DatasetProfileId>,
     pub(crate) comparison_source_rows: Option<LoadedSourceTable>,
+    pub(crate) next_selection_id: SelectionId,
 }
 
 #[cfg(test)]
