@@ -9,11 +9,11 @@ use crate::{app::WorkbenchApp, ui::WorkbenchSurface};
 
 impl WorkbenchApp {
     pub(crate) fn dataset_diff_is_available(&self) -> bool {
-        self.dataset_diff_summary.is_some()
+        self.workbench_state.dataset_diff_summary.is_some()
     }
 
     pub(crate) fn show_dataset_diff_surface(&mut self) {
-        if self.dataset_diff_summary.is_some() {
+        if self.workbench_state.dataset_diff_summary.is_some() {
             self.visible_surface = WorkbenchSurface::DatasetDiff;
             self.clear_active_comparison();
             self.request_redraw();
@@ -23,7 +23,7 @@ impl WorkbenchApp {
 
     pub(crate) fn clear_dataset_diff_state(&mut self) {
         self.comparison_source_rows = None;
-        self.dataset_diff_summary = None;
+        self.workbench_state.dataset_diff_summary = None;
         if self.visible_surface == WorkbenchSurface::DatasetDiff {
             self.visible_surface = WorkbenchSurface::Primary;
         }
@@ -34,12 +34,12 @@ impl WorkbenchApp {
         comparison_source_rows: Option<LoadedSourceTable>,
     ) {
         self.comparison_source_rows = comparison_source_rows;
-        self.dataset_diff_summary = self
+        self.workbench_state.dataset_diff_summary = self
             .current_source_rows()
             .zip(self.comparison_source_rows.as_ref())
             .map(|(before, after)| dataset_diff_summary(before, after));
 
-        if self.dataset_diff_summary.is_none()
+        if self.workbench_state.dataset_diff_summary.is_none()
             && self.visible_surface == WorkbenchSurface::DatasetDiff
         {
             self.visible_surface = WorkbenchSurface::Primary;
@@ -147,6 +147,7 @@ mod tests {
         )));
 
         let summary = app
+            .workbench_state
             .dataset_diff_summary
             .as_ref()
             .expect("dataset diff summary should exist");
@@ -209,7 +210,7 @@ mod tests {
         });
 
         assert!(app.comparison_source_rows.is_none());
-        assert!(app.dataset_diff_summary.is_none());
+        assert!(app.workbench_state.dataset_diff_summary.is_none());
         assert_eq!(app.visible_surface, WorkbenchSurface::Primary);
     }
 }
