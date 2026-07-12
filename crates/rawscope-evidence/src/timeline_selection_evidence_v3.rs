@@ -3,10 +3,10 @@
 use rawscope_core::{RowId, U64Range};
 use rawscope_data::{DatasetIdentity, DatasetProfileId};
 
-use crate::{SelectedTimelineEventSampleV2, TimelineLaneRange, TimelineSelectionEvidenceV2};
-use rawscope_evidence::{
-    DensityEncoding, SelectedSourceRowSample, TimelineAggregateEvidenceContext,
-    TimelineSelectionComparison,
+use crate::{
+    DensityEncoding, SelectedSourceRowSample, SelectedTimelineEventSampleV2,
+    TimelineAggregateEvidenceContext, TimelineLaneRange, TimelineSelectionComparison,
+    TimelineSelectionEvidenceV2,
 };
 
 /// Schema version for timeline selection evidence v3 artifacts.
