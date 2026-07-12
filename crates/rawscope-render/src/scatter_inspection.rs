@@ -9,10 +9,9 @@ use rawscope_analysis::{
 use rawscope_core::GridSize;
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
+use rawscope_evidence::INSPECTION_NEIGHBORHOOD_RADIUS_BINS;
 
 use crate::{BrushScreenRect, BrushScreenSize, MaskAlignmentError};
-
-pub const INSPECTION_NEIGHBORHOOD_RADIUS_BINS: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScatterInspectionConfig {

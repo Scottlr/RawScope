@@ -33,22 +33,6 @@ impl StableShareParts {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum ScatterDensityMode {
-    #[default]
-    AbsoluteDensity,
-    FilteredDifference,
-}
-
-impl ScatterDensityMode {
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::AbsoluteDensity => "Absolute",
-            Self::FilteredDifference => "Filtered difference",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DifferencePalette {
     TealNeutralCoral,

@@ -4,6 +4,7 @@ use std::{error::Error, fmt};
 
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{FilterMask, ScatterPointRecord};
+use rawscope_evidence::PointRevealMode;
 
 use crate::MaskAlignmentError;
 
@@ -11,13 +12,6 @@ const DEFAULT_MAX_RENDERED_POINTS: usize = 20_000;
 const DEFAULT_FULLY_VISIBLE_ROWS_PER_PIXEL: f32 = 0.02;
 const DEFAULT_HIDDEN_ROWS_PER_PIXEL: f32 = 0.12;
 const DEFAULT_POINT_RADIUS_PX: f32 = 1.5;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum PointRevealMode {
-    Off,
-    #[default]
-    Auto,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PointRevealConfig {

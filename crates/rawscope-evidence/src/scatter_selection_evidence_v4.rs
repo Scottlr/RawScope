@@ -8,9 +8,8 @@ use rawscope_data::{DatasetFilter, DatasetIdentity, DatasetProfileId, ScatterPro
 use crate::{
     DensityEncoding, PointRevealMode, ReliefFieldConfig, ScatterAggregateEvidenceContext,
     ScatterDensityMode, ScatterDensityPresentation, ScatterSelectionComparison,
-    ScatterSelectionEvidenceV3,
+    ScatterSelectionEvidenceV3, SelectedPointSampleV2, SelectedSourceRowSample,
 };
-use rawscope_evidence::{SelectedPointSampleV2, SelectedSourceRowSample};
 
 pub const SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION: u32 = 4;
 pub const DIFFERENCE_FORMULA_ID: &str = "active_share_minus_full_baseline_share";

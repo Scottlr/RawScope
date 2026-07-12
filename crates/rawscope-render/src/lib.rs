@@ -26,11 +26,7 @@ mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
 mod scatter_resident;
-mod scatter_selection_evidence_v4;
-mod scatter_selection_evidence_v5;
 mod scatter_selection_export_v3_helpers;
-mod scatter_selection_export_v4;
-mod scatter_selection_export_v5;
 mod scatter_transition;
 mod scatter_viewport;
 mod selection_comparison;
@@ -57,8 +53,7 @@ pub use density_reference::{scatter_density, timeline_density};
 pub use difference_density::{
     difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
     DifferenceDensityConfig, DifferenceDensityError, DifferenceDensityGrid, DifferenceDensityStats,
-    DifferenceInspection, DifferencePalette, ScatterDensityMode, StableShareParts,
-    DIFFERENCE_FIXED_POINT_SCALE,
+    DifferenceInspection, DifferencePalette, StableShareParts, DIFFERENCE_FIXED_POINT_SCALE,
 };
 pub use difference_inspection::{
     build_difference_inspection_distribution, DifferenceDirection,
@@ -89,6 +84,21 @@ pub use rawscope_evidence::{
 pub use rawscope_evidence::{
     scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
     ScatterSelectionExportError, SCATTER_SELECTION_EVIDENCE_V3_ARTIFACT_KIND,
+};
+pub use rawscope_evidence::{
+    scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown,
+    scatter_selection_evidence_v5_json, scatter_selection_evidence_v5_markdown,
+    validate_relief_field_config, DifferenceDensityEvidenceConfig, DifferenceDirectionEvidenceV5,
+    PinnedDifferenceInspectionEvidenceV5, PinnedScatterInspectionEvidence,
+    PinnedScatterInspectionEvidenceV5, PointRevealEvidence, PointRevealMode, ReliefFieldConfig,
+    ReliefFieldConfigError, ScatterCohortEvidence, ScatterDensityMode, ScatterSelectionEvidenceV4,
+    ScatterSelectionEvidenceV4Error, ScatterSelectionEvidenceV5, ScatterSelectionEvidenceV5Error,
+    ScatterVisualQueryV4, SessionDataFormatEvidenceV5, SessionEvidenceContextV5,
+    DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID, INSPECTION_NEIGHBORHOOD_RADIUS_BINS,
+    MAX_RELIEF_ELEVATION_DEGREES, MAX_RELIEF_HEIGHT_STRENGTH, MAX_RELIEF_NORMAL_RADIUS_BINS,
+    MIN_RELIEF_ELEVATION_DEGREES, MIN_RELIEF_HEIGHT_STRENGTH, MIN_RELIEF_NORMAL_RADIUS_BINS,
+    SCATTER_SELECTION_EVIDENCE_V4_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
+    SCATTER_SELECTION_EVIDENCE_V5_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION,
 };
 pub use rawscope_evidence::{
     timeline_selection_evidence_v3_json, timeline_selection_evidence_v3_markdown,
@@ -132,7 +142,7 @@ pub use scatter_difference_renderer::{ScatterDifferenceRenderStats, ScatterDiffe
 pub use scatter_inspection::{
     build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
     ScatterInspectionDistribution, ScatterInspectionError, ScatterInspectionGrid,
-    ScatterInspectionHit, ScatterInspectionSummary, INSPECTION_NEIGHBORHOOD_RADIUS_BINS,
+    ScatterInspectionHit, ScatterInspectionSummary,
 };
 pub use scatter_inspection_overlay::{
     project_scatter_inspection_overlay, InspectionFocusKind, ScatterInspectionOverlay,
@@ -141,40 +151,15 @@ pub use scatter_inspection_overlay::{
 pub use scatter_point_renderer::ScatterPointRenderer;
 pub use scatter_point_reveal::{
     project_point_to_plot_fraction, select_points_for_reveal, PointRevealConfig, PointRevealError,
-    PointRevealMode, PointRevealSelection, PointRevealStats,
+    PointRevealSelection, PointRevealStats,
 };
-pub use scatter_relief::{
-    relief_normal_from_samples, validate_relief_field_config, ReliefFieldConfig,
-    ReliefFieldConfigError, MAX_RELIEF_ELEVATION_DEGREES, MAX_RELIEF_HEIGHT_STRENGTH,
-    MAX_RELIEF_NORMAL_RADIUS_BINS, MIN_RELIEF_ELEVATION_DEGREES, MIN_RELIEF_HEIGHT_STRENGTH,
-    MIN_RELIEF_NORMAL_RADIUS_BINS,
-};
+pub use scatter_relief::relief_normal_from_samples;
 pub use scatter_resident::{
     ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
     ScatterViewGenerationCounter,
 };
-pub use scatter_selection_evidence_v4::{
-    DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
-    ScatterCohortEvidence, ScatterSelectionEvidenceV4, ScatterSelectionEvidenceV4Error,
-    ScatterVisualQueryV4, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
-    SCATTER_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
-};
-pub use scatter_selection_evidence_v5::{
-    DifferenceDirectionEvidenceV5, PinnedDifferenceInspectionEvidenceV5,
-    PinnedScatterInspectionEvidenceV5, ScatterSelectionEvidenceV5, ScatterSelectionEvidenceV5Error,
-    SessionDataFormatEvidenceV5, SessionEvidenceContextV5,
-    SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION,
-};
 pub use scatter_selection_export_v3_helpers::{
     scatter_aggregate_evidence_context, scatter_aggregate_evidence_context_for_bins,
-};
-pub use scatter_selection_export_v4::{
-    scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown,
-    SCATTER_SELECTION_EVIDENCE_V4_ARTIFACT_KIND,
-};
-pub use scatter_selection_export_v5::{
-    scatter_selection_evidence_v5_json, scatter_selection_evidence_v5_markdown,
-    SCATTER_SELECTION_EVIDENCE_V5_ARTIFACT_KIND,
 };
 pub use scatter_transition::{transition_decision, ScatterTransitionField, TransitionDecision};
 pub use scatter_viewport::ScatterViewport;
