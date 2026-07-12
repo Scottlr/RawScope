@@ -46,6 +46,7 @@ mod render_coordinator;
     reason = "staged startup lifecycle foundation is integrated by a follow-up task"
 )]
 mod startup_lifecycle;
+mod timeline_render_schedule;
 mod ui;
 mod ui_comparison;
 mod ui_controls;

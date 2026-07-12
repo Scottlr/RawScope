@@ -12,6 +12,9 @@ impl WorkbenchApp {
         if let Err(err) = self.prepare_scheduled_density() {
             error!(error = %err, "failed to refine interactive scatter density");
         }
+        if let Err(err) = self.prepare_scheduled_timeline_density() {
+            error!(error = %err, "failed to refine interactive timeline density");
+        }
         let transition_frame = self.visual_transition_frame();
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
@@ -387,5 +390,21 @@ impl WorkbenchApp {
         if transition_frame.running {
             self.request_redraw();
         }
+    }
+}
+
+impl WorkbenchApp {
+    fn prepare_scheduled_timeline_density(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let Some(work) = self.timeline_render_schedule.next_work() else {
+            return Ok(());
+        };
+        if let Err(error) = self.recompute_timeline_density() {
+            self.timeline_render_schedule.work_failed();
+            return Err(error);
+        }
+        if self.timeline_render_schedule.work_completed(work) {
+            self.begin_visual_transition(rawscope_render::TransitionKind::DensityRefresh);
+        }
+        Ok(())
     }
 }

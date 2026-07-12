@@ -9,7 +9,7 @@ use rawscope_render::{
     ScatterBrushOverlayRenderer, TimelineDensityRenderer, TimelineDensityRendererConfig,
     TimelineViewport,
 };
-use tracing::{error, info};
+use tracing::info;
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 
 use crate::{
@@ -190,9 +190,10 @@ impl WorkbenchApp {
         };
 
         viewport.zoom_around_fraction(cursor_x_fraction, zoom_scale);
-        if let Err(err) = self.recompute_timeline_density() {
-            error!(error = %err, "failed to recompute timeline density after zoom");
-        }
+        self.begin_timeline_render_refine();
+        self.timeline_render_schedule.viewport_changed();
+        self.timeline_render_schedule.gesture_released();
+        self.request_redraw();
     }
 
     pub(crate) fn begin_timeline_pan(&mut self) {
@@ -201,6 +202,7 @@ impl WorkbenchApp {
         }
 
         self.last_drag_position = self.cursor_position;
+        self.begin_timeline_render_refine();
     }
 
     pub(crate) fn pan_timeline_to_cursor(&mut self, position: PhysicalPosition<f64>) {
@@ -222,9 +224,16 @@ impl WorkbenchApp {
 
         viewport.pan_by_screen_fraction(delta_x_fraction);
         self.last_drag_position = Some(position);
-        if let Err(err) = self.recompute_timeline_density() {
-            error!(error = %err, "failed to recompute timeline density after pan");
+        self.timeline_render_schedule.viewport_changed();
+        self.request_redraw();
+    }
+
+    pub(crate) fn end_timeline_pan(&mut self) {
+        if self.last_drag_position.is_some() && self.demo_mode.is_timeline() {
+            self.timeline_render_schedule.gesture_released();
+            self.request_redraw();
         }
+        self.last_drag_position = None;
     }
 
     pub(crate) fn reset_timeline_viewport(&mut self) {
@@ -237,9 +246,13 @@ impl WorkbenchApp {
         };
 
         viewport.reset();
-        if let Err(err) = self.recompute_timeline_density() {
-            error!(error = %err, "failed to recompute timeline density after reset");
-        }
+        self.timeline_render_schedule.request_exact();
+        self.request_redraw();
+    }
+
+    fn begin_timeline_render_refine(&mut self) {
+        self.cancel_visual_transition();
+        self.timeline_render_schedule.gesture_started();
     }
 
     pub(crate) fn recompute_timeline_density(&mut self) -> Result<(), Box<dyn Error>> {
