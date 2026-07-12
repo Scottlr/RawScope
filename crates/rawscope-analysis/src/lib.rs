@@ -6,6 +6,7 @@ pub mod density;
 pub mod diff;
 pub mod inspection;
 pub mod missingness;
+pub mod profile;
 pub mod projection;
 pub mod selection;
 pub mod summary;
