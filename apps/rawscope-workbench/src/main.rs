@@ -35,6 +35,7 @@ mod app_window;
 mod cli;
 mod demo;
 mod job_coordinator;
+mod startup_lifecycle;
 mod ui;
 mod ui_comparison;
 mod ui_controls;
