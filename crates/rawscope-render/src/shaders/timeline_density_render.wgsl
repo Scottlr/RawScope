@@ -91,7 +91,7 @@ fn density_colour(intensity: f32, palette_id: u32) -> vec3<f32> {
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let clamped_uv = clamp(input.uv, vec2<f32>(0.0), vec2<f32>(0.999999));
     let x_bin = min(u32(clamped_uv.x * f32(params.grid_width)), params.grid_width - 1u);
-    let y_bin = min(u32(clamped_uv.y * f32(params.grid_height)), params.grid_height - 1u);
+    let y_bin = min(u32((1.0 - clamped_uv.y) * f32(params.grid_height)), params.grid_height - 1u);
     let bin_index = y_bin * params.grid_width + x_bin;
     let count = counts[bin_index];
     let intensity = density_intensity(count, params.max_bin_count, params.transform_id);

@@ -203,8 +203,9 @@ fn bin_u64(value: u64, range: U64Range, bin_count: u32) -> Option<u32> {
         return Some(bin_count - 1);
     }
 
-    let normalized = (value - range.min) as f64 / range.span() as f64;
-    let raw_bin = (normalized * bin_count as f64).floor() as u32;
+    let offset = u128::from(value - range.min);
+    let span = u128::from(range.span());
+    let raw_bin = (offset * u128::from(bin_count) / span) as u32;
     Some(raw_bin.min(bin_count - 1))
 }
 
