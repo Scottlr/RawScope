@@ -61,6 +61,10 @@ pub enum ScatterWireError {
     InvalidArtifactKind,
     MissingSchemaVersion,
     InvalidSchemaVersion,
+    MissingRequiredField {
+        version: u32,
+        field: &'static str,
+    },
     UnsupportedSchemaVersion(u32),
 }
 
@@ -90,6 +94,10 @@ impl fmt::Display for ScatterWireError {
             Self::InvalidSchemaVersion => {
                 formatter.write_str("scatter evidence schema_version is not an integer")
             }
+            Self::MissingRequiredField { version, field } => write!(
+                formatter,
+                "scatter evidence v{version} is missing required field {field}"
+            ),
             Self::UnsupportedSchemaVersion(version) => {
                 write!(
                     formatter,
@@ -142,6 +150,23 @@ fn inspect(bytes: &[u8]) -> Result<u32, ScatterWireError> {
         .and_then(|version| {
             u32::try_from(version).map_err(|_| ScatterWireError::InvalidSchemaVersion)
         })?;
+    let required_field = if schema_version == 1 {
+        "dataset_metadata"
+    } else {
+        "dataset_identity"
+    };
+    if !object.contains_key(required_field) {
+        return Err(ScatterWireError::MissingRequiredField {
+            version: schema_version,
+            field: required_field,
+        });
+    }
+    if !object.contains_key("selected_row_count") {
+        return Err(ScatterWireError::MissingRequiredField {
+            version: schema_version,
+            field: "selected_row_count",
+        });
+    }
     Ok(schema_version)
 }
 
@@ -161,7 +186,7 @@ mod tests {
     use super::*;
 
     fn artifact(version: u32) -> Vec<u8> {
-        format!(r#"{{"artifact_kind":"{SCATTER_ARTIFACT_KIND}","schema_version":{version}}}"#)
+        format!(r#"{{"artifact_kind":"{SCATTER_ARTIFACT_KIND}","schema_version":{version},"dataset_metadata":{{}},"dataset_identity":{{}},"selected_row_count":0}}"#)
             .into_bytes()
     }
 
@@ -184,6 +209,13 @@ mod tests {
         assert_eq!(
             decode(&artifact(6)),
             Err(ScatterWireError::UnsupportedSchemaVersion(6))
+        );
+        assert_eq!(
+            decode(br#"{"artifact_kind":"scatter-selection-evidence","schema_version":2}"#),
+            Err(ScatterWireError::MissingRequiredField {
+                version: 2,
+                field: "dataset_identity"
+            })
         );
         assert_eq!(
             decode(&vec![b' '; MAX_SCATTER_ARTIFACT_BYTES + 1]),
