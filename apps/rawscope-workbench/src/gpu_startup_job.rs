@@ -10,6 +10,7 @@ use winit::window::Window;
 
 use crate::job_coordinator::{
     CancellationToken, JobCoordinator, JobHandle, JobOutcome, JobSubmitError,
+    WorkbenchJobGeneration, WorkbenchJobKind,
 };
 
 #[derive(Clone)]
@@ -29,19 +30,23 @@ pub(crate) fn submit_gpu_initialization(
 ) -> Result<(JobHandle, GpuResolution), JobSubmitError> {
     let result = Arc::new(Mutex::new(None));
     let worker_result = Arc::clone(&result);
-    let handle = coordinator.submit(move |token: CancellationToken| {
-        if token.is_cancelled() {
-            return JobOutcome::Cancelled;
-        }
-        let resolved = pollster::block_on(GpuContext::new(window))
-            .map_err(|error| io::Error::other(error.to_string()));
-        let outcome = if resolved.is_ok() {
-            JobOutcome::Succeeded
-        } else {
-            JobOutcome::Failed
-        };
-        *worker_result.lock().expect("GPU startup result lock") = Some(resolved);
-        outcome
-    })?;
+    let handle = coordinator.submit_with_metadata(
+        WorkbenchJobKind::GpuInitialization,
+        WorkbenchJobGeneration(0),
+        move |token: CancellationToken| {
+            if token.is_cancelled() {
+                return JobOutcome::Cancelled;
+            }
+            let resolved = pollster::block_on(GpuContext::new(window))
+                .map_err(|error| io::Error::other(error.to_string()));
+            let outcome = if resolved.is_ok() {
+                JobOutcome::Succeeded
+            } else {
+                JobOutcome::Failed
+            };
+            *worker_result.lock().expect("GPU startup result lock") = Some(resolved);
+            outcome
+        },
+    )?;
     Ok((handle, GpuResolution { result }))
 }

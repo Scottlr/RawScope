@@ -5,7 +5,8 @@ use std::sync::Arc;
 use rawscope_core::SelectionId;
 
 use crate::job_coordinator::{
-    CancellationToken, JobCoordinator, JobHandle, JobOutcome, JobSubmitError, WorkbenchJobId,
+    CancellationToken, JobCoordinator, JobHandle, JobOutcome, JobSubmitError,
+    WorkbenchJobGeneration, WorkbenchJobId, WorkbenchJobKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,7 +87,11 @@ impl ExportController {
         let worker_request = request.clone();
         let handle = self
             .jobs
-            .submit(move |token| worker(token, worker_request))
+            .submit_with_metadata(
+                WorkbenchJobKind::Export,
+                WorkbenchJobGeneration(request.evidence_generation),
+                move |token| worker(token, worker_request),
+            )
             .map_err(map_submit_error)?;
         let job_id = handle.id();
         self.active_request = Some(request.clone());

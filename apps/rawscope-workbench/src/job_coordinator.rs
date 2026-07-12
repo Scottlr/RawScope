@@ -11,6 +11,7 @@ use std::{
 };
 
 use winit::event_loop::EventLoopProxy;
+use tracing::debug;
 
 use crate::workbench_event::WorkbenchUserEvent;
 
@@ -18,6 +19,17 @@ const JOB_QUEUE_CAPACITY: usize = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct WorkbenchJobId(u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct WorkbenchJobGeneration(pub(crate) u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum WorkbenchJobKind {
+    Generic,
+    StartupResolution,
+    GpuInitialization,
+    Export,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum JobOutcome {
@@ -47,6 +59,8 @@ impl CancellationToken {
 
 pub(crate) struct JobHandle {
     id: WorkbenchJobId,
+    kind: WorkbenchJobKind,
+    generation: WorkbenchJobGeneration,
     cancel: CancellationToken,
     terminal: Arc<Mutex<Option<JobOutcome>>>,
 }
@@ -54,6 +68,12 @@ pub(crate) struct JobHandle {
 impl JobHandle {
     pub(crate) fn id(&self) -> WorkbenchJobId {
         self.id
+    }
+    pub(crate) fn kind(&self) -> WorkbenchJobKind {
+        self.kind
+    }
+    pub(crate) fn generation(&self) -> WorkbenchJobGeneration {
+        self.generation
     }
     pub(crate) fn cancel(&self) {
         self.cancel.cancel();
@@ -67,6 +87,8 @@ type Job = Box<dyn FnOnce(CancellationToken) -> JobOutcome + Send + 'static>;
 
 struct QueuedJob {
     id: WorkbenchJobId,
+    kind: WorkbenchJobKind,
+    generation: WorkbenchJobGeneration,
     job: Job,
     cancel: CancellationToken,
     terminal: Arc<Mutex<Option<JobOutcome>>>,
@@ -110,11 +132,25 @@ impl JobCoordinator {
     where
         F: FnOnce(CancellationToken) -> JobOutcome + Send + 'static,
     {
+        self.submit_with_metadata(WorkbenchJobKind::Generic, WorkbenchJobGeneration(0), job)
+    }
+
+    pub(crate) fn submit_with_metadata<F>(
+        &self,
+        kind: WorkbenchJobKind,
+        generation: WorkbenchJobGeneration,
+        job: F,
+    ) -> Result<JobHandle, JobSubmitError>
+    where
+        F: FnOnce(CancellationToken) -> JobOutcome + Send + 'static,
+    {
         let id = WorkbenchJobId(self.next_id.fetch_add(1, Ordering::Relaxed));
         let cancel = CancellationToken(Arc::new(AtomicBool::new(false)));
         let terminal = Arc::new(Mutex::new(None));
         let queued = QueuedJob {
             id,
+            kind,
+            generation,
             job: Box::new(job),
             cancel: cancel.clone(),
             terminal: Arc::clone(&terminal),
@@ -129,6 +165,8 @@ impl JobCoordinator {
                     .push(cancel.clone());
                 Ok(JobHandle {
                     id,
+                    kind,
+                    generation,
                     cancel,
                     terminal,
                 })
@@ -177,6 +215,13 @@ fn spawn_worker(index: usize, receiver: Arc<Mutex<Receiver<QueuedJob>>>) -> Join
                     .unwrap_or(JobOutcome::Panicked)
             };
             *queued.terminal.lock().expect("job terminal lock") = Some(outcome);
+            debug!(
+                job_id = queued.id.0,
+                job_kind = ?queued.kind,
+                generation = queued.generation.0,
+                outcome = ?outcome,
+                "workbench job reached terminal state"
+            );
             if let Some(proxy) = queued.proxy {
                 let _ = proxy.send_event(WorkbenchUserEvent::JobCompleted {
                     job_id: queued.id,
@@ -196,10 +241,29 @@ mod tests {
     fn accepted_jobs_reach_durable_terminal_state() {
         let coordinator = JobCoordinator::new(1);
         let handle = coordinator.submit(|_| JobOutcome::Succeeded).unwrap();
+        assert_eq!(handle.kind(), WorkbenchJobKind::Generic);
+        assert_eq!(handle.generation(), WorkbenchJobGeneration(0));
         while handle.outcome().is_none() {
             std::thread::yield_now();
         }
         assert_eq!(handle.outcome(), Some(JobOutcome::Succeeded));
+    }
+
+    #[test]
+    fn accepted_jobs_retain_typed_kind_and_generation_metadata() {
+        let coordinator = JobCoordinator::new(1);
+        let handle = coordinator
+            .submit_with_metadata(
+                WorkbenchJobKind::StartupResolution,
+                WorkbenchJobGeneration(7),
+                |_| JobOutcome::Succeeded,
+            )
+            .unwrap();
+        while handle.outcome().is_none() {
+            std::thread::yield_now();
+        }
+        assert_eq!(handle.kind(), WorkbenchJobKind::StartupResolution);
+        assert_eq!(handle.generation(), WorkbenchJobGeneration(7));
     }
 
     #[test]
