@@ -197,6 +197,8 @@ class FileBridgeTests(unittest.TestCase):
             environment = Path(temporary) / "environment.exe"
             explicit.write_bytes(b"")
             environment.write_bytes(b"")
+            _mark_executable(explicit)
+            _mark_executable(environment)
 
             with patch.dict(os.environ, {"RAWSCOPE_WORKBENCH": str(environment)}):
                 self.assertEqual(resolve_workbench_executable(explicit), str(explicit.resolve()))
@@ -230,6 +232,7 @@ class FileBridgeTests(unittest.TestCase):
             )
             executable = root / "rawscope-workbench.exe"
             executable.write_bytes(b"")
+            _mark_executable(executable)
             process = MagicMock()
             process.pid = 42
             with patch("rawscope.launcher.subprocess.Popen", return_value=process) as popen:
@@ -264,6 +267,7 @@ class FileBridgeTests(unittest.TestCase):
                 bundle_dir = session.bundle_dir
                 executable = bundle_dir.parent / "rawscope-workbench.exe"
                 executable.write_bytes(b"")
+                _mark_executable(executable)
                 with self.assertRaises(OSError), patch(
                     "rawscope.launcher.subprocess.Popen", side_effect=OSError("spawn failed")
                 ):
@@ -277,6 +281,7 @@ class FileBridgeTests(unittest.TestCase):
             dataset.write_text("x,y\n1,2\n", encoding="utf-8")
             executable = root / "rawscope-workbench.exe"
             executable.write_bytes(b"")
+            _mark_executable(executable)
             process = MagicMock()
             process.pid = 7
             with patch("rawscope.launcher.subprocess.Popen", return_value=process):
@@ -289,6 +294,11 @@ class FileBridgeTests(unittest.TestCase):
 
             self.assertEqual(launched.pid, 7)
             self.assertTrue(launched.session.manifest_path.is_file())
+
+
+def _mark_executable(path: Path) -> None:
+    if os.name != "nt":
+        path.chmod(0o755)
 
 
 if __name__ == "__main__":

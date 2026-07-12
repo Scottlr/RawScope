@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -141,6 +142,7 @@ class DataframeAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             executable = Path(temporary) / "rawscope-test-workbench.exe"
             executable.write_bytes(b"")
+            _mark_executable(executable)
             with patch("rawscope.launcher.subprocess.Popen", return_value=process_mock):
                 launched = rawscope.view(
                     table,
@@ -164,6 +166,7 @@ class DataframeAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             executable = Path(temporary) / "rawscope-test-workbench.exe"
             executable.write_bytes(b"")
+            _mark_executable(executable)
             with patch("rawscope.launcher.subprocess.Popen", return_value=process_mock):
                 launched = rawscope.view(
                     table,
@@ -190,6 +193,7 @@ class DataframeAdapterTests(unittest.TestCase):
             bundle_dir = Path(temporary) / "persistent"
             executable = Path(temporary) / "rawscope-test-workbench.exe"
             executable.write_bytes(b"")
+            _mark_executable(executable)
             with patch("rawscope.launcher.subprocess.Popen", return_value=process_mock):
                 session = rawscope.prepare(
                     table,
@@ -208,6 +212,11 @@ class DataframeAdapterTests(unittest.TestCase):
                 json.loads(session.manifest_path.read_text(encoding="utf-8"))["dataset"]["path"],
                 "data.parquet",
             )
+
+
+def _mark_executable(path: Path) -> None:
+    if os.name != "nt":
+        path.chmod(0o755)
 
 
 if __name__ == "__main__":
