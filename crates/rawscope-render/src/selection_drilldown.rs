@@ -7,7 +7,7 @@ use rawscope_data::{
 };
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
-use crate::{ScatterBrushSelection, TimelineBrushSelection};
+use crate::{ScatterBrushSelection, SelectionSnapshot, TimelineBrushSelection};
 
 const DEFAULT_MAX_DRILLDOWN_ROWS: usize = 100;
 const SCATTER_FALLBACK_COLUMN_NAMES: [&str; 4] = ["row_id", "x", "y", "kind"];
@@ -52,6 +52,38 @@ pub fn scatter_selection_drilldown_masked(
         columns,
         rows,
     })
+}
+
+/// Builds scatter drilldown rows from an already-finalized immutable snapshot.
+pub fn scatter_selection_drilldown_snapshot(
+    points: &[ScatterPointRecord],
+    snapshot: &SelectionSnapshot,
+    source_rows: Option<&LoadedSourceTable>,
+    config: DrilldownConfig,
+) -> SelectionDrilldown {
+    let columns = source_rows
+        .map(source_columns)
+        .unwrap_or_else(scatter_fallback_columns);
+    let mut rows = Vec::new();
+    for point in points {
+        if snapshot.row_ids().binary_search(&point.row_id).is_err() {
+            continue;
+        }
+        let row = match source_rows {
+            Some(table) => source_row(table, point.row_id),
+            None => Some(scatter_fallback_row(point)),
+        };
+        if let Some(row) = row {
+            insert_lowest_row_id_sample(&mut rows, row, config.max_rows);
+        }
+    }
+    SelectionDrilldown {
+        selected_row_count: snapshot.selected_count(),
+        displayed_row_count: rows.len(),
+        rows_are_sampled: snapshot.selected_count() > rows.len(),
+        columns,
+        rows,
+    }
 }
 
 /// One selected drilldown row.
