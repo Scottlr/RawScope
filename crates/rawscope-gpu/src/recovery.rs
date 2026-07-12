@@ -43,6 +43,16 @@ pub enum GpuRecoveryState {
 }
 
 impl GpuRecoveryState {
+    pub const fn generation(self) -> Option<DeviceGeneration> {
+        match self {
+            Self::Ready(generation)
+            | Self::SurfaceOutdated { generation }
+            | Self::DeviceLost { generation, .. } => Some(generation),
+            Self::Recovering { previous } => Some(previous),
+            Self::Fatal => None,
+        }
+    }
+
     pub fn accepts(self, generation: DeviceGeneration) -> bool {
         matches!(self, Self::Ready(current) if current == generation)
     }
@@ -121,6 +131,16 @@ mod tests {
             .surface_outdated()
             .surface_reconfigured();
         assert_eq!(state, GpuRecoveryState::Ready(generation));
+    }
+
+    #[test]
+    fn generation_remains_identifiable_while_recovering() {
+        let state = GpuRecoveryState::Ready(DeviceGeneration(7))
+            .device_lost(DeviceLossReason::Destroyed)
+            .begin_recovery();
+        assert_eq!(state.generation(), Some(DeviceGeneration(7)));
+        assert_eq!(state.recovered().generation(), Some(DeviceGeneration(8)));
+        assert_eq!(GpuRecoveryState::Fatal.generation(), None);
     }
 
     #[test]

@@ -81,6 +81,7 @@ impl GpuContext {
         device.on_uncaptured_error(Arc::new(move |error| {
             if let Ok(mut signals) = uncaptured_signals.lock() {
                 signals.push(GpuRuntimeSignal::UncapturedError {
+                    generation: DeviceGeneration(0),
                     message: error.to_string(),
                 });
             }
@@ -89,6 +90,7 @@ impl GpuContext {
         device.set_device_lost_callback(move |reason, message| {
             if let Ok(mut signals) = lost_signals.lock() {
                 signals.push(GpuRuntimeSignal::DeviceLost {
+                    generation: DeviceGeneration(0),
                     reason: DeviceLossReason::from_wgpu(reason),
                     message,
                 });
@@ -159,8 +161,13 @@ impl GpuContext {
             .map(|mut signals| std::mem::take(&mut *signals))
             .unwrap_or_default();
         for signal in &signals {
-            if let GpuRuntimeSignal::DeviceLost { reason, .. } = signal {
-                self.recovery_state = self.recovery_state.device_lost(*reason);
+            if let GpuRuntimeSignal::DeviceLost {
+                generation, reason, ..
+            } = signal
+            {
+                if self.recovery_state.generation() == Some(*generation) {
+                    self.recovery_state = self.recovery_state.device_lost(*reason);
+                }
             }
         }
         signals
