@@ -21,7 +21,7 @@ pub fn transition_decision(
     current: ScatterTransitionField,
     reduced_motion: bool,
 ) -> TransitionDecision {
-    if reduced_motion || previous.map_or(true, |previous| !compatible(previous, current)) {
+    if reduced_motion || previous.is_none_or(|previous| !compatible(previous, current)) {
         TransitionDecision::ImmediateSwap
     } else {
         TransitionDecision::Crossfade
