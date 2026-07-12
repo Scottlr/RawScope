@@ -15,6 +15,7 @@ pub(crate) struct ActiveLinkedSelection {
     pub(crate) visual_selection: VisualSelection,
     pub(crate) dataset_identity: DatasetIdentity,
     pub(crate) snapshot: Option<SelectionSnapshot>,
+    pub(crate) analysis_snapshot: Option<rawscope_analysis::selection::SelectionSnapshot>,
 }
 
 impl WorkbenchApp {
@@ -71,6 +72,18 @@ impl WorkbenchApp {
             .as_ref()
             .map(|snapshot| snapshot.row_ids().to_vec())
             .unwrap_or_default();
+        let analysis_snapshot = snapshot.as_ref().and_then(|snapshot| {
+            let cohort = self.scatter_filters.cohort_snapshot.as_ref()?;
+            rawscope_analysis::selection::SelectionSnapshot::from_parts(
+                cohort.dataset_generation(),
+                cohort.cohort_generation(),
+                selection_id,
+                snapshot.row_ids().iter().copied(),
+                snapshot.selected_bins().iter().copied(),
+                SELECTION_SAMPLE_LIMIT,
+            )
+            .ok()
+        });
 
         self.workbench_state.active_selection = Some(ActiveLinkedSelection {
             visual_selection: VisualSelection::from_unsorted(
@@ -84,6 +97,7 @@ impl WorkbenchApp {
             ),
             dataset_identity,
             snapshot,
+            analysis_snapshot,
         });
     }
 
@@ -149,6 +163,7 @@ impl WorkbenchApp {
             ),
             dataset_identity,
             snapshot,
+            analysis_snapshot: None,
         });
     }
 
