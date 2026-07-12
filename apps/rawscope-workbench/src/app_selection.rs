@@ -48,7 +48,7 @@ impl WorkbenchApp {
             .map(|snapshot| snapshot.row_ids().to_vec())
             .unwrap_or_default();
 
-        self.active_selection = Some(ActiveLinkedSelection {
+        self.workbench_state.active_selection = Some(ActiveLinkedSelection {
             visual_selection: VisualSelection::from_unsorted(
                 selection_id,
                 SCATTER_VIEW_ID,
@@ -108,7 +108,7 @@ impl WorkbenchApp {
             }
         };
 
-        self.active_selection = Some(ActiveLinkedSelection {
+        self.workbench_state.active_selection = Some(ActiveLinkedSelection {
             visual_selection: VisualSelection::from_unsorted(
                 selection_id,
                 TIMELINE_VIEW_ID,
@@ -124,12 +124,13 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn clear_active_selection(&mut self) {
-        self.active_selection = None;
+        self.workbench_state.active_selection = None;
         self.clear_active_comparison();
     }
 
     pub(crate) fn active_linked_selection_count(&self) -> usize {
-        self.active_selection
+        self.workbench_state
+            .active_selection
             .as_ref()
             .map(|selection| selection.visual_selection.selected_row_count())
             .unwrap_or(0)
@@ -188,6 +189,7 @@ mod tests {
         app.publish_scatter_active_selection();
 
         let selection = app
+            .workbench_state
             .active_selection
             .as_ref()
             .expect("active selection should exist");
@@ -230,6 +232,7 @@ mod tests {
 
         app.publish_timeline_active_selection();
         let first_selection_id = app
+            .workbench_state
             .active_selection
             .as_ref()
             .expect("active selection should exist")
@@ -237,6 +240,7 @@ mod tests {
             .selection_id();
         app.publish_timeline_active_selection();
         let second_selection_id = app
+            .workbench_state
             .active_selection
             .as_ref()
             .expect("active selection should exist")

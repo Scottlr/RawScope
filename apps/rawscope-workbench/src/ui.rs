@@ -686,7 +686,7 @@ fn axis_labels(app: &WorkbenchApp) -> (String, String) {
 }
 
 fn linked_selection_label(app: &WorkbenchApp) -> String {
-    let Some(active_selection) = app.active_selection.as_ref() else {
+    let Some(active_selection) = app.workbench_state.active_selection.as_ref() else {
         return "Linked selection idle".to_string();
     };
 
