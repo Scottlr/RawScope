@@ -2,7 +2,7 @@
 
 use tracing::info;
 
-use crate::{ComputeAdapterInfo, GpuError};
+use crate::{AdapterPolicy, ComputeAdapterInfo, GpuError};
 
 /// Owns a WGPU instance, device, and queue without a presentation surface.
 pub struct ComputeContext {
@@ -15,15 +15,29 @@ pub struct ComputeContext {
 impl ComputeContext {
     /// Initializes WGPU for headless compute work.
     pub async fn new() -> Result<Self, GpuError> {
+        Self::new_with_policy(AdapterPolicy::default()).await
+    }
+
+    /// Initializes headless compute work using an explicit adapter policy.
+    pub async fn new_with_policy(policy: AdapterPolicy) -> Result<Self, GpuError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: None,
-            })
+        let adapter = match instance
+            .request_adapter(&policy.request_options(None))
             .await
-            .map_err(GpuError::RequestAdapter)?;
+        {
+            Ok(adapter) => adapter,
+            Err(error) if policy.allows_fallback() => instance
+                .request_adapter(&policy.fallback_request_options(None))
+                .await
+                .map_err(GpuError::RequestAdapter)
+                .inspect_err(|_fallback_error| {
+                    tracing::warn!(
+                        ?error,
+                        "preferred headless WGPU adapter unavailable; software fallback failed"
+                    );
+                })?,
+            Err(error) => return Err(GpuError::RequestAdapter(error)),
+        };
 
         let adapter_info = adapter.get_info();
         let (device, queue) = adapter
