@@ -183,6 +183,19 @@ mod tests {
         assert_eq!(align_of::<GpuPoint>(), 4);
         assert_eq!(size_of::<ScatterParams>(), 32);
         assert_eq!(align_of::<ScatterParams>(), 4);
+        assert_eq!(std::mem::offset_of!(GpuPoint, x), 0);
+        assert_eq!(std::mem::offset_of!(GpuPoint, y), 4);
+        assert_eq!(std::mem::offset_of!(ScatterParams, x_min), 0);
+        assert_eq!(std::mem::offset_of!(ScatterParams, x_max), 4);
+        assert_eq!(std::mem::offset_of!(ScatterParams, y_min), 8);
+        assert_eq!(std::mem::offset_of!(ScatterParams, y_max), 12);
+        assert_eq!(std::mem::offset_of!(ScatterParams, grid_width), 16);
+        assert_eq!(std::mem::offset_of!(ScatterParams, grid_height), 20);
+        assert_eq!(std::mem::offset_of!(ScatterParams, point_start), 24);
+        assert_eq!(
+            std::mem::offset_of!(ScatterParams, dispatch_point_count),
+            28
+        );
     }
 
     #[test]

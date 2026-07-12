@@ -99,6 +99,25 @@ mod tests {
         assert_eq!(align_of::<GpuTimelineEvent>(), 4);
         assert_eq!(size_of::<TimelineParams>(), 24);
         assert_eq!(align_of::<TimelineParams>(), 4);
+        assert_eq!(std::mem::offset_of!(GpuTimelineEvent, timestamp_offset), 0);
+        assert_eq!(std::mem::offset_of!(GpuTimelineEvent, lane), 4);
+        assert_eq!(
+            std::mem::offset_of!(GpuTimelineEvent, is_before_time_range),
+            8
+        );
+        assert_eq!(
+            std::mem::offset_of!(GpuTimelineEvent, is_after_time_range),
+            12
+        );
+        assert_eq!(std::mem::offset_of!(TimelineParams, time_span), 0);
+        assert_eq!(std::mem::offset_of!(TimelineParams, lane_count), 4);
+        assert_eq!(std::mem::offset_of!(TimelineParams, grid_width), 8);
+        assert_eq!(std::mem::offset_of!(TimelineParams, grid_height), 12);
+        assert_eq!(std::mem::offset_of!(TimelineParams, event_start), 16);
+        assert_eq!(
+            std::mem::offset_of!(TimelineParams, dispatch_event_count),
+            20
+        );
     }
 
     #[test]
