@@ -16,6 +16,12 @@ use crate::{
 pub(super) fn to_json(
     evidence: &ScatterSelectionEvidenceV4,
 ) -> Result<String, ScatterSelectionExportError> {
+    evidence.validate().map_err(|error| {
+        serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            error.to_string(),
+        ))
+    })?;
     serde_json::to_string_pretty(&ScatterSelectionEvidenceV4Artifact::from(evidence))
 }
 
