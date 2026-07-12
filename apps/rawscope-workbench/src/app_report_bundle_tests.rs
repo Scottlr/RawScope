@@ -5,14 +5,16 @@ use rawscope_data::{
     DatasetIdentity, DatasetProfileId, ScatterPointKind, ScatterProjection, SyntheticEventType,
     SyntheticPointCategory,
 };
+use rawscope_evidence::{
+    ScatterEvidenceView, ScatterSelectionEvidenceV2, ScatterSelectionKindCounts,
+};
 use rawscope_render::{
     scatter_selection_evidence_v4_json, AggregateEvidenceBin, ComparisonRatio, DensityEncoding,
     PointRevealEvidence, PointRevealMode, ScatterAggregateEvidenceContext, ScatterCohortEvidence,
-    ScatterDensityMode, ScatterDensityPresentation, ScatterEvidenceView, ScatterKindComparison,
-    ScatterSelectionComparison, ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3,
-    ScatterSelectionEvidenceV4, ScatterSelectionEvidenceV5, ScatterVisualQueryV4,
-    SelectedCategoryCounts, SelectedEventTypeCounts, TimelineEvidenceView, TimelineLaneRange,
-    TimelineSelectionEvidenceV2,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterKindComparison,
+    ScatterSelectionComparison, ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4,
+    ScatterSelectionEvidenceV5, ScatterVisualQueryV4, SelectedEventTypeCounts,
+    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
 };
 
 use crate::app_report_bundle::{
@@ -291,9 +293,9 @@ fn sample_scatter_evidence() -> ScatterSelectionEvidenceV2 {
         selected_record_sample: vec![],
         selected_source_column_names: vec![],
         selected_source_row_sample: vec![],
-        point_kind_counts: SelectedCategoryCounts {
+        point_kind_counts: ScatterSelectionKindCounts {
             cluster: 2,
-            ..SelectedCategoryCounts::default()
+            ..ScatterSelectionKindCounts::default()
         },
         top_point_kind: Some(ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster)),
         selected_x_range: Some(F32Range::new(10.0, 11.0)),

@@ -5,9 +5,10 @@ use rawscope_data::{DatasetIdentity, DatasetProfileId};
 
 use crate::scatter_selection_evidence_v3::AggregateEvidenceBin;
 use crate::{
-    DensityEncoding, SelectedSourceRowSample, SelectedTimelineEventSampleV2, TimelineLaneRange,
-    TimelineSelectionComparison, TimelineSelectionEvidenceV2,
+    DensityEncoding, SelectedTimelineEventSampleV2, TimelineLaneRange, TimelineSelectionComparison,
+    TimelineSelectionEvidenceV2,
 };
+use rawscope_evidence::SelectedSourceRowSample;
 
 /// Schema version for timeline selection evidence v3 artifacts.
 pub const TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION: u32 = 3;

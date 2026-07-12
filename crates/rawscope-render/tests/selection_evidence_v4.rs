@@ -1,14 +1,17 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{DatasetFilter, DatasetIdentity, ScatterProjection};
+use rawscope_evidence::{
+    ScatterEvidenceView, ScatterSelectionEvidenceV2, ScatterSelectionKindCounts,
+};
 use rawscope_render::{
     scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
     scatter_selection_evidence_v4_json, scatter_selection_evidence_v4_markdown, ComparisonRatio,
     DensityEncoding, DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence,
     PointRevealEvidence, PointRevealMode, ReliefFieldConfig, ScatterAggregateEvidenceContext,
-    ScatterCohortEvidence, ScatterDensityMode, ScatterDensityPresentation, ScatterEvidenceView,
-    ScatterKindComparison, ScatterSelectionComparison, ScatterSelectionEvidenceV2,
-    ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4, ScatterSelectionEvidenceV4Error,
-    ScatterVisualQueryV4, SelectedCategoryCounts, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
+    ScatterCohortEvidence, ScatterDensityMode, ScatterDensityPresentation, ScatterKindComparison,
+    ScatterSelectionComparison, ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4,
+    ScatterSelectionEvidenceV4Error, ScatterVisualQueryV4, DIFFERENCE_BASELINE_ID,
+    DIFFERENCE_FORMULA_ID,
 };
 
 #[test]
@@ -216,7 +219,7 @@ fn sample_v3() -> ScatterSelectionEvidenceV3 {
         selected_record_sample: vec![],
         selected_source_column_names: vec![],
         selected_source_row_sample: vec![],
-        point_kind_counts: SelectedCategoryCounts::default(),
+        point_kind_counts: ScatterSelectionKindCounts::default(),
         top_point_kind: None,
         selected_x_range: None,
         selected_y_range: None,

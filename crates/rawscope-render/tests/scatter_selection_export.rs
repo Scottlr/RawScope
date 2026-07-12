@@ -5,11 +5,11 @@ use rawscope_data::{
     DatasetIdentity, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
     ScatterPointKind, ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointCategory,
 };
-use rawscope_render::{
+use rawscope_evidence::{
     scatter_selection_evidence_json, scatter_selection_evidence_markdown,
     scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
-    ScatterBrushSelection, ScatterEvidenceView, ScatterSelectionEvidence,
-    ScatterSelectionEvidenceV2, SelectionEvidenceConfig,
+    ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
+    ScatterSelectionGeometry, SelectionEvidenceConfig,
 };
 
 fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> ScatterPointRecord {
@@ -27,7 +27,7 @@ fn selection_evidence() -> ScatterSelectionEvidence {
         point(1, 10.0, 20.0, SyntheticPointCategory::Cluster),
         point(3, 30.0, 40.0, SyntheticPointCategory::Cluster),
     ];
-    let selection = ScatterBrushSelection {
+    let selection = ScatterSelectionGeometry {
         x_range: F32Range::new(0.0, 50.0),
         y_range: F32Range::new(0.0, 60.0),
     };
@@ -62,7 +62,7 @@ fn local_selection_evidence_v2() -> ScatterSelectionEvidenceV2 {
             kind: ScatterPointKind::Unclassified,
         },
     ];
-    let selection = ScatterBrushSelection {
+    let selection = ScatterSelectionGeometry {
         x_range: F32Range::new(0.0, 50.0),
         y_range: F32Range::new(0.0, 60.0),
     };
@@ -163,7 +163,7 @@ fn markdown_export_contains_key_sections_and_stable_samples() {
 #[test]
 fn markdown_export_handles_empty_selection() {
     let points = vec![point(0, 10.0, 20.0, SyntheticPointCategory::Cluster)];
-    let selection = ScatterBrushSelection {
+    let selection = ScatterSelectionGeometry {
         x_range: F32Range::new(90.0, 100.0),
         y_range: F32Range::new(90.0, 100.0),
     };

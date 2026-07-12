@@ -7,10 +7,10 @@ use rawscope_data::{
 };
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
-use crate::scatter_selection_evidence::SelectedSourceRowSample;
 use crate::{
     SelectedEventTypeCounts, TimelineBrushSelection, TimelineLaneRange, TimelineSelectionSummary,
 };
+use rawscope_evidence::SelectedSourceRowSample;
 
 const DEFAULT_MAX_TIMELINE_SAMPLE_SIZE: usize = 10;
 

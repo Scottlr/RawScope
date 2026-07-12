@@ -1,10 +1,13 @@
 //! Brush interaction helpers for the workbench scatter-density demo.
 
+use rawscope_evidence::{
+    ScatterSelectionEvidence, ScatterSelectionGeometry, SelectionEvidenceConfig,
+};
 use rawscope_render::{
     scatter_selection_drilldown, scatter_selection_drilldown_masked,
     scatter_selection_drilldown_snapshot, selected_region_summary_masked,
     selected_region_summary_snapshot, ScatterBrushDrag, ScatterBrushSelection,
-    ScatterSelectionEvidence, SelectedRegionSummary, SelectionEvidenceConfig,
+    SelectedRegionSummary,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -157,7 +160,10 @@ impl WorkbenchApp {
 
         self.scatter.selection_evidence = Some(ScatterSelectionEvidence::from_points(
             &self.scatter.points,
-            selection,
+            ScatterSelectionGeometry {
+                x_range: selection.x_range,
+                y_range: selection.y_range,
+            },
             dataset_metadata,
             self.scatter_evidence_row_count(),
             SelectionEvidenceConfig::default(),

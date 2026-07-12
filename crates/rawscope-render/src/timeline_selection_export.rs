@@ -9,10 +9,11 @@ use serde::Serialize;
 
 use crate::markdown_escape::{escape_table_cell, portable_path_label};
 use crate::{
-    SelectedEventTypeCounts, SelectedSourceRowSample, SelectedTimelineEventSample,
-    SelectedTimelineEventSampleV2, TimelineEvidenceView, TimelineLaneRange,
-    TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
+    SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
+    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
+    TimelineSelectionEvidenceV2,
 };
+use rawscope_evidence::SelectedSourceRowSample;
 
 /// Artifact kind used by timeline selection evidence JSON and export manifests.
 pub const TIMELINE_SELECTION_EVIDENCE_ARTIFACT_KIND: &str = "timeline-selection-evidence";

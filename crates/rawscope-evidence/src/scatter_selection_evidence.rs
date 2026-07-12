@@ -7,9 +7,58 @@ use rawscope_data::{
 };
 
 use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
-use crate::{ScatterBrushSelection, SelectedCategoryCounts};
 
 const DEFAULT_MAX_SAMPLE_SIZE: usize = 10;
+
+/// Data-space geometry used to build scatter evidence without render coupling.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScatterSelectionGeometry {
+    pub x_range: F32Range,
+    pub y_range: F32Range,
+}
+
+/// Counts selected rows by synthetic point kind.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ScatterSelectionKindCounts {
+    pub cluster: usize,
+    pub background: usize,
+    pub outlier: usize,
+    pub unclassified: usize,
+}
+
+impl ScatterSelectionKindCounts {
+    pub fn top_category(self) -> Option<SyntheticPointCategory> {
+        [
+            (SyntheticPointCategory::Cluster, self.cluster),
+            (SyntheticPointCategory::Background, self.background),
+            (SyntheticPointCategory::Outlier, self.outlier),
+        ]
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .and_then(|(category, count)| (count > 0).then_some(category))
+    }
+
+    pub fn top_point_kind(self) -> Option<ScatterPointKind> {
+        [
+            (
+                ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster),
+                self.cluster,
+            ),
+            (
+                ScatterPointKind::Synthetic(SyntheticPointCategory::Background),
+                self.background,
+            ),
+            (
+                ScatterPointKind::Synthetic(SyntheticPointCategory::Outlier),
+                self.outlier,
+            ),
+            (ScatterPointKind::Unclassified, self.unclassified),
+        ]
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .and_then(|(kind, count)| (count > 0).then_some(kind))
+    }
+}
 
 /// Configuration for deterministic scatter selection evidence building.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,7 +158,7 @@ pub struct ScatterSelectionEvidence {
     pub selected_percentage: f32,
     pub selected_row_id_sample: Vec<RowId>,
     pub selected_record_sample: Vec<SelectedPointSample>,
-    pub category_counts: SelectedCategoryCounts,
+    pub category_counts: ScatterSelectionKindCounts,
     pub top_category: Option<SyntheticPointCategory>,
     pub selected_x_range: Option<F32Range>,
     pub selected_y_range: Option<F32Range>,
@@ -128,7 +177,7 @@ pub struct ScatterSelectionEvidenceV2 {
     pub selected_record_sample: Vec<SelectedPointSampleV2>,
     pub selected_source_column_names: Vec<String>,
     pub selected_source_row_sample: Vec<SelectedSourceRowSample>,
-    pub point_kind_counts: SelectedCategoryCounts,
+    pub point_kind_counts: ScatterSelectionKindCounts,
     pub top_point_kind: Option<ScatterPointKind>,
     pub selected_x_range: Option<F32Range>,
     pub selected_y_range: Option<F32Range>,
@@ -187,7 +236,7 @@ impl ScatterSelectionEvidence {
     /// the same evidence without random state.
     pub fn from_points(
         points: &[ScatterPointRecord],
-        selection: ScatterBrushSelection,
+        geometry: ScatterSelectionGeometry,
         dataset_metadata: SyntheticDatasetMetadata,
         point_preset_row_count: usize,
         config: SelectionEvidenceConfig,
@@ -197,11 +246,12 @@ impl ScatterSelectionEvidence {
         let mut selected_max_x = f32::NEG_INFINITY;
         let mut selected_min_y = f32::INFINITY;
         let mut selected_max_y = f32::NEG_INFINITY;
-        let mut category_counts = SelectedCategoryCounts::default();
+        let mut category_counts = ScatterSelectionKindCounts::default();
         let mut selected_record_sample = Vec::new();
 
         for point in points {
-            let point_is_selected = selection.contains_point(point);
+            let point_is_selected =
+                geometry.x_range.contains(point.x) && geometry.y_range.contains(point.y);
             if !point_is_selected {
                 continue;
             }
@@ -240,13 +290,13 @@ impl ScatterSelectionEvidence {
             top_category: category_counts.top_category(),
             selected_x_range: selected_range(selected_row_count, selected_min_x, selected_max_x),
             selected_y_range: selected_range(selected_row_count, selected_min_y, selected_max_y),
-            brush_x_range: selection.x_range,
-            brush_y_range: selection.y_range,
+            brush_x_range: geometry.x_range,
+            brush_y_range: geometry.y_range,
         }
     }
 }
 
-fn add_category_count(counts: &mut SelectedCategoryCounts, kind: ScatterPointKind) {
+fn add_category_count(counts: &mut ScatterSelectionKindCounts, kind: ScatterPointKind) {
     match kind {
         ScatterPointKind::Synthetic(SyntheticPointCategory::Cluster) => counts.cluster += 1,
         ScatterPointKind::Synthetic(SyntheticPointCategory::Background) => counts.background += 1,

@@ -3,8 +3,8 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{DatasetIdentity, DatasetProfileId};
 
-use crate::{
-    DensityEncoding, ScatterDensityPresentation, ScatterSelectionComparison,
+use crate::{DensityEncoding, ScatterDensityPresentation, ScatterSelectionComparison};
+use rawscope_evidence::{
     ScatterSelectionEvidenceV2, SelectedPointSampleV2, SelectedSourceRowSample,
 };
 
