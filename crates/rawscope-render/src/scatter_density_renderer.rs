@@ -276,6 +276,14 @@ impl ScatterDensityRenderer {
         })
     }
 
+    pub fn cancel_full_readback(&mut self) {
+        self.gpu_state.cancel_full_readback();
+    }
+
+    pub fn has_pending_full_readback(&self) -> bool {
+        self.gpu_state.has_pending_full_readback()
+    }
+
     pub fn set_display_viewport(
         &mut self,
         queue: &wgpu::Queue,
