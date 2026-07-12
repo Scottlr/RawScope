@@ -6,6 +6,7 @@ mod context;
 mod error;
 mod limits;
 mod policy;
+mod readback;
 mod recovery;
 
 pub use adapter::{ComputeAdapterInfo, GpuAdapterInfo};
@@ -14,4 +15,7 @@ pub use context::{ClearFrameStatus, GpuContext};
 pub use error::GpuError;
 pub use limits::{GpuLimitError, GpuResourcePlan};
 pub use policy::{AdapterPolicy, FallbackPolicy};
+pub use readback::{
+    GpuReadbackTicket, ReadbackError, ReadbackGeneration, ReadbackProgress, ReadbackState,
+};
 pub use recovery::{DeviceGeneration, DeviceLossReason, GpuRecoveryState};
