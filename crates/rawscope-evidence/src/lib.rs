@@ -4,6 +4,7 @@ mod bundle;
 mod document;
 mod provenance;
 mod quantization;
+mod schema;
 pub mod wire;
 
 pub use bundle::{
@@ -20,4 +21,8 @@ pub use provenance::{
 pub use quantization::{
     GpuNumericEncoding, NumericDomainV1, QuantizationDisclosureV1, QuantizationError,
     SourceNumericType,
+};
+pub use schema::{
+    EvidenceSchemaFamily, EvidenceSchemaVersion, SCATTER_SELECTION_EVIDENCE_V6_SCHEMA_VERSION,
+    TIMELINE_SELECTION_EVIDENCE_V4_SCHEMA_VERSION,
 };
