@@ -197,7 +197,7 @@ impl WorkbenchApp {
         &self,
         evidence_v2: &ScatterSelectionEvidenceV2,
     ) -> Option<ScatterSelectionEvidenceV3> {
-        let comparison = match self.active_comparison.as_ref()? {
+        let comparison = match self.workbench_state.active_comparison.as_ref()? {
             WorkbenchComparison::Scatter(comparison) => comparison.clone(),
             _ => return None,
         };
@@ -351,7 +351,7 @@ impl WorkbenchApp {
         &self,
         evidence_v2: &TimelineSelectionEvidenceV2,
     ) -> Option<TimelineSelectionEvidenceV3> {
-        let comparison = match self.active_comparison.as_ref()? {
+        let comparison = match self.workbench_state.active_comparison.as_ref()? {
             WorkbenchComparison::Timeline(comparison) => comparison.clone(),
             _ => return None,
         };

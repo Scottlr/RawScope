@@ -74,7 +74,6 @@ pub struct WorkbenchApp {
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
-    pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) scatter: ScatterWorkbenchState,

@@ -28,6 +28,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) pending_session: Option<PendingSessionContext>,
     pub(crate) active_session: Option<ActiveSessionContext>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
+    pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
 }
 
 #[cfg(test)]
