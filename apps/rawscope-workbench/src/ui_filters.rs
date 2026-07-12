@@ -82,7 +82,6 @@ pub(crate) enum FilterAction {
 
 pub(crate) fn scatter_filters_ui_state(app: &WorkbenchApp) -> Option<ScatterFiltersUiState> {
     let catalog = app.scatter_filters.catalog.as_ref()?;
-    let evaluation = app.scatter_filters.evaluation.as_ref()?;
     let controls = app
         .scatter_filters
         .visible_columns
@@ -173,7 +172,15 @@ pub(crate) fn scatter_filters_ui_state(app: &WorkbenchApp) -> Option<ScatterFilt
             .iter()
             .map(|filter| filter.column_name().to_string())
             .collect(),
-        included_count: evaluation.included_count,
+        included_count: app.scatter_filters.cohort_snapshot.as_ref().map_or_else(
+            || {
+                app.scatter_filters
+                    .evaluation
+                    .as_ref()
+                    .map_or(catalog.row_count, |evaluation| evaluation.included_count)
+            },
+            |snapshot| snapshot.included_row_count() as usize,
+        ),
         total_count: catalog.row_count,
         error: app.scatter_filters.error.clone(),
     })
