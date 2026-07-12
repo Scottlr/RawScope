@@ -164,7 +164,8 @@ impl WorkbenchApp {
             return;
         }
         match self.active_pointer_gesture {
-            Some(ActivePointerGesture::Pan) => self.end_pan(),
+            Some(ActivePointerGesture::Pan) if self.demo_mode.is_scatter() => self.end_pan(),
+            Some(ActivePointerGesture::Pan) => self.end_timeline_pan(),
             Some(ActivePointerGesture::ScatterBrush) => self.end_brush(),
             Some(ActivePointerGesture::TimelineBrush) => self.end_timeline_brush(),
             Some(ActivePointerGesture::Inspect) | None => {}
