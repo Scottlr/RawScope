@@ -15,6 +15,6 @@ and are not inferred from compilation. Branch-protection administration is a
 repository-owner decision; the workflow job names are stable so they can be
 required after a successful observed run.
 
-The current declared Rust MSRV is 1.88.0. It is validated against the locked
+The current declared Rust MSRV is 1.92.0. It is validated against the locked
 dependency graph; the contributor toolchain remains separately pinned in
 `rust-toolchain.toml`.
