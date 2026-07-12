@@ -181,6 +181,21 @@ Screenshot capture note: in-app screenshot capture is intentionally deferred bec
 - `crates/rawscope-render`: CPU density references, GPU scatter/timeline density compute, simple density renderers, viewport math, brush geometry, selection summaries/evidence, and evidence artifact formatting
 - `apps/rawscope-workbench`: native `winit` workbench that coordinates startup args, WGPU context, active view state, input handling, brushing, title-bar summaries, and evidence export
 
+### Data feature matrix
+
+`rawscope-data` keeps local adapter dependencies opt-in at the crate boundary:
+
+- The default `csv` feature provides the minimal CSV adapter.
+- The `parquet` feature enables Arrow-backed Parquet loading and implies `csv`
+  because the shared lane and row-validation contracts are used by both adapters.
+- The native workbench explicitly enables `csv,parquet`; consumers that only need
+  synthetic data, filtering, or the typed store can disable both adapters with
+  `default-features = false`.
+
+The feature selection changes dependency availability, not runtime behavior of a
+workbench build. A disabled adapter returns a typed `DatasetLoadError::FeatureDisabled`
+instead of silently treating the source as another format.
+
 ## Deferred Work
 
 The next larger areas remain intentionally deferred:

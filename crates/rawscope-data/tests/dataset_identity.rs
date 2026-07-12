@@ -1,3 +1,5 @@
+#![cfg(feature = "csv")]
+
 use std::{
     fs,
     path::{Path, PathBuf},
