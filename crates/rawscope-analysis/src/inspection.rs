@@ -149,6 +149,32 @@ pub enum DifferenceNormalizationError {
     NonFinite,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DifferenceInspection {
+    pub baseline_count: u32,
+    pub active_count: u32,
+    pub baseline_share: f64,
+    pub active_share: f64,
+    pub delta: f64,
+}
+
+pub fn inspect_difference(
+    baseline_count: u32,
+    active_count: u32,
+    baseline_total: u64,
+    active_total: u64,
+) -> Result<DifferenceInspection, DifferenceNormalizationError> {
+    let baseline_share = normalize_difference(f64::from(baseline_count), baseline_total as f64)?;
+    let active_share = normalize_difference(f64::from(active_count), active_total as f64)?;
+    Ok(DifferenceInspection {
+        baseline_count,
+        active_count,
+        baseline_share,
+        active_share,
+        delta: active_share - baseline_share,
+    })
+}
+
 pub fn normalize_difference(
     numerator: f64,
     denominator: f64,
@@ -207,6 +233,10 @@ mod tests {
         assert_eq!(
             normalize_difference(f64::NAN, 1.0),
             Err(DifferenceNormalizationError::NonFinite)
+        );
+        assert_eq!(
+            inspect_difference(1, 1, 0, 1),
+            Err(DifferenceNormalizationError::ZeroDenominator)
         );
     }
 }

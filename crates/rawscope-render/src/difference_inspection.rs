@@ -2,10 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::{
-    difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
-    DifferenceDensityError, DifferenceInspection,
-};
+use crate::difference_density::difference_inspection;
+use crate::{fixed_point_max_abs_delta, normalized_difference_density, DifferenceDensityError};
+use rawscope_analysis::inspection::DifferenceInspection;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DifferenceDirection {
@@ -38,13 +37,14 @@ impl DifferenceInspectionDistribution {
         &self,
         baseline_count: u32,
         active_count: u32,
-    ) -> DifferenceInspectionSummary {
+    ) -> Option<DifferenceInspectionSummary> {
         let inspection = difference_inspection(
             baseline_count,
             active_count,
             self.baseline_total,
             self.active_total,
-        );
+        )
+        .ok()?;
         let direction = if inspection.delta > 0.0 {
             DifferenceDirection::MoreCommonInActive
         } else if inspection.delta < 0.0 {
@@ -52,7 +52,7 @@ impl DifferenceInspectionDistribution {
         } else {
             DifferenceDirection::Unchanged
         };
-        DifferenceInspectionSummary {
+        Some(DifferenceInspectionSummary {
             baseline_count,
             active_count,
             baseline_share: inspection.baseline_share,
@@ -60,7 +60,7 @@ impl DifferenceInspectionDistribution {
             share_delta: inspection.delta,
             direction,
             absolute_delta_percentile: self.absolute_delta_percentile(inspection),
-        }
+        })
     }
 
     fn absolute_delta_percentile(&self, inspection: DifferenceInspection) -> Option<f64> {
@@ -121,7 +121,7 @@ mod tests {
     fn difference_summary_uses_active_minus_full_baseline_share() {
         let distribution = build(&[50, 50], &[40, 10], 100, 50);
 
-        let summary = distribution.summarize_counts(40, 40);
+        let summary = distribution.summarize_counts(40, 40).unwrap();
 
         assert_eq!(summary.baseline_share, 0.4);
         assert_eq!(summary.active_share, 0.8);
@@ -134,15 +134,15 @@ mod tests {
         let distribution = build(&[1, 1, 1], &[2, 0, 1], 3, 3);
 
         assert_eq!(
-            distribution.summarize_counts(1, 2).direction,
+            distribution.summarize_counts(1, 2).unwrap().direction,
             DifferenceDirection::MoreCommonInActive
         );
         assert_eq!(
-            distribution.summarize_counts(1, 0).direction,
+            distribution.summarize_counts(1, 0).unwrap().direction,
             DifferenceDirection::LessCommonInActive
         );
         assert_eq!(
-            distribution.summarize_counts(1, 1).direction,
+            distribution.summarize_counts(1, 1).unwrap().direction,
             DifferenceDirection::Unchanged
         );
     }
@@ -154,18 +154,21 @@ mod tests {
         assert_eq!(
             distribution
                 .summarize_counts(2, 1)
+                .unwrap()
                 .absolute_delta_percentile,
             None
         );
         assert_eq!(
             distribution
                 .summarize_counts(1, 1)
+                .unwrap()
                 .absolute_delta_percentile,
             Some(2.0 / 3.0)
         );
         assert_eq!(
             distribution
                 .summarize_counts(0, 1)
+                .unwrap()
                 .absolute_delta_percentile,
             Some(1.0)
         );
@@ -175,7 +178,7 @@ mod tests {
     fn baseline_only_cell_remains_inspectable() {
         let distribution = build(&[5, 0], &[0, 5], 10, 10);
 
-        let summary = distribution.summarize_counts(5, 0);
+        let summary = distribution.summarize_counts(5, 0).unwrap();
 
         assert_eq!(summary.active_count, 0);
         assert_eq!(summary.baseline_count, 5);
@@ -187,7 +190,7 @@ mod tests {
     fn unequal_cohort_sizes_do_not_compare_raw_counts() {
         let distribution = build(&[50, 50], &[40, 10], 100, 50);
 
-        let summary = distribution.summarize_counts(50, 40);
+        let summary = distribution.summarize_counts(50, 40).unwrap();
 
         assert_eq!(summary.baseline_count, 50);
         assert_eq!(summary.active_count, 40);
