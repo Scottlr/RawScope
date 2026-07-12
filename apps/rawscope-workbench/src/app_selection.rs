@@ -73,13 +73,29 @@ impl WorkbenchApp {
             return;
         };
 
-        let selected_row_ids = self
+        let lane_count = self
             .timeline
-            .events
-            .iter()
-            .filter(|event| selection.contains_event(event))
-            .map(|event| event.row_id)
-            .collect();
+            .viewport
+            .as_ref()
+            .map_or(selection.lane_range.end_exclusive, |viewport| {
+                viewport.lane_count()
+            });
+        let filter_mask = FilterMask::all_included(self.timeline.events.len());
+        let selection_id = self.next_selection_id();
+        let snapshot = SelectionSnapshot::from_filtered_events(
+            selection_id,
+            &self.timeline.events,
+            &filter_mask,
+            selection,
+            lane_count,
+            256,
+            256,
+        )
+        .ok();
+        let selected_row_ids = snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.row_ids().to_vec())
+            .unwrap_or_default();
 
         let lane_range = match CoreLaneRange::try_new(
             selection.lane_range.start,
@@ -94,7 +110,7 @@ impl WorkbenchApp {
 
         self.active_selection = Some(ActiveLinkedSelection {
             visual_selection: VisualSelection::from_unsorted(
-                self.next_selection_id(),
+                selection_id,
                 TIMELINE_VIEW_ID,
                 VisualSelectionGeometry::TimelineRect {
                     time_range: selection.time_range,
@@ -103,7 +119,7 @@ impl WorkbenchApp {
                 selected_row_ids,
             ),
             dataset_identity,
-            snapshot: None,
+            snapshot,
         });
     }
 
