@@ -1,6 +1,6 @@
 //! Private scatter-domain command owner.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ScatterGeneration {
     pub(crate) dataset: u64,
     pub(crate) cohort: u64,
@@ -49,10 +49,7 @@ impl ScatterController {
             | ScatterCommand::SetViewport { generation }
             | ScatterCommand::SetProjection { generation, .. } => generation,
         };
-        if self
-            .generation
-            .is_some_and(|current| generation.dataset < current.dataset)
-        {
+        if self.generation.is_some_and(|current| generation < current) {
             return ScatterResult::RejectedStale { generation };
         }
         match command {
@@ -115,6 +112,32 @@ mod tests {
             controller.handle(ScatterCommand::SetProjection {
                 generation: stale,
                 projection: 3
+            }),
+            ScatterResult::RejectedStale { generation: stale }
+        );
+        assert_eq!(controller.projection(), 0);
+    }
+
+    #[test]
+    fn stale_cohort_commands_do_not_replace_current_state() {
+        let mut controller = ScatterController::default();
+        let current = ScatterGeneration {
+            dataset: 2,
+            cohort: 4,
+            viewport: 1,
+        };
+        controller.handle(ScatterCommand::SetViewport {
+            generation: current,
+        });
+        let stale = ScatterGeneration {
+            dataset: 2,
+            cohort: 3,
+            viewport: 9,
+        };
+        assert_eq!(
+            controller.handle(ScatterCommand::SetProjection {
+                generation: stale,
+                projection: 3,
             }),
             ScatterResult::RejectedStale { generation: stale }
         );
