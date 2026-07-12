@@ -1,6 +1,7 @@
 //! Shared WGPU plumbing for density compute passes.
 
 use std::{
+    mem::size_of,
     sync::mpsc::{self, RecvError, RecvTimeoutError},
     time::Duration,
 };
@@ -13,6 +14,11 @@ pub(crate) enum GpuDensityReadbackError {
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
     BufferMapCallbackTimedOut,
+    ReadbackSizeOverflow,
+    ReadbackBufferTooSmall {
+        expected_bytes: usize,
+        actual_bytes: usize,
+    },
     DevicePoll(wgpu::PollError),
 }
 
@@ -146,6 +152,9 @@ pub(crate) fn readback_counts_from_buffer(
     readback_buffer: &wgpu::Buffer,
     grid_bin_count: usize,
 ) -> Result<Vec<u32>, GpuDensityReadbackError> {
+    let expected_bytes = grid_bin_count
+        .checked_mul(size_of::<u32>())
+        .ok_or(GpuDensityReadbackError::ReadbackSizeOverflow)?;
     let readback_slice = readback_buffer.slice(..);
     let (sender, receiver) = mpsc::channel();
     readback_slice.map_async(wgpu::MapMode::Read, move |result| {
@@ -170,6 +179,12 @@ pub(crate) fn readback_counts_from_buffer(
 
     let counts = {
         let mapped = readback_slice.get_mapped_range();
+        if mapped.len() < expected_bytes {
+            return Err(GpuDensityReadbackError::ReadbackBufferTooSmall {
+                expected_bytes,
+                actual_bytes: mapped.len(),
+            });
+        }
         bytemuck::cast_slice::<u8, u32>(&mapped)[..grid_bin_count].to_vec()
     };
     readback_buffer.unmap();
