@@ -136,8 +136,8 @@ impl WorkbenchApp {
     }
 
     fn next_selection_id(&mut self) -> SelectionId {
-        self.next_selection_id.0 += 1;
-        self.next_selection_id
+        self.workbench_state.next_selection_id.0 += 1;
+        self.workbench_state.next_selection_id
     }
 }
 
