@@ -1,6 +1,6 @@
 //! Canonical immutable selection snapshots for analytical consumers.
 
-use std::{error::Error, fmt, num::NonZeroUsize, sync::Arc};
+use std::{error::Error, fmt, sync::Arc};
 
 use rawscope_core::{RowId, SelectionId};
 use rawscope_data::DatasetGeneration;
@@ -19,16 +19,12 @@ pub struct SelectionSnapshot {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionSnapshotError {
-    SampleLimitMustBePositive,
     RowCountOverflow,
 }
 
 impl fmt::Display for SelectionSnapshotError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::SampleLimitMustBePositive => {
-                formatter.write_str("selection sample limit must be positive")
-            }
             Self::RowCountOverflow => formatter.write_str("selected row count overflowed u64"),
         }
     }
@@ -45,8 +41,6 @@ impl SelectionSnapshot {
         selected_bins: impl IntoIterator<Item = u32>,
         sample_limit: usize,
     ) -> Result<Self, SelectionSnapshotError> {
-        let sample_limit = NonZeroUsize::new(sample_limit)
-            .ok_or(SelectionSnapshotError::SampleLimitMustBePositive)?;
         let mut row_ids = row_ids.into_iter().collect::<Vec<_>>();
         row_ids.sort_unstable();
         row_ids.dedup();
@@ -56,7 +50,7 @@ impl SelectionSnapshot {
         let samples = row_ids
             .iter()
             .copied()
-            .take(sample_limit.get())
+            .take(sample_limit)
             .collect::<Vec<_>>();
         let mut selected_bins = selected_bins.into_iter().collect::<Vec<_>>();
         selected_bins.sort_unstable();
@@ -125,16 +119,18 @@ mod tests {
     }
 
     #[test]
-    fn zero_sample_limit_is_rejected() {
-        let error = SelectionSnapshot::from_parts(
+    fn zero_sample_limit_preserves_membership_and_bins_without_samples() {
+        let snapshot = SelectionSnapshot::from_parts(
             DatasetGenerationCounter::default().mint(),
             CohortGenerationCounter::default().mint(),
             SelectionId(1),
-            [],
-            [],
+            [RowId(3), RowId(1)],
+            [4, 2],
             0,
         )
-        .unwrap_err();
-        assert_eq!(error, SelectionSnapshotError::SampleLimitMustBePositive);
+        .unwrap();
+        assert_eq!(snapshot.row_ids(), &[RowId(1), RowId(3)]);
+        assert_eq!(snapshot.selected_bins(), &[2, 4]);
+        assert!(snapshot.samples().is_empty());
     }
 }
