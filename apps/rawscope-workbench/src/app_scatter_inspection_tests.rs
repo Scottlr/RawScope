@@ -65,6 +65,10 @@ fn presentation_change_preserves_valid_pin() {
     assert!(app.scatter_inspection.pinned.is_some());
 }
 
+#[expect(
+    clippy::field_reassign_with_default,
+    reason = "fixture mutates only the session context needed by this scenario"
+)]
 #[test]
 fn pinned_evidence_keys_use_only_bounded_source_rows() {
     let mut app = WorkbenchApp::default();

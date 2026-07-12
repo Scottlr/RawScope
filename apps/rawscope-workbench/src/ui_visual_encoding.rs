@@ -52,6 +52,10 @@ pub(crate) struct DensityEncodingResponse {
 }
 
 impl DensityEncodingUiState {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "UI state constructor mirrors the rendering projection seam"
+    )]
     fn scatter(
         encoding: DensityEncoding,
         presentation: ScatterDensityPresentation,
@@ -113,6 +117,10 @@ impl DensityEncodingUiState {
         )
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "UI state constructor mirrors the rendering projection seam"
+    )]
     fn new(
         encoding: DensityEncoding,
         scatter_presentation: Option<ScatterDensityPresentation>,
@@ -255,7 +263,7 @@ pub(crate) fn show_density_encoding(
                 .and_then(|mode| point_reveal_selector(ui, mode, encoding.point_reveal_stats));
             let relief = (encoding.scatter_presentation
                 == Some(ScatterDensityPresentation::ReliefField))
-            .then(|| encoding.relief_config)
+            .then_some(encoding.relief_config)
             .flatten()
             .and_then(|config| show_relief_controls(ui, config));
             draw_density_legend(ui, encoding);

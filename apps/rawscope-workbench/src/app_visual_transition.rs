@@ -8,8 +8,9 @@ use rawscope_render::{
 
 use crate::app::WorkbenchApp;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub(crate) enum WorkbenchTransitionState {
+    #[default]
     Idle,
     Running {
         kind: TransitionKind,
@@ -18,12 +19,6 @@ pub(crate) enum WorkbenchTransitionState {
         to_revision: u64,
         semantic_modes: Option<(ScatterDensityMode, ScatterDensityMode)>,
     },
-}
-
-impl Default for WorkbenchTransitionState {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -36,12 +36,11 @@ impl Default for ScatterProjectionState {
 
 impl WorkbenchApp {
     pub(crate) fn initialize_scatter_projection(&mut self, x_column: &str, y_column: &str) {
-        let profile_recommends_projection =
-            self.active_dataset_profile.map_or(true, |profile_id| {
-                dataset_profile(profile_id)
-                    .scatter_defaults
-                    .suggest_mean_difference
-            });
+        let profile_recommends_projection = self.active_dataset_profile.is_none_or(|profile_id| {
+            dataset_profile(profile_id)
+                .scatter_defaults
+                .suggest_mean_difference
+        });
         let available = profile_recommends_projection
             && self
                 .scatter_filters

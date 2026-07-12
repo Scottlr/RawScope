@@ -82,7 +82,7 @@ fn scatter_inspection_ui_state_with_pin(
             .scatter_inspection
             .pinned
             .as_ref()
-            .and_then(|pinned| pinned.difference.clone()),
+            .and_then(|pinned| pinned.difference),
     })
 }
 
