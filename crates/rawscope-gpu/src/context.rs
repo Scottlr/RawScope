@@ -211,7 +211,11 @@ impl GpuContext {
         }
 
         let frame = match self.surface.get_current_texture() {
-            CurrentSurfaceTexture::Success(frame) | CurrentSurfaceTexture::Suboptimal(frame) => {
+            CurrentSurfaceTexture::Success(frame) => frame,
+            CurrentSurfaceTexture::Suboptimal(frame) => {
+                self.recovery_state = self.recovery_state.surface_outdated();
+                self.reconfigure_current_size();
+                self.recovery_state = self.recovery_state.surface_reconfigured();
                 frame
             }
             CurrentSurfaceTexture::Timeout => return Ok(ClearFrameStatus::SkippedTimeout),

@@ -54,6 +54,13 @@ impl GpuRecoveryState {
         }
     }
 
+    pub const fn surface_reconfigured(self) -> Self {
+        match self {
+            Self::SurfaceOutdated { generation } => Self::Ready(generation),
+            state => state,
+        }
+    }
+
     pub const fn begin_recovery(self) -> Self {
         match self {
             Self::DeviceLost { generation, .. } => Self::Recovering {
@@ -96,5 +103,14 @@ mod tests {
             GpuRecoveryState::Ready(DeviceGeneration(5))
         );
         assert!(!state.recovered().accepts(DeviceGeneration(4)));
+    }
+
+    #[test]
+    fn surface_reconfiguration_preserves_device_generation() {
+        let generation = DeviceGeneration(7);
+        let state = GpuRecoveryState::Ready(generation)
+            .surface_outdated()
+            .surface_reconfigured();
+        assert_eq!(state, GpuRecoveryState::Ready(generation));
     }
 }
