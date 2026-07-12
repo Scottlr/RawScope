@@ -66,6 +66,7 @@ pub enum GpuTimelineDensityError {
     MissingReadbackCounts,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
+    BufferMapCallbackTimedOut,
     DevicePoll(wgpu::PollError),
     InvalidConfiguration(&'static str),
 }
@@ -91,6 +92,12 @@ impl fmt::Display for GpuTimelineDensityError {
                     "GPU timeline-density readback callback did not run: {err}"
                 )
             }
+            Self::BufferMapCallbackTimedOut => {
+                write!(
+                    f,
+                    "GPU timeline-density readback callback exceeded its bounded wait"
+                )
+            }
             Self::DevicePoll(err) => write!(f, "failed while polling GPU device: {err}"),
             Self::InvalidConfiguration(reason) => {
                 write!(f, "invalid timeline density configuration: {reason}")
@@ -109,6 +116,7 @@ impl Error for GpuTimelineDensityError {
             Self::BufferMapCallbackDropped(err) => Some(err),
             Self::DevicePoll(err) => Some(err),
             Self::InvalidConfiguration(_) => None,
+            Self::BufferMapCallbackTimedOut => None,
         }
     }
 }
@@ -120,6 +128,7 @@ impl From<GpuDensityReadbackError> for GpuTimelineDensityError {
             GpuDensityReadbackError::BufferMapCallbackDropped(err) => {
                 Self::BufferMapCallbackDropped(err)
             }
+            GpuDensityReadbackError::BufferMapCallbackTimedOut => Self::BufferMapCallbackTimedOut,
             GpuDensityReadbackError::DevicePoll(err) => Self::DevicePoll(err),
         }
     }

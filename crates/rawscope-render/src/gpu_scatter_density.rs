@@ -46,6 +46,7 @@ pub enum GpuScatterDensityError {
     MissingReadbackCounts,
     BufferMap(wgpu::BufferAsyncError),
     BufferMapCallbackDropped(RecvError),
+    BufferMapCallbackTimedOut,
     DevicePoll(wgpu::PollError),
 }
 
@@ -73,6 +74,12 @@ impl fmt::Display for GpuScatterDensityError {
                 f,
                 "GPU scatter-density readback callback did not run: {error}"
             ),
+            Self::BufferMapCallbackTimedOut => {
+                write!(
+                    f,
+                    "GPU scatter-density readback callback exceeded its bounded wait"
+                )
+            }
             Self::DevicePoll(error) => write!(f, "failed while polling GPU device: {error}"),
         }
     }
@@ -87,6 +94,7 @@ impl Error for GpuScatterDensityError {
             Self::PointCountTooLarge { .. }
             | Self::FilterMaskLengthMismatch { .. }
             | Self::MissingReadbackCounts => None,
+            Self::BufferMapCallbackTimedOut => None,
         }
     }
 }
@@ -98,6 +106,7 @@ impl From<GpuDensityReadbackError> for GpuScatterDensityError {
             GpuDensityReadbackError::BufferMapCallbackDropped(error) => {
                 Self::BufferMapCallbackDropped(error)
             }
+            GpuDensityReadbackError::BufferMapCallbackTimedOut => Self::BufferMapCallbackTimedOut,
             GpuDensityReadbackError::DevicePoll(error) => Self::DevicePoll(error),
         }
     }
