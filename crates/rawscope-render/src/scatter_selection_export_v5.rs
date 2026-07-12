@@ -73,7 +73,15 @@ fn scatter_selection_evidence_v4_json_from_v5(
     scatter_selection_evidence_v4_json(&legacy)
 }
 
-pub fn scatter_selection_evidence_v5_markdown(evidence: &ScatterSelectionEvidenceV5) -> String {
+pub fn scatter_selection_evidence_v5_markdown(
+    evidence: &ScatterSelectionEvidenceV5,
+) -> Result<String, ScatterSelectionExportError> {
+    evidence.validate().map_err(|error| {
+        serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            error.to_string(),
+        ))
+    })?;
     let mut markdown =
         crate::scatter_selection_evidence_v4_markdown(&crate::ScatterSelectionEvidenceV4 {
             schema_version: 4,
@@ -90,7 +98,7 @@ pub fn scatter_selection_evidence_v5_markdown(evidence: &ScatterSelectionEvidenc
             comparison: evidence.comparison.clone(),
             aggregate_context: evidence.aggregate_context.clone(),
             pinned_inspection: None,
-        })
+        })?
         .replacen("Evidence v4", "Evidence v5", 1);
     markdown.push_str("\n## Session Context\n\n");
     if let Some(context) = &evidence.session_context {
@@ -135,7 +143,7 @@ pub fn scatter_selection_evidence_v5_markdown(evidence: &ScatterSelectionEvidenc
             pin.sample_limit,
         ));
     }
-    markdown
+    Ok(markdown)
 }
 
 fn format_optional_percentile(value: Option<f64>) -> String {

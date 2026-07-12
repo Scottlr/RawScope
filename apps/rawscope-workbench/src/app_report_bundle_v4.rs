@@ -26,7 +26,7 @@ impl EvidenceReportBundlePaths {
         )?;
         fs::write(
             &self.evidence_markdown_path,
-            scatter_selection_evidence_v4_markdown(evidence),
+            scatter_selection_evidence_v4_markdown(evidence)?,
         )?;
         fs::write(
             &self.visual_context_path,
