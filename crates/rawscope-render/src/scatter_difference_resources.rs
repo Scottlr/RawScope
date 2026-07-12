@@ -3,6 +3,7 @@
 pub(super) fn difference_bind_group_layout(
     device: &wgpu::Device,
     visibility: wgpu::ShaderStages,
+    params_min_binding_size: u64,
 ) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("RawScope Difference Bind Group Layout"),
@@ -16,7 +17,7 @@ pub(super) fn difference_bind_group_layout(
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: std::num::NonZeroU64::new(params_min_binding_size),
                 },
                 count: None,
             },
