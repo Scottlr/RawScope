@@ -2,6 +2,7 @@
 
 use std::{io, path::PathBuf};
 
+use rawscope_data::DatasetProfileId as DataProfileId;
 use rawscope_data::{validate_evidence_key, DatasetEvidenceKey, LoadedSourceTable};
 use rawscope_session::{
     load_session_manifest, ResolvedRawScopeSession, ResolvedSessionView, SessionDataFormat,
@@ -85,8 +86,8 @@ fn startup_from_session(session: ResolvedRawScopeSession) -> Result<WorkbenchSta
                 path: dataset.path,
                 x_column: Some(x),
                 y_column: Some(y),
-                limit: dataset.limit,
-                profile,
+                limit: session_row_limit(dataset.limit)?,
+                profile: profile.map(contract_profile_to_data),
             },
         ),
         ResolvedSessionView::Timeline {
@@ -99,8 +100,8 @@ fn startup_from_session(session: ResolvedRawScopeSession) -> Result<WorkbenchSta
                 path: dataset.path,
                 time_column: Some(time),
                 lane_column: Some(lane),
-                limit: dataset.limit,
-                profile,
+                limit: session_row_limit(dataset.limit)?,
+                profile: profile.map(contract_profile_to_data),
             },
         ),
     };
@@ -111,6 +112,25 @@ fn startup_from_session(session: ResolvedRawScopeSession) -> Result<WorkbenchSta
         compare_input: None,
         session: Some(pending_session),
     })
+}
+
+fn session_row_limit(limit: Option<u64>) -> Result<Option<usize>, io::Error> {
+    limit
+        .map(|value| {
+            usize::try_from(value).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "session row limit does not fit this platform",
+                )
+            })
+        })
+        .transpose()
+}
+
+fn contract_profile_to_data(profile: rawscope_session::DatasetProfileId) -> DataProfileId {
+    match profile {
+        rawscope_session::DatasetProfileId::LichessGames => DataProfileId::LichessGames,
+    }
 }
 
 impl WorkbenchApp {

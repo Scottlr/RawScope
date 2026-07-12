@@ -1,0 +1,11 @@
+[package]
+name = "rawscope-session-contracts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
+serde.workspace = true
+serde_json.workspace = true
