@@ -1,7 +1,6 @@
 //! Plot-local scatter viewport interaction coordination.
 
 use rawscope_render::{BrushScreenPoint, BrushScreenSize, PlotPointPx};
-use tracing::error;
 use winit::{dpi::PhysicalPosition, event::MouseScrollDelta};
 
 use crate::app::{WorkbenchApp, WHEEL_ZOOM_IN_SCALE, WHEEL_ZOOM_OUT_SCALE};
@@ -132,9 +131,9 @@ impl WorkbenchApp {
         viewport.reset();
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
-        if let Err(err) = self.recompute_density() {
-            error!(error = %err, "failed to recompute scatter density after reset");
-        }
+        self.begin_interactive_density();
+        self.interactive_viewport_changed();
+        self.finish_interactive_density();
     }
 }
 
@@ -219,5 +218,25 @@ mod tests {
         assert_eq!(viewport.y_range(), F32Range::new(20.0, 70.0));
         assert!(app.render_schedule.is_refining());
         assert!(app.scatter.marginal_summary.is_none());
+    }
+
+    #[test]
+    fn reset_viewport_schedules_exact_settle_without_recomputing_inline() {
+        let mut app = app_with_plot();
+        app.scatter.marginal_summary = Some(rawscope_render::ScatterMarginalSummary {
+            x_bins: vec![rawscope_render::SummaryBin { index: 0, count: 1 }],
+            y_bins: vec![rawscope_render::SummaryBin { index: 0, count: 1 }],
+            max_x_count: 1,
+            max_y_count: 1,
+        });
+
+        app.reset_viewport();
+
+        assert_eq!(
+            app.scatter.viewport.unwrap().x_range(),
+            F32Range::new(0.0, 100.0)
+        );
+        assert!(app.render_schedule.is_refining());
+        assert!(app.scatter.marginal_summary.is_some());
     }
 }
