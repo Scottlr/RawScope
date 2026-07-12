@@ -1,6 +1,7 @@
 //! Minimal screen-space brush rectangle overlay rendering.
 
 use bytemuck::{Pod, Zeroable};
+use std::num::NonZeroU64;
 
 use crate::{BrushScreenRect, BrushScreenSize, PlotRectPx};
 
@@ -123,6 +124,8 @@ struct BrushOverlayParams {
     border_rgba: [f32; 4],
 }
 
+const BRUSH_OVERLAY_PARAMS_SIZE_BYTES: u64 = std::mem::size_of::<BrushOverlayParams>() as u64;
+
 impl BrushOverlayParams {
     fn from_plot_rect(
         screen_rect: BrushScreenRect,
@@ -160,6 +163,18 @@ impl BrushOverlayParams {
     }
 }
 
+#[cfg(test)]
+mod abi_tests {
+    use super::BrushOverlayParams;
+
+    #[test]
+    fn brush_overlay_params_match_wgsl_uniform_alignment() {
+        assert_eq!(std::mem::size_of::<BrushOverlayParams>(), 64);
+        assert_eq!(std::mem::align_of::<BrushOverlayParams>(), 4);
+        assert_eq!(std::mem::size_of::<BrushOverlayParams>() % 16, 0);
+    }
+}
+
 fn clamp_rect_to_screen(rect: BrushScreenRect, screen_size: BrushScreenSize) -> BrushScreenRect {
     BrushScreenRect {
         min_x: rect.min_x.clamp(0.0, screen_size.width),
@@ -178,7 +193,7 @@ fn create_overlay_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLay
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: None,
+                min_binding_size: NonZeroU64::new(BRUSH_OVERLAY_PARAMS_SIZE_BYTES),
             },
             count: None,
         }],
