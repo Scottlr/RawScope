@@ -99,7 +99,6 @@ pub struct WorkbenchApp {
     pub(crate) inspect_cursor_position: Option<InspectCursorPosition>,
     pub(crate) selection_gesture_backup: Option<SelectionGestureBackup>,
     pub(crate) modifiers: ModifiersState,
-    pub(crate) evidence_export_counter: u64,
     pub(crate) render_schedule: RenderSchedule,
     pub(crate) timeline_render_schedule: TimelineRenderSchedule,
     pub(crate) visual_transition: WorkbenchVisualTransition,

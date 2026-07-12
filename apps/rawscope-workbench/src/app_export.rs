@@ -87,7 +87,7 @@ impl WorkbenchApp {
                     .map(|evidence| (evidence.selected_row_count, evidence.schema_version))
             })
             .unwrap_or((evidence_v2.selected_row_count, 2));
-        self.evidence_export_counter = export_paths.export_counter;
+        self.workbench_state.evidence_export_counter = export_paths.export_counter;
         self.workbench_state.export_status = ExportStatus::Exported {
             bundle_dir: export_paths.bundle_dir.display().to_string(),
         };
@@ -147,7 +147,7 @@ impl WorkbenchApp {
             .as_ref()
             .map(|evidence| (evidence.selected_event_count, evidence.schema_version))
             .unwrap_or((evidence_v2.selected_event_count, 2));
-        self.evidence_export_counter = export_paths.export_counter;
+        self.workbench_state.evidence_export_counter = export_paths.export_counter;
         self.workbench_state.export_status = ExportStatus::Exported {
             bundle_dir: export_paths.bundle_dir.display().to_string(),
         };
@@ -166,8 +166,11 @@ impl WorkbenchApp {
     }
 
     fn next_evidence_export_counter(&mut self) -> u64 {
-        self.evidence_export_counter += 1;
-        self.evidence_export_counter
+        self.workbench_state.evidence_export_counter = self
+            .workbench_state
+            .evidence_export_counter
+            .saturating_add(1);
+        self.workbench_state.evidence_export_counter
     }
 
     fn scatter_selection_evidence_v2(&self) -> Option<ScatterSelectionEvidenceV2> {
