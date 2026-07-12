@@ -89,6 +89,13 @@ pub use rawscope_evidence::{
     ScatterDensityPresentation,
 };
 pub use rawscope_evidence::{
+    AggregateEvidenceBin, ScatterAggregateEvidenceContext, TimelineAggregateEvidenceContext,
+};
+pub use rawscope_evidence::{
+    ComparisonRatio, ScatterKindComparison, ScatterSelectionComparison, TimelineKindComparison,
+    TimelineSelectionComparison,
+};
+pub use rawscope_evidence::{
     SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
     TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2,
@@ -134,8 +141,7 @@ pub use scatter_resident::{
     ScatterViewGenerationCounter,
 };
 pub use scatter_selection_evidence_v3::{
-    AggregateEvidenceBin, ScatterAggregateEvidenceContext, ScatterEvidenceViewV3,
-    ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
+    ScatterEvidenceViewV3, ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use scatter_selection_evidence_v4::{
     DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
@@ -166,9 +172,8 @@ pub use scatter_transition::{transition_decision, ScatterTransitionField, Transi
 pub use scatter_viewport::ScatterViewport;
 pub use selection_comparison::{
     missingness_selection_comparison, scatter_selection_comparison,
-    scatter_selection_comparison_masked, timeline_selection_comparison, ComparisonRatio,
-    MissingnessSelectionComparison, ScatterKindComparison, ScatterSelectionComparison,
-    TimelineKindComparison, TimelineSelectionComparison,
+    scatter_selection_comparison_masked, timeline_selection_comparison,
+    MissingnessSelectionComparison,
 };
 pub use selection_drilldown::{
     scatter_selection_drilldown, scatter_selection_drilldown_masked,
@@ -186,7 +191,7 @@ pub use timeline_resident::{
 };
 pub use timeline_selection_evidence::timeline_selection_evidence_from_events;
 pub use timeline_selection_evidence_v3::{
-    TimelineAggregateEvidenceContext, TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
+    TimelineEvidenceViewV3, TimelineSelectionEvidenceV3,
     TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use timeline_selection_export_v3::{

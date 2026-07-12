@@ -3,12 +3,11 @@
 use rawscope_core::{RowId, U64Range};
 use rawscope_data::{DatasetIdentity, DatasetProfileId};
 
-use crate::scatter_selection_evidence_v3::AggregateEvidenceBin;
-use crate::{
-    DensityEncoding, SelectedTimelineEventSampleV2, TimelineLaneRange, TimelineSelectionComparison,
-    TimelineSelectionEvidenceV2,
+use crate::{SelectedTimelineEventSampleV2, TimelineLaneRange, TimelineSelectionEvidenceV2};
+use rawscope_evidence::{
+    DensityEncoding, SelectedSourceRowSample, TimelineAggregateEvidenceContext,
+    TimelineSelectionComparison,
 };
-use rawscope_evidence::SelectedSourceRowSample;
 
 /// Schema version for timeline selection evidence v3 artifacts.
 pub const TIMELINE_SELECTION_EVIDENCE_V3_SCHEMA_VERSION: u32 = 3;
@@ -22,13 +21,6 @@ pub struct TimelineEvidenceViewV3 {
     pub grid_width: u32,
     pub grid_height: u32,
     pub density_encoding: DensityEncoding,
-}
-
-/// Bounded aggregate context retained in timeline evidence v3 artifacts.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TimelineAggregateEvidenceContext {
-    pub bin_limit: usize,
-    pub bins: Vec<AggregateEvidenceBin>,
 }
 
 /// Source-aware CPU-side timeline selection evidence for v3 artifacts.

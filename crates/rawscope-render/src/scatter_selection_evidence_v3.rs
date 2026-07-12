@@ -3,22 +3,14 @@
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{DatasetIdentity, DatasetProfileId};
 
-use crate::{DensityEncoding, ScatterDensityPresentation, ScatterSelectionComparison};
 use rawscope_evidence::{
-    ScatterSelectionEvidenceV2, SelectedPointSampleV2, SelectedSourceRowSample,
+    DensityEncoding, ScatterAggregateEvidenceContext, ScatterDensityPresentation,
+    ScatterSelectionComparison, ScatterSelectionEvidenceV2, SelectedPointSampleV2,
+    SelectedSourceRowSample,
 };
 
 /// Schema version for scatter selection evidence v3 artifacts.
 pub const SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION: u32 = 3;
-
-/// Compact aggregate bin retained in v3 evidence.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AggregateEvidenceBin {
-    pub bin_x: u32,
-    pub bin_y: u32,
-    pub count: u32,
-    pub row_id_sample: Vec<u64>,
-}
 
 /// View configuration included in scatter evidence v3 artifacts.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -29,13 +21,6 @@ pub struct ScatterEvidenceViewV3 {
     pub grid_height: u32,
     pub density_encoding: DensityEncoding,
     pub density_presentation: ScatterDensityPresentation,
-}
-
-/// Bounded aggregate context retained in scatter evidence v3 artifacts.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScatterAggregateEvidenceContext {
-    pub bin_limit: usize,
-    pub bins: Vec<AggregateEvidenceBin>,
 }
 
 /// Source-aware CPU-side scatter selection evidence for v3 artifacts.
