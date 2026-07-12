@@ -85,3 +85,30 @@ fn reject_policy_surfaces_invalid_numeric_values() {
         }
     ));
 }
+
+#[test]
+fn unchanged_cohort_evaluation_reuses_its_generation() {
+    let (source, catalog) = source();
+    let mut builder = CohortBuilder::new(CohortPolicy::default());
+    let mut dataset_generations = DatasetGenerationCounter::default();
+    let dataset_generation = dataset_generations.mint();
+    let mut cohort_generations = CohortGenerationCounter::default();
+    let first = builder
+        .evaluate(
+            &source,
+            &catalog,
+            dataset_generation,
+            &mut cohort_generations,
+        )
+        .unwrap();
+    let second = builder
+        .evaluate(
+            &source,
+            &catalog,
+            dataset_generation,
+            &mut cohort_generations,
+        )
+        .unwrap();
+    assert_eq!(first.cohort_generation(), second.cohort_generation());
+    assert_eq!(first.filter_revision(), second.filter_revision());
+}

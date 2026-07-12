@@ -126,6 +126,15 @@ impl CohortSnapshot {
 pub struct CohortBuilder {
     filters: FilterSet,
     policy: CohortPolicy,
+    last_evaluation: Option<CohortEvaluationIdentity>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct CohortEvaluationIdentity {
+    dataset_generation: DatasetGeneration,
+    filters: FilterSet,
+    policy: CohortPolicy,
+    cohort_generation: CohortGeneration,
 }
 
 impl CohortBuilder {
@@ -133,6 +142,7 @@ impl CohortBuilder {
         Self {
             filters: FilterSet::default(),
             policy,
+            last_evaluation: None,
         }
     }
 
@@ -157,12 +167,22 @@ impl CohortBuilder {
     }
 
     pub fn evaluate(
-        &self,
+        &mut self,
         source: &LoadedSourceTable,
         catalog: &VisualFieldCatalog,
         dataset_generation: DatasetGeneration,
         generations: &mut CohortGenerationCounter,
     ) -> Result<CohortSnapshot, CohortError> {
+        let cohort_generation = self
+            .last_evaluation
+            .as_ref()
+            .filter(|previous| {
+                previous.dataset_generation == dataset_generation
+                    && previous.filters == self.filters
+                    && previous.policy == self.policy
+            })
+            .map(|previous| previous.cohort_generation)
+            .unwrap_or_else(|| generations.mint());
         let filters = filters_for_policy(&self.filters, self.policy.missing);
         if self.policy.invalid == InvalidValuePolicy::RejectDataset {
             reject_invalid_values(source, &filters)?;
@@ -183,16 +203,23 @@ impl CohortBuilder {
             .saturating_sub(included_row_count);
         let (excluded_missing_count, excluded_invalid_count) =
             excluded_value_counts(source, &filters, &mask);
-        Ok(CohortSnapshot {
+        let snapshot = CohortSnapshot {
             dataset_generation,
-            cohort_generation: generations.mint(),
+            cohort_generation,
             filter_revision: filters.revision,
             mask,
             included_row_ids,
             included_row_count,
             excluded_missing_count,
             excluded_invalid_count: excluded_invalid_count.min(excluded_count),
-        })
+        };
+        self.last_evaluation = Some(CohortEvaluationIdentity {
+            dataset_generation,
+            filters: self.filters.clone(),
+            policy: self.policy,
+            cohort_generation,
+        });
+        Ok(snapshot)
     }
 }
 
