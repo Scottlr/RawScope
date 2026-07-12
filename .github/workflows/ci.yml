@@ -96,6 +96,6 @@ jobs:
       - name: Validate private package graph
         run: cargo metadata --format-version 1 --no-deps
       - name: Install cargo-deny
-          run: cargo install cargo-deny --version 0.20.2 --locked
+        run: cargo install cargo-deny --version 0.20.2 --locked
       - run: cargo deny check
 
