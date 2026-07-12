@@ -6,11 +6,11 @@ use rawscope_data::{
     TimelineEventKind, TimelineEventRecord,
 };
 
-use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
 use crate::{
     SelectedEventTypeCounts, TimelineBrushSelection, TimelineLaneRange, TimelineSelectionSummary,
 };
 use rawscope_evidence::SelectedSourceRowSample;
+use rawscope_evidence::{insert_lowest_row_id_sample, RowIdSample};
 
 const DEFAULT_MAX_TIMELINE_SAMPLE_SIZE: usize = 10;
 

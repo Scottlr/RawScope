@@ -1,6 +1,6 @@
 //! Context-specific escaping for current Markdown evidence writers.
 
-pub(crate) fn escape_table_cell(value: &str) -> String {
+pub fn escape_table_cell(value: &str) -> String {
     value
         .chars()
         .map(|ch| match ch {
@@ -14,11 +14,11 @@ pub(crate) fn escape_table_cell(value: &str) -> String {
 }
 
 #[allow(dead_code)]
-pub(crate) fn escape_inline_code(value: &str) -> String {
+pub fn escape_inline_code(value: &str) -> String {
     value.replace('`', "\\`").replace(['\r', '\n'], " ")
 }
 
-pub(crate) fn portable_path_label(path: &std::path::Path) -> String {
+pub fn portable_path_label(path: &std::path::Path) -> String {
     path.file_name()
         .and_then(|name| name.to_str())
         .filter(|name| !name.is_empty())

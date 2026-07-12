@@ -2,11 +2,11 @@
 
 use rawscope_core::RowId;
 
-pub(crate) trait RowIdSample {
+pub trait RowIdSample {
     fn row_id(&self) -> RowId;
 }
 
-pub(crate) fn insert_lowest_row_id_sample<T: RowIdSample>(
+pub fn insert_lowest_row_id_sample<T: RowIdSample>(
     samples: &mut Vec<T>,
     next_sample: T,
     max_sample_size: usize,

@@ -7,8 +7,8 @@ use rawscope_data::{
     TimelineEventKind, TimelineEventRecord,
 };
 
-use crate::evidence_sample::{insert_lowest_row_id_sample, RowIdSample};
 use crate::{ScatterBrushSelection, SelectionSnapshot, TimelineBrushSelection};
+use rawscope_evidence::{insert_lowest_row_id_sample, RowIdSample};
 
 const DEFAULT_MAX_DRILLDOWN_ROWS: usize = 100;
 const SCATTER_FALLBACK_COLUMN_NAMES: [&str; 4] = ["row_id", "x", "y", "kind"];
