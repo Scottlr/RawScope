@@ -34,7 +34,7 @@ pub fn load_parquet_scatter_dataset(
     limit: Option<usize>,
 ) -> Result<LoadedScatterDataset, DatasetLoadError> {
     let path = path.as_ref();
-    let parquet = read_parquet_batches(path, limit)?;
+    let mut parquet = read_parquet_batches(path, limit)?;
     let x_index = column_index(&parquet.arrow_schema, x_column)?;
     let y_index = column_index(&parquet.arrow_schema, y_column)?;
     ensure_numeric_column(&parquet.arrow_schema, x_index, x_column)?;
@@ -49,7 +49,11 @@ pub fn load_parquet_scatter_dataset(
     let mut y_min = f32::INFINITY;
     let mut y_max = f32::NEG_INFINITY;
 
-    for (chunk_index, batch) in parquet.batches.iter().enumerate() {
+    for (chunk_index, batch_result) in parquet.reader.by_ref().enumerate() {
+        let batch = batch_result.map_err(|source| DatasetLoadError::ParquetRead {
+            path: path.to_path_buf(),
+            source: source.into(),
+        })?;
         let chunk_row_count = batch.num_rows();
         if chunk_row_count == 0 {
             continue;
@@ -84,7 +88,7 @@ pub fn load_parquet_scatter_dataset(
             });
             source_rows.push(LoadedSourceRow {
                 row_id,
-                values: source_row_values(path, chunk_index, batch, row_index)?,
+                values: source_row_values(path, chunk_index, &batch, row_index)?,
             });
         }
 
@@ -146,7 +150,7 @@ pub fn load_parquet_timeline_dataset(
     limit: Option<usize>,
 ) -> Result<LoadedTimelineDataset, DatasetLoadError> {
     let path = path.as_ref();
-    let parquet = read_parquet_batches(path, limit)?;
+    let mut parquet = read_parquet_batches(path, limit)?;
     let time_index = column_index(&parquet.arrow_schema, time_column)?;
     let lane_index = column_index(&parquet.arrow_schema, lane_column)?;
     ensure_integer_time_column(&parquet.arrow_schema, time_index, time_column)?;
@@ -161,7 +165,11 @@ pub fn load_parquet_timeline_dataset(
     let mut time_min = u64::MAX;
     let mut time_max = 0u64;
 
-    for (chunk_index, batch) in parquet.batches.iter().enumerate() {
+    for (chunk_index, batch_result) in parquet.reader.by_ref().enumerate() {
+        let batch = batch_result.map_err(|source| DatasetLoadError::ParquetRead {
+            path: path.to_path_buf(),
+            source: source.into(),
+        })?;
         let chunk_row_count = batch.num_rows();
         if chunk_row_count == 0 {
             continue;
@@ -208,7 +216,7 @@ pub fn load_parquet_timeline_dataset(
             });
             source_rows.push(LoadedSourceRow {
                 row_id,
-                values: source_row_values(path, chunk_index, batch, row_index)?,
+                values: source_row_values(path, chunk_index, &batch, row_index)?,
             });
         }
 
@@ -255,7 +263,7 @@ pub fn load_parquet_timeline_dataset(
 
 struct LoadedParquetBatches {
     arrow_schema: Schema,
-    batches: Vec<RecordBatch>,
+    reader: parquet::arrow::arrow_reader::ParquetRecordBatchReader,
 }
 
 fn read_parquet_schema(path: &Path) -> Result<Schema, DatasetLoadError> {
@@ -292,20 +300,9 @@ fn read_parquet_batches(
             path: path.to_path_buf(),
             source,
         })?;
-    let mut batches = Vec::new();
-    for batch in reader {
-        let batch = batch.map_err(|source| DatasetLoadError::ParquetRead {
-            path: path.to_path_buf(),
-            source: source.into(),
-        })?;
-        if batch.num_rows() > 0 {
-            batches.push(batch);
-        }
-    }
-
     Ok(LoadedParquetBatches {
         arrow_schema,
-        batches,
+        reader,
     })
 }
 
