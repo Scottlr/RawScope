@@ -63,10 +63,10 @@ impl GpuResourcePlan {
         let buffer_size_bytes = bin_count
             .checked_mul(4)
             .ok_or(GpuLimitError::ArithmeticOverflow)?;
-        if buffer_size_bytes > limits.max_storage_buffer_binding_size as u64 {
+        if buffer_size_bytes > limits.max_storage_buffer_binding_size {
             return Err(GpuLimitError::BufferTooLarge {
                 requested_bytes: buffer_size_bytes,
-                max_bytes: limits.max_storage_buffer_binding_size as u64,
+                max_bytes: limits.max_storage_buffer_binding_size,
             });
         }
         let dispatch_workgroups_x =
