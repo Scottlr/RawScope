@@ -2,3 +2,4 @@
 
 pub mod density;
 pub mod projection;
+pub mod summary;
