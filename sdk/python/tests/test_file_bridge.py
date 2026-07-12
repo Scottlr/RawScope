@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
 import rawscope
+from rawscope.bundle import prepare_dataframe
 from rawscope.launcher import resolve_workbench_executable
 
 
@@ -147,6 +148,31 @@ class FileBridgeTests(unittest.TestCase):
                 shell=False,
             )
             self.assertEqual(launched.pid, 42)
+
+    def test_launcher_cleans_temporary_session_when_process_creation_fails(self) -> None:
+        source = type("Frame", (), {})()
+        with patch("rawscope.bundle.select_adapter") as select_adapter:
+            adapter = select_adapter.return_value
+            adapter.column_names.return_value = ("x", "y")
+            adapter.row_count.return_value = 1
+            adapter.write_parquet.side_effect = lambda path: path.write_bytes(b"parquet")
+            with patch("rawscope.launcher.subprocess.Popen", side_effect=OSError("spawn failed")):
+                session = prepare_dataframe(
+                    source,
+                    view=rawscope.ScatterView("x", "y"),
+                    destination=None,
+                    display_name=None,
+                    evidence_key=None,
+                    limit=None,
+                )
+                bundle_dir = session.bundle_dir
+                executable = bundle_dir.parent / "rawscope-workbench.exe"
+                executable.write_bytes(b"")
+                with self.assertRaises(OSError), patch(
+                    "rawscope.launcher.subprocess.Popen", side_effect=OSError("spawn failed")
+                ):
+                    rawscope.launch(session, executable=executable)
+                self.assertFalse(bundle_dir.exists())
 
     def test_view_composes_prepare_and_launch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

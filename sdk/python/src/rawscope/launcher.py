@@ -61,7 +61,14 @@ def launch(
         "--session",
         str(prepared.manifest_path),
     ]
-    process = subprocess.Popen(command, shell=False)
+    try:
+        process = subprocess.Popen(command, shell=False)
+    except Exception:
+        # A temporary dataframe session is owned by this launch attempt until
+        # a process wrapper is returned; failed process creation must not leak it.
+        if not prepared.persistent:
+            _cleanup_temporary_bundle(prepared)
+        raise
     return RawScopeProcess(process, prepared)
 
 
@@ -101,18 +108,7 @@ class RawScopeProcess:
             pass
 
     def _cleanup_temporary_bundle(self) -> None:
-        if self.session.persistent:
-            return
-        # T005 creates temporary bundles under this explicit prefix. T004 never
-        # deletes a caller-provided destination.
-        if not self.session.bundle_dir.name.startswith("rawscope-session-"):
-            return
-        bundle_dir = self.session.bundle_dir.resolve()
-        temp_root = Path(tempfile.gettempdir()).resolve()
-        if temp_root not in bundle_dir.parents:
-            return
-        if bundle_dir.is_dir():
-            shutil.rmtree(bundle_dir)
+        _cleanup_temporary_bundle(self.session)
 
 
 def _coerce_session(
@@ -135,3 +131,18 @@ def _find_executable(candidate: str | os.PathLike[str]) -> str | None:
     if path.is_file():
         return str(path.resolve())
     return shutil.which(value)
+
+
+def _cleanup_temporary_bundle(session: PreparedSession) -> None:
+    if session.persistent:
+        return
+    # Temporary bundles are created under this explicit prefix. Never delete a
+    # caller-provided destination, even if it happens to be in the temp root.
+    if not session.bundle_dir.name.startswith("rawscope-session-"):
+        return
+    bundle_dir = session.bundle_dir.resolve()
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    if temp_root not in bundle_dir.parents:
+        return
+    if bundle_dir.is_dir():
+        shutil.rmtree(bundle_dir)
