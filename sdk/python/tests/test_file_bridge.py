@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
 
 import rawscope
 from rawscope.bundle import prepare_dataframe
-from rawscope.launcher import resolve_workbench_executable
+from rawscope.launcher import RawScopeExecutableNotFound, resolve_workbench_executable
 
 
 class FileBridgeTests(unittest.TestCase):
@@ -208,6 +208,15 @@ class FileBridgeTests(unittest.TestCase):
                 "rawscope.launcher.shutil.which", return_value="on-path-workbench"
             ):
                 self.assertEqual(resolve_workbench_executable(), "on-path-workbench")
+
+    @unittest.skipIf(os.name == "nt", "Windows uses executable file associations")
+    def test_launcher_rejects_non_executable_explicit_path_on_posix(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            candidate = Path(temporary) / "rawscope-workbench"
+            candidate.write_bytes(b"")
+            candidate.chmod(0o644)
+            with self.assertRaises(RawScopeExecutableNotFound):
+                resolve_workbench_executable(candidate)
 
     def test_launcher_passes_session_as_distinct_arguments(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
