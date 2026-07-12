@@ -6,7 +6,7 @@ use tracing::{info, warn};
 use wgpu::{CurrentSurfaceTexture, SurfaceTexture, TextureView};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{GpuAdapterInfo, GpuError};
+use crate::{AdapterPolicy, GpuAdapterInfo, GpuError};
 
 /// Result of attempting to present one frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,12 +38,9 @@ impl GpuContext {
             .create_surface(window)
             .map_err(GpuError::CreateSurface)?;
 
+        let adapter_policy = AdapterPolicy::default();
         let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: Some(&surface),
-            })
+            .request_adapter(&adapter_policy.request_options(Some(&surface)))
             .await
             .map_err(GpuError::RequestAdapter)?;
 
