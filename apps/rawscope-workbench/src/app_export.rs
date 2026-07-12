@@ -25,7 +25,7 @@ use crate::{
 impl WorkbenchApp {
     pub(crate) fn export_selection_evidence(&mut self) {
         let Some(evidence_v2) = self.scatter_selection_evidence_v2() else {
-            self.export_status = ExportStatus::NoSelection;
+            self.workbench_state.export_status = ExportStatus::NoSelection;
             warn!(
                 reason = "no finalized scatter selection evidence",
                 "scatter selection evidence export skipped"
@@ -59,7 +59,7 @@ impl WorkbenchApp {
             (None, None, None) => export_paths.write_scatter(&evidence_v2),
         };
         if let Err(err) = write_result {
-            self.export_status = ExportStatus::Failed {
+            self.workbench_state.export_status = ExportStatus::Failed {
                 message: err.to_string(),
             };
             error!(
@@ -88,7 +88,7 @@ impl WorkbenchApp {
             })
             .unwrap_or((evidence_v2.selected_row_count, 2));
         self.evidence_export_counter = export_paths.export_counter;
-        self.export_status = ExportStatus::Exported {
+        self.workbench_state.export_status = ExportStatus::Exported {
             bundle_dir: export_paths.bundle_dir.display().to_string(),
         };
 
@@ -107,7 +107,7 @@ impl WorkbenchApp {
 
     pub(crate) fn export_timeline_selection_evidence(&mut self) {
         let Some(evidence_v2) = self.timeline_selection_evidence_v2() else {
-            self.export_status = ExportStatus::NoSelection;
+            self.workbench_state.export_status = ExportStatus::NoSelection;
             warn!(
                 reason = "no finalized timeline selection evidence",
                 "timeline selection evidence export skipped"
@@ -129,7 +129,7 @@ impl WorkbenchApp {
             None => export_paths.write_timeline(&evidence_v2),
         };
         if let Err(err) = write_result {
-            self.export_status = ExportStatus::Failed {
+            self.workbench_state.export_status = ExportStatus::Failed {
                 message: err.to_string(),
             };
             error!(
@@ -148,7 +148,7 @@ impl WorkbenchApp {
             .map(|evidence| (evidence.selected_event_count, evidence.schema_version))
             .unwrap_or((evidence_v2.selected_event_count, 2));
         self.evidence_export_counter = export_paths.export_counter;
-        self.export_status = ExportStatus::Exported {
+        self.workbench_state.export_status = ExportStatus::Exported {
             bundle_dir: export_paths.bundle_dir.display().to_string(),
         };
 

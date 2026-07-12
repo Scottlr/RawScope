@@ -47,7 +47,7 @@ impl WorkbenchApp {
         self.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.scatter.viewport = Some(viewport);
-        self.export_status = crate::ui::ExportStatus::Idle;
+        self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
         self.clear_brush();
         self.rebuild_missingness_state();
         self.rebuild_scatter_aggregate_overview();
