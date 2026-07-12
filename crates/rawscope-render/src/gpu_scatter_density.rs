@@ -148,6 +148,7 @@ pub async fn gpu_scatter_density_on_device(
     Ok(GpuScatterDensityGrid::new(width, height, counts))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn gpu_scatter_density_masked(
     context: &ComputeContext,
     points: &[ScatterPointRecord],

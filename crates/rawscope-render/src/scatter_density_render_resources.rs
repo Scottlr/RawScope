@@ -45,6 +45,7 @@ pub(super) struct ScatterDensityRenderParams {
 }
 
 impl ScatterDensityRenderParams {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
         config: ScatterDensityRendererConfig,
         max_bin_count: u32,
@@ -95,6 +96,7 @@ impl ScatterDensityRenderParams {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::ScatterDensityRenderParams;
 

@@ -133,9 +133,9 @@ fn scatter_overview_with_dense_context(selected_row_id: RowId) -> ScatterAggrega
     let grid_width = 8;
     let grid_height = 4;
     let mut bins = vec![AggregateBinSample::default(); (grid_width * grid_height) as usize];
-    for index in 0..20 {
-        bins[index].count = (32 - index) as u32;
-        bins[index].row_ids = vec![RowId(100 + index as u64), RowId(200 + index as u64)];
+    for (index, bin) in bins.iter_mut().enumerate().take(20) {
+        bin.count = (32 - index) as u32;
+        bin.row_ids = vec![RowId(100 + index as u64), RowId(200 + index as u64)];
     }
     bins[19].count = 1;
     bins[19].row_ids = vec![selected_row_id];
@@ -279,9 +279,9 @@ fn timeline_overview_with_dense_context(selected_row_id: RowId) -> TimelineAggre
     let grid_width = 8;
     let grid_height = 4;
     let mut bins = vec![AggregateBinSample::default(); (grid_width * grid_height) as usize];
-    for index in 0..18 {
-        bins[index].count = (24 - index) as u32;
-        bins[index].row_ids = vec![RowId(300 + index as u64), RowId(400 + index as u64)];
+    for (index, bin) in bins.iter_mut().enumerate().take(18) {
+        bin.count = (24 - index) as u32;
+        bin.row_ids = vec![RowId(300 + index as u64), RowId(400 + index as u64)];
     }
     bins[17].count = 2;
     bins[17].row_ids = vec![selected_row_id];

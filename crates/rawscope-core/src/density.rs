@@ -274,8 +274,10 @@ mod tests {
 
     #[test]
     fn density_bin_count_is_checked() {
-        let mut bin = DensityBin::default();
-        bin.row_count = u32::MAX;
+        let mut bin = DensityBin {
+            row_count: u32::MAX,
+            ..DensityBin::default()
+        };
         assert_eq!(bin.push(RowId(1)), Err(DensityCountError::Overflow));
     }
 }

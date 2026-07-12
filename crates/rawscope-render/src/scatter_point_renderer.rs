@@ -92,6 +92,7 @@ impl ScatterPointRenderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_selection(
         &mut self,
         device: &wgpu::Device,
