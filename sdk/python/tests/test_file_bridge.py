@@ -128,6 +128,69 @@ class FileBridgeTests(unittest.TestCase):
             self.assertFalse(destination.exists())
             self.assertEqual(list(Path(temporary).iterdir()), [])
 
+    def test_dataframe_bundle_replaces_persistent_generation_as_one_directory(self) -> None:
+        source = type("Frame", (), {})()
+        with tempfile.TemporaryDirectory() as temporary, patch(
+            "rawscope.bundle.select_adapter"
+        ) as select_adapter:
+            adapter = select_adapter.return_value
+            adapter.column_names.return_value = ("x", "y")
+            adapter.row_count.return_value = 1
+            adapter.write_parquet.side_effect = lambda path: path.write_bytes(b"new")
+            destination = Path(temporary) / "bundle"
+            destination.mkdir()
+            (destination / "data.parquet").write_bytes(b"old")
+            (destination / "analysis.rawscope.json").write_text("old", encoding="utf-8")
+
+            session = prepare_dataframe(
+                source,
+                view=rawscope.ScatterView("x", "y"),
+                destination=destination,
+                display_name=None,
+                evidence_key=None,
+                limit=None,
+            )
+
+            self.assertEqual(session.bundle_dir, destination.resolve())
+            self.assertEqual((destination / "data.parquet").read_bytes(), b"new")
+            self.assertFalse(any(destination.parent.glob(".bundle.previous-*")))
+
+    def test_dataframe_bundle_rename_failure_restores_previous_generation(self) -> None:
+        source = type("Frame", (), {})()
+        with tempfile.TemporaryDirectory() as temporary, patch(
+            "rawscope.bundle.select_adapter"
+        ) as select_adapter:
+            adapter = select_adapter.return_value
+            adapter.column_names.return_value = ("x", "y")
+            adapter.row_count.return_value = 1
+            adapter.write_parquet.side_effect = lambda path: path.write_bytes(b"new")
+            destination = Path(temporary) / "bundle"
+            destination.mkdir()
+            (destination / "data.parquet").write_bytes(b"old")
+            real_replace = os.replace
+            replace_calls = 0
+
+            def fail_publish(source_path: os.PathLike[str], target_path: os.PathLike[str]) -> None:
+                nonlocal replace_calls
+                replace_calls += 1
+                if replace_calls == 2:
+                    raise OSError("publish failed")
+                real_replace(source_path, target_path)
+
+            with patch("rawscope.bundle.os.replace", side_effect=fail_publish):
+                with self.assertRaises(OSError):
+                    prepare_dataframe(
+                        source,
+                        view=rawscope.ScatterView("x", "y"),
+                        destination=destination,
+                        display_name=None,
+                        evidence_key=None,
+                        limit=None,
+                    )
+
+            self.assertEqual((destination / "data.parquet").read_bytes(), b"old")
+            self.assertFalse(any(destination.parent.glob(".bundle.previous-*")))
+
     def test_launcher_uses_explicit_env_then_path_resolution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             explicit = Path(temporary) / "explicit.exe"
