@@ -12,7 +12,7 @@ mod visual_field_catalog;
 mod visual_record;
 
 pub use dataset::{
-    DatasetFieldBinding, DatasetFieldRole, DatasetIdentity, DatasetSource,
+    DatasetFieldBinding, DatasetFieldRole, DatasetIdentity, DatasetSource, DatasetSourceFormat,
     SyntheticDatasetMetadata, VisualDatasetKind,
 };
 pub use dataset_filter::{
