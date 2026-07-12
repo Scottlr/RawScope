@@ -2,7 +2,11 @@
 
 use std::{collections::BTreeMap, error::Error, fmt, num::NonZeroU32, sync::Arc};
 
-use rawscope_analysis::density::{bin_f32, BinIndex, BinPlacement};
+use rawscope_analysis::{
+    density::{bin_f32, BinIndex, BinPlacement},
+    inspection::{F64Domain, InspectionBinExtent},
+};
+use rawscope_core::GridSize;
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
 
@@ -170,6 +174,18 @@ pub fn build_scatter_inspection_grid(
 }
 
 impl ScatterInspectionGrid {
+    pub fn precise_extent(&self, bin_x: u32, bin_y: u32) -> Option<InspectionBinExtent> {
+        let grid = GridSize::try_new(self.grid_width, self.grid_height).ok()?;
+        InspectionBinExtent::new(
+            BinIndex(bin_x),
+            BinIndex(bin_y),
+            F64Domain::try_new(self.x_range.min as f64, self.x_range.max as f64).ok()?,
+            F64Domain::try_new(self.y_range.min as f64, self.y_range.max as f64).ok()?,
+            grid,
+        )
+        .ok()
+    }
+
     pub fn inspect_bin(&self, bin_x: u32, bin_y: u32) -> Option<ScatterInspectionHit> {
         if bin_x >= self.grid_width || bin_y >= self.grid_height {
             return None;
@@ -393,6 +409,19 @@ mod tests {
         assert_eq!((hit.bin_x, hit.bin_y), (1, 9));
         assert_eq!(hit.count, 1);
         assert_eq!(hit.y_range, F32Range::new(9.0, 10.0));
+    }
+
+    #[test]
+    fn inspection_hit_exposes_checked_domain_extent() {
+        let points = points(&[(0, 1.0, 9.0)]);
+        let evaluation = evaluation(&["keep"], None);
+        let grid = build(&points, &evaluation, 10, 10, 16);
+        let hit = grid.inspect_bin(1, 9).unwrap();
+
+        let extent = grid.precise_extent(hit.bin_x, hit.bin_y).unwrap();
+
+        assert_eq!(extent.x_bounds(), (1.0, 2.0));
+        assert_eq!(extent.y_bounds(), (9.0, 10.0));
     }
 
     #[test]
