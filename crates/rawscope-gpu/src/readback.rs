@@ -20,6 +20,7 @@ pub enum ReadbackError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadbackState {
     Submitted,
+    Mapping,
     Ready,
     Failed(ReadbackError),
     Cancelled,
@@ -118,7 +119,10 @@ impl<T> GpuReadbackTicket<T> {
     }
 
     pub fn is_pending(&self) -> bool {
-        matches!(self.state, ReadbackState::Submitted)
+        matches!(
+            self.state,
+            ReadbackState::Submitted | ReadbackState::Mapping
+        )
     }
 
     pub fn completion(&self) -> Arc<ReadbackCompletion<T, ReadbackError>> {
@@ -146,7 +150,10 @@ impl<T> GpuReadbackTicket<T> {
         if device_generation != self.device_generation {
             return false;
         }
-        if !matches!(self.state, ReadbackState::Submitted) {
+        if !matches!(
+            self.state,
+            ReadbackState::Submitted | ReadbackState::Mapping
+        ) {
             return false;
         }
         match result {
@@ -159,6 +166,15 @@ impl<T> GpuReadbackTicket<T> {
         true
     }
 
+    /// Marks the staging buffer as handed to WGPU's asynchronous mapper.
+    pub fn begin_mapping(&mut self) -> bool {
+        if !matches!(self.state, ReadbackState::Submitted) {
+            return false;
+        }
+        self.state = ReadbackState::Mapping;
+        true
+    }
+
     /// Terminalizes a pending ticket after its owning device is lost.
     pub fn cancel_for_device_loss(&mut self, device_generation: DeviceGeneration) -> bool {
         if device_generation != self.device_generation {
@@ -168,7 +184,10 @@ impl<T> GpuReadbackTicket<T> {
     }
 
     pub fn cancel(&mut self) -> bool {
-        if !matches!(self.state, ReadbackState::Submitted) {
+        if !matches!(
+            self.state,
+            ReadbackState::Submitted | ReadbackState::Mapping
+        ) {
             return false;
         }
         self.state = ReadbackState::Cancelled;
@@ -176,14 +195,19 @@ impl<T> GpuReadbackTicket<T> {
     }
 
     pub fn advance(&mut self, now: Instant) {
-        if now >= self.deadline && matches!(self.state, ReadbackState::Submitted) {
+        if now >= self.deadline
+            && matches!(
+                self.state,
+                ReadbackState::Submitted | ReadbackState::Mapping
+            )
+        {
             self.state = ReadbackState::Failed(ReadbackError::TimedOut);
         }
     }
 
     pub fn take_result(&mut self) -> ReadbackProgress<T> {
         match self.state {
-            ReadbackState::Submitted => ReadbackProgress::Pending,
+            ReadbackState::Submitted | ReadbackState::Mapping => ReadbackProgress::Pending,
             ReadbackState::Ready => {
                 self.state = ReadbackState::Taken;
                 match self.result.take() {
@@ -221,6 +245,22 @@ mod tests {
         assert!(!ticket.complete(Ok(99)));
         assert_eq!(ticket.take_result(), ReadbackProgress::Ready(42));
         assert_eq!(ticket.take_result(), ReadbackProgress::Pending);
+    }
+
+    #[test]
+    fn mapping_state_is_explicit_and_accepts_one_terminal_callback() {
+        let now = Instant::now();
+        let mut ticket = GpuReadbackTicket::submitted(
+            ReadbackGeneration(8),
+            DeviceGeneration(3),
+            now,
+            Duration::from_secs(1),
+        );
+        assert!(ticket.begin_mapping());
+        assert_eq!(ticket.state(), ReadbackState::Mapping);
+        assert!(!ticket.begin_mapping());
+        assert!(ticket.complete(Ok(7_u32)));
+        assert_eq!(ticket.take_result(), ReadbackProgress::Ready(7));
     }
 
     #[test]
