@@ -39,6 +39,13 @@ impl ScatterDensityGpuState {
         Ok(())
     }
 
+    pub fn validate_dataset(
+        &self,
+        points: &[ScatterPointRecord],
+    ) -> Result<(), GpuScatterDensityError> {
+        checked_point_count(points).map(|_| ())
+    }
+
     pub fn update_filter_mask(
         &mut self,
         queue: &wgpu::Queue,

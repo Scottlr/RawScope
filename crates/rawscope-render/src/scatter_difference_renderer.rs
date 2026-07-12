@@ -128,6 +128,13 @@ impl ScatterDifferenceRenderer {
         Ok(())
     }
 
+    pub fn validate_dataset(
+        &self,
+        points: &[ScatterPointRecord],
+    ) -> Result<(), GpuScatterDensityError> {
+        self.active.validate_dataset(points)
+    }
+
     pub fn update_filter_mask(
         &mut self,
         queue: &wgpu::Queue,
