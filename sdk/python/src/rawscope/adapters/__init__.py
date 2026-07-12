@@ -23,16 +23,31 @@ class DataframeAdapter(Protocol):
 
 
 def select_adapter(source: object) -> DataframeAdapter:
-    module_name = type(source).__module__
-    if module_name.startswith("pandas"):
+    try:
+        from pandas import DataFrame as PandasDataFrame
+    except ImportError:
+        PandasDataFrame = ()
+    if isinstance(source, PandasDataFrame):
         from .pandas import PandasAdapter
 
         return PandasAdapter(source)
-    if module_name.startswith("polars"):
+
+    try:
+        from polars import DataFrame as PolarsDataFrame
+        from polars import LazyFrame as PolarsLazyFrame
+    except ImportError:
+        PolarsDataFrame = PolarsLazyFrame = ()
+    if isinstance(source, (PolarsDataFrame, PolarsLazyFrame)):
         from .polars import PolarsAdapter
 
         return PolarsAdapter(source)
-    if module_name.startswith("pyarrow"):
+
+    try:
+        from pyarrow import RecordBatch as PyArrowRecordBatch
+        from pyarrow import Table as PyArrowTable
+    except ImportError:
+        PyArrowRecordBatch = PyArrowTable = ()
+    if isinstance(source, (PyArrowTable, PyArrowRecordBatch)):
         from .pyarrow import PyArrowAdapter
 
         return PyArrowAdapter(source)
