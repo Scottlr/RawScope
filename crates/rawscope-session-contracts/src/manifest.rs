@@ -132,15 +132,18 @@ pub enum DatasetProfileId {
     LichessGames,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DatasetProfileParseError;
+
 impl DatasetProfileId {
     pub const fn as_str(self) -> &'static str {
         "lichess-games"
     }
-    pub fn parse(value: &str) -> Result<Self, ()> {
+    pub fn parse(value: &str) -> Result<Self, DatasetProfileParseError> {
         if value.trim() == Self::LichessGames.as_str() {
             Ok(Self::LichessGames)
         } else {
-            Err(())
+            Err(DatasetProfileParseError)
         }
     }
 }
