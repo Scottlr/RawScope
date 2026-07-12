@@ -2495,6 +2495,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rawscope-evidence"
+version = "0.1.0"
+dependencies = [
+ "rawscope-analysis",
+ "rawscope-core",
+ "rawscope-data",
+ "rawscope-session-contracts",
+]
+
+[[package]]
 name = "rawscope-gpu"
 version = "0.1.0"
 dependencies = [
