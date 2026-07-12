@@ -45,6 +45,8 @@ mod demo;
 )]
 mod job_coordinator;
 #[allow(dead_code)]
+mod operation_error;
+#[allow(dead_code)]
 mod render_coordinator;
 #[expect(
     dead_code,
