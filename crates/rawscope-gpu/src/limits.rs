@@ -48,10 +48,9 @@ impl fmt::Display for GpuLimitError {
 impl Error for GpuLimitError {}
 
 impl GpuResourcePlan {
-    pub fn for_density(
+    pub fn for_grid(
         grid_width: u32,
         grid_height: u32,
-        records: u64,
         limits: &wgpu::Limits,
     ) -> Result<Self, GpuLimitError> {
         if grid_width == 0 || grid_height == 0 {
@@ -72,6 +71,22 @@ impl GpuResourcePlan {
                 max_bytes: max_allowed_buffer_bytes,
             });
         }
+        Ok(Self {
+            grid_width,
+            grid_height,
+            bin_count,
+            buffer_size_bytes,
+            dispatch_workgroups_x: 0,
+        })
+    }
+
+    pub fn for_density(
+        grid_width: u32,
+        grid_height: u32,
+        records: u64,
+        limits: &wgpu::Limits,
+    ) -> Result<Self, GpuLimitError> {
+        let mut plan = Self::for_grid(grid_width, grid_height, limits)?;
         let dispatch_workgroups_x =
             records
                 .div_ceil(64)
@@ -86,13 +101,8 @@ impl GpuResourcePlan {
                 max: limits.max_compute_workgroups_per_dimension,
             });
         }
-        Ok(Self {
-            grid_width,
-            grid_height,
-            bin_count,
-            buffer_size_bytes,
-            dispatch_workgroups_x,
-        })
+        plan.dispatch_workgroups_x = dispatch_workgroups_x;
+        Ok(plan)
     }
 }
 
@@ -125,5 +135,13 @@ mod tests {
                 max_bytes: 64,
             })
         );
+    }
+
+    #[test]
+    fn grid_plan_reports_checked_output_size_without_dispatch_work() {
+        let plan = GpuResourcePlan::for_grid(5, 5, &wgpu::Limits::downlevel_defaults()).unwrap();
+        assert_eq!(plan.bin_count, 25);
+        assert_eq!(plan.buffer_size_bytes, 100);
+        assert_eq!(plan.dispatch_workgroups_x, 0);
     }
 }
