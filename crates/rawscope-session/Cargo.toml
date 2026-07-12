@@ -3,6 +3,8 @@ name = "rawscope-session"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
+description = "Bounded session loading and startup projection for RawScope"
 
 [dependencies]
 rawscope-session-contracts = { version = "0.1.0", path = "../rawscope-session-contracts" }

@@ -17,6 +17,8 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 rust-version = "1.85"
+repository = "https://github.com/Scottlr/RawScope"
+homepage = "https://github.com/Scottlr/RawScope"
 
 [workspace.dependencies]
 criterion = "0.8.2"

@@ -3,6 +3,8 @@ name = "rawscope-workbench"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
+description = "Native RawScope visual analytics workbench"
 
 [dependencies]
 egui = "0.35.0"
@@ -10,11 +12,11 @@ egui-wgpu = "0.35.0"
 egui-winit = "0.35.0"
 iconflow = { version = "1.0.0", default-features = false, features = ["pack-lucide"] }
 pollster = "0.4.0"
-rawscope-core = { path = "../../crates/rawscope-core" }
-rawscope-data = { path = "../../crates/rawscope-data" }
-rawscope-gpu = { path = "../../crates/rawscope-gpu" }
-rawscope-render = { path = "../../crates/rawscope-render" }
-rawscope-session = { path = "../../crates/rawscope-session" }
+rawscope-core = { version = "0.1.0", path = "../../crates/rawscope-core" }
+rawscope-data = { version = "0.1.0", path = "../../crates/rawscope-data" }
+rawscope-gpu = { version = "0.1.0", path = "../../crates/rawscope-gpu" }
+rawscope-render = { version = "0.1.0", path = "../../crates/rawscope-render" }
+rawscope-session = { version = "0.1.0", path = "../../crates/rawscope-session" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 tracing = "0.1.44"

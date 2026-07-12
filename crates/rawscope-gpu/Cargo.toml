@@ -3,6 +3,8 @@ name = "rawscope-gpu"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
+description = "Narrow WGPU adapter, resource, and recovery contracts for RawScope"
 
 [dependencies]
 tracing = "0.1.44"
