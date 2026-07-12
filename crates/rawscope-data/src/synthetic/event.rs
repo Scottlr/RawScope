@@ -1,5 +1,7 @@
 //! Deterministic synthetic event data for timeline-density testing.
 
+use std::{error::Error, fmt};
+
 use rawscope_core::{RowId, U64Range};
 
 use crate::dataset::{DatasetIdentity, SyntheticDatasetMetadata};
@@ -46,7 +48,84 @@ impl SyntheticEventConfig {
             lane_count: DEFAULT_LANE_COUNT,
         }
     }
+
+    pub fn validate(self) -> Result<ValidatedSyntheticEventConfig, SyntheticEventConfigError> {
+        if self.lane_count <= 1 {
+            return Err(SyntheticEventConfigError::LaneCountTooSmall {
+                actual: self.lane_count,
+            });
+        }
+
+        let spike_count = self.row_count / 4;
+        let stale_lane_count = self.row_count / 10;
+        let anomaly_count = self.row_count / 8;
+        if self.row_count > 0
+            && !overlaps(self.time_range, GAP_START, GAP_END)
+            && !has_outside_gap_value(self.time_range)
+        {
+            return Err(SyntheticEventConfigError::NoBackgroundWindow);
+        }
+        if spike_count > 0 && !overlaps(self.time_range, SPIKE_START, SPIKE_END) {
+            return Err(SyntheticEventConfigError::WindowOutsideRange {
+                pattern: SyntheticEventType::Spike,
+            });
+        }
+        if stale_lane_count > 0 && !overlaps(self.time_range, self.time_range.min, STALE_LANE_END) {
+            return Err(SyntheticEventConfigError::WindowOutsideRange {
+                pattern: SyntheticEventType::StaleLane,
+            });
+        }
+        if anomaly_count > 0 && !overlaps(self.time_range, ANOMALY_START, ANOMALY_END) {
+            return Err(SyntheticEventConfigError::WindowOutsideRange {
+                pattern: SyntheticEventType::HighValueBand,
+            });
+        }
+        Ok(ValidatedSyntheticEventConfig(self))
+    }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValidatedSyntheticEventConfig(SyntheticEventConfig);
+
+impl ValidatedSyntheticEventConfig {
+    pub const fn config(self) -> SyntheticEventConfig {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyntheticEventConfigError {
+    LaneCountTooSmall { actual: u32 },
+    NoBackgroundWindow,
+    WindowOutsideRange { pattern: SyntheticEventType },
+}
+
+impl fmt::Display for SyntheticEventConfigError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::LaneCountTooSmall { actual } => {
+                write!(
+                    formatter,
+                    "synthetic timeline requires at least two lanes, got {actual}"
+                )
+            }
+            Self::NoBackgroundWindow => {
+                write!(
+                    formatter,
+                    "synthetic time range contains no value outside the gap"
+                )
+            }
+            Self::WindowOutsideRange { pattern } => {
+                write!(
+                    formatter,
+                    "synthetic {pattern:?} window does not overlap the configured time range"
+                )
+            }
+        }
+    }
+}
+
+impl Error for SyntheticEventConfigError {}
 
 /// A deterministic synthetic event dataset plus generation metadata.
 #[derive(Debug, Clone, PartialEq)]
@@ -58,17 +137,32 @@ pub struct SyntheticEventDataset {
     pub events: Vec<TimelineEventRecord>,
 }
 
-/// Generates synthetic events with spike, gap, stale-lane, and anomaly patterns.
+/// Validates and generates synthetic events with typed configuration errors.
+pub fn try_generate_synthetic_events(
+    config: SyntheticEventConfig,
+) -> Result<SyntheticEventDataset, SyntheticEventConfigError> {
+    let validated = config.validate()?;
+    Ok(generate_validated_synthetic_events(validated))
+}
+
+/// Compatibility wrapper for existing known-valid demo configurations.
 pub fn generate_synthetic_events(config: SyntheticEventConfig) -> SyntheticEventDataset {
-    assert!(config.lane_count > 1, "lane_count must be greater than one");
+    try_generate_synthetic_events(config).expect("validated synthetic event configuration")
+}
+
+fn generate_validated_synthetic_events(
+    validated: ValidatedSyntheticEventConfig,
+) -> SyntheticEventDataset {
+    let config = validated.config();
 
     let mut rng = SyntheticRng::new(config.seed);
-    let spike_count = usize::max(1, config.row_count / 4);
-    let stale_lane_count = usize::max(1, config.row_count / 10);
-    let anomaly_count = usize::max(1, config.row_count / 8);
-    let background_count = config
-        .row_count
-        .saturating_sub(spike_count + stale_lane_count + anomaly_count);
+    let spike_count = config.row_count / 4;
+    let stale_lane_count = config.row_count / 10;
+    let anomaly_count = config.row_count / 8;
+    let pattern_count = spike_count
+        .saturating_add(stale_lane_count)
+        .saturating_add(anomaly_count);
+    let background_count = config.row_count.saturating_sub(pattern_count);
     let stale_lane = config.lane_count - 1;
     let anomaly_lane_limit = u32::min(config.lane_count.saturating_sub(1), 3);
 
@@ -160,19 +254,19 @@ fn sample_time_outside_gap(rng: &mut SyntheticRng, time_range: U64Range) -> u64 
     let has_no_late_gap_tail = late_span == 0;
 
     if has_no_early_gap_head {
-        return rng.u64_in_range(late_min, time_range.max + 1);
+        return sample_inclusive(rng, late_min, time_range.max);
     }
 
     if has_no_late_gap_tail {
-        return rng.u64_in_range(early_min, early_max + 1);
+        return sample_inclusive(rng, early_min, early_max);
     }
 
     let total_span = early_span + late_span;
     let use_early_gap_head = rng.u64_in_range(0, total_span) < early_span;
     if use_early_gap_head {
-        rng.u64_in_range(early_min, early_max + 1)
+        sample_inclusive(rng, early_min, early_max)
     } else {
-        rng.u64_in_range(late_min, time_range.max + 1)
+        sample_inclusive(rng, late_min, time_range.max)
     }
 }
 
@@ -184,5 +278,21 @@ fn sample_window_time(
 ) -> u64 {
     let min = u64::max(time_range.min, window_min);
     let max = u64::min(time_range.max, window_max);
-    rng.u64_in_range(min, max + 1)
+    sample_inclusive(rng, min, max)
+}
+
+fn overlaps(range: U64Range, window_min: u64, window_max: u64) -> bool {
+    range.min <= window_max && window_min <= range.max
+}
+
+fn has_outside_gap_value(range: U64Range) -> bool {
+    range.min < GAP_START || range.max > GAP_END
+}
+
+fn sample_inclusive(rng: &mut SyntheticRng, min: u64, max: u64) -> u64 {
+    if min == max {
+        return min;
+    }
+    let max_exclusive = max.checked_add(1).unwrap_or(u64::MAX);
+    rng.u64_in_range(min, max_exclusive)
 }

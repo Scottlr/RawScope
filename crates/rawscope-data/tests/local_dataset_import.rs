@@ -327,6 +327,44 @@ fn csv_limit_limits_retained_source_rows() {
 }
 
 #[test]
+fn csv_zero_limit_is_rejected_before_reading_rows() {
+    let path = write_csv_fixture(
+        "scatter_zero_limit",
+        "latency_ms,payload_size\n1,10\n2,20\n",
+    );
+
+    let error = load_scatter_dataset(&path, "latency_ms", "payload_size", Some(0))
+        .expect_err("zero CSV limit must be invalid");
+    assert!(matches!(
+        error,
+        DatasetLoadError::InvalidRowLimit { limit: 0 }
+    ));
+    remove_fixture(&path);
+}
+
+#[test]
+fn csv_timestamp_above_i64_max_remains_an_unsigned_integer() {
+    let path = write_csv_fixture(
+        "timeline_unsigned_timestamp",
+        "timestamp,provider\n9223372036854775808,aws\n9223372036854775810,gcp\n",
+    );
+
+    let dataset = load_timeline_dataset(&path, "timestamp", "provider", None).unwrap();
+
+    assert_eq!(dataset.events[0].timestamp, 9_223_372_036_854_775_808);
+    assert_eq!(dataset.events[1].timestamp, 9_223_372_036_854_775_810);
+    assert_eq!(
+        dataset
+            .schema
+            .iter()
+            .find(|column| column.name == "timestamp")
+            .map(|column| column.kind),
+        Some(LoadedColumnKind::Integer)
+    );
+    remove_fixture(&path);
+}
+
+#[test]
 fn source_table_preserves_empty_cell_as_empty_string() {
     let path = write_csv_fixture(
         "timeline_empty_source_cell",

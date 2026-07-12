@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rawscope_core::{F32Range, RowId, U64Range};
+use rawscope_core::{F32Range, PositiveRowLimit, RowId, U64Range};
 
 use crate::{DatasetIdentity, ScatterPointRecord, TimelineEventRecord};
 
@@ -182,6 +182,9 @@ pub enum DatasetLoadError {
     TooManyLanes {
         lane_count: usize,
     },
+    InvalidRowLimit {
+        limit: usize,
+    },
 }
 
 impl fmt::Display for DatasetLoadError {
@@ -241,6 +244,9 @@ impl fmt::Display for DatasetLoadError {
                 f,
                 "timeline dataset has {lane_count} distinct lanes, which exceeds u32 lane support"
             ),
+            Self::InvalidRowLimit { limit } => {
+                write!(f, "CSV row limit must be positive when provided; got {limit}")
+            }
         }
     }
 }
@@ -256,9 +262,23 @@ impl Error for DatasetLoadError {
             | Self::UnsupportedColumnType { .. }
             | Self::InvalidColumnValue { .. }
             | Self::EmptyDataset { .. }
-            | Self::TooManyLanes { .. } => None,
+            | Self::TooManyLanes { .. }
+            | Self::InvalidRowLimit { .. } => None,
         }
     }
+}
+
+pub(super) fn validate_row_limit(
+    limit: Option<usize>,
+) -> Result<Option<PositiveRowLimit>, DatasetLoadError> {
+    limit
+        .map(|value| {
+            let value_u64 = u64::try_from(value)
+                .map_err(|_| DatasetLoadError::InvalidRowLimit { limit: value })?;
+            PositiveRowLimit::try_new(value_u64)
+                .map_err(|_| DatasetLoadError::InvalidRowLimit { limit: value })
+        })
+        .transpose()
 }
 
 /// Loads a local scatter dataset from CSV or Parquet and binds explicit x/y columns.

@@ -9,9 +9,9 @@ use rawscope_core::{F32Range, RowId, U64Range};
 
 use crate::{
     local_dataset::{
-        ensure_supported_csv, DatasetLoadError, LoadedColumnKind, LoadedColumnSchema,
-        LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable, LoadedTimelineDataset,
-        SCATTER_NUMERIC_TYPE_EXPECTATION, TIMELINE_LANE_TYPE_EXPECTATION,
+        ensure_supported_csv, validate_row_limit, DatasetLoadError, LoadedColumnKind,
+        LoadedColumnSchema, LoadedScatterDataset, LoadedSourceRow, LoadedSourceTable,
+        LoadedTimelineDataset, SCATTER_NUMERIC_TYPE_EXPECTATION, TIMELINE_LANE_TYPE_EXPECTATION,
         TIMELINE_TIME_TYPE_EXPECTATION,
     },
     DatasetIdentity, ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
@@ -213,6 +213,7 @@ impl CsvTable {
 }
 
 fn read_csv_table(path: &Path, limit: Option<usize>) -> Result<CsvTable, DatasetLoadError> {
+    let limit = validate_row_limit(limit)?;
     let mut reader = ::csv::Reader::from_path(path).map_err(|source| csv_error(path, source))?;
     let headers = reader
         .headers()
@@ -225,7 +226,7 @@ fn read_csv_table(path: &Path, limit: Option<usize>) -> Result<CsvTable, Dataset
     for record in reader.records() {
         let record = record.map_err(|source| csv_error(path, source))?;
         rows.push(record);
-        let reached_limit = limit.is_some_and(|max_rows| rows.len() >= max_rows);
+        let reached_limit = limit.is_some_and(|max_rows| rows.len() as u64 >= max_rows.get());
         if reached_limit {
             break;
         }
@@ -268,7 +269,7 @@ fn infer_column_kind(current: LoadedColumnKind, value: &str) -> LoadedColumnKind
         return current;
     }
 
-    if value.parse::<i64>().is_ok() {
+    if value.parse::<i64>().is_ok() || value.parse::<u64>().is_ok() {
         return match current {
             LoadedColumnKind::Empty => LoadedColumnKind::Integer,
             LoadedColumnKind::Integer | LoadedColumnKind::Float => current,

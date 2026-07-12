@@ -1,7 +1,8 @@
 use rawscope_core::{F32Range, U64Range};
 use rawscope_data::{
-    generate_synthetic_events, generate_synthetic_points, ScatterPointKind, SyntheticEventConfig,
-    SyntheticEventType, SyntheticPointCategory, SyntheticPointConfig, TimelineEventKind,
+    generate_synthetic_events, generate_synthetic_points, try_generate_synthetic_events,
+    ScatterPointKind, SyntheticEventConfig, SyntheticEventConfigError, SyntheticEventType,
+    SyntheticPointCategory, SyntheticPointConfig, TimelineEventKind,
 };
 
 #[test]
@@ -79,4 +80,41 @@ fn event_generator_includes_gap_stale_lane_and_high_value_band() {
         event.kind == TimelineEventKind::Synthetic(SyntheticEventType::HighValueBand)
             && event.value >= 80.0
     }));
+}
+
+#[test]
+fn small_event_requests_generate_exact_counts() {
+    for row_count in 0..=3 {
+        let dataset = generate_synthetic_events(SyntheticEventConfig::new(17, row_count));
+        assert_eq!(dataset.events.len(), row_count);
+        assert_eq!(
+            dataset.events.last().map(|event| event.row_id.0),
+            row_count.checked_sub(1).map(|value| value as u64)
+        );
+    }
+}
+
+#[test]
+fn invalid_synthetic_event_windows_return_typed_errors() {
+    let invalid_lane_count = try_generate_synthetic_events(SyntheticEventConfig {
+        seed: 1,
+        row_count: 1,
+        time_range: U64Range::new(0, 1000),
+        lane_count: 1,
+    });
+    assert!(matches!(
+        invalid_lane_count,
+        Err(SyntheticEventConfigError::LaneCountTooSmall { actual: 1 })
+    ));
+
+    let invalid_window = try_generate_synthetic_events(SyntheticEventConfig {
+        seed: 1,
+        row_count: 16,
+        time_range: U64Range::new(0, 100),
+        lane_count: 4,
+    });
+    assert!(matches!(
+        invalid_window,
+        Err(SyntheticEventConfigError::WindowOutsideRange { .. })
+    ));
 }
