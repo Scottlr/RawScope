@@ -12,3 +12,6 @@ rawscope-analysis = { version = "0.1.0", path = "../rawscope-analysis" }
 rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
 rawscope-data = { version = "0.1.0", path = "../rawscope-data" }
 rawscope-session-contracts = { version = "0.1.0", path = "../rawscope-session-contracts" }
+
+[dev-dependencies]
+proptest = { workspace = true }

@@ -20,6 +20,7 @@ rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
 
 [dev-dependencies]
 criterion = { workspace = true }
+proptest = { workspace = true }
 
 [[bench]]
 name = "local_ingest"
