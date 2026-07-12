@@ -4,6 +4,7 @@ members = [
     "crates/rawscope-data",
     "crates/rawscope-gpu",
     "crates/rawscope-render",
+    "crates/rawscope-analysis",
     "crates/rawscope-session",
     "crates/rawscope-session-contracts",
     "apps/rawscope-workbench",
