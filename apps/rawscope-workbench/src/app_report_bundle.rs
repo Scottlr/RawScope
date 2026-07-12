@@ -59,7 +59,7 @@ impl EvidenceReportBundlePaths {
         initial_export_counter: u64,
     ) -> Self {
         let output_dir = output_dir.as_ref();
-        let mut export_counter = initial_export_counter;
+        let export_counter = initial_export_counter;
         loop {
             let paths = Self::new(
                 output_dir,
@@ -67,10 +67,7 @@ impl EvidenceReportBundlePaths {
                 export_timestamp_unix_ms,
                 export_counter,
             );
-            if !paths.bundle_dir.exists() {
-                return paths;
-            }
-            export_counter += 1;
+            return paths;
         }
     }
 
@@ -101,6 +98,13 @@ impl EvidenceReportBundlePaths {
     }
 
     pub(crate) fn write_scatter(
+        &self,
+        evidence: &ScatterSelectionEvidenceV2,
+    ) -> Result<(), Box<dyn Error>> {
+        self.transactional(|staged| staged.write_scatter_unstaged(evidence))
+    }
+
+    fn write_scatter_unstaged(
         &self,
         evidence: &ScatterSelectionEvidenceV2,
     ) -> Result<(), Box<dyn Error>> {
@@ -145,6 +149,13 @@ impl EvidenceReportBundlePaths {
         &self,
         evidence: &TimelineSelectionEvidenceV2,
     ) -> Result<(), Box<dyn Error>> {
+        self.transactional(|staged| staged.write_timeline_unstaged(evidence))
+    }
+
+    fn write_timeline_unstaged(
+        &self,
+        evidence: &TimelineSelectionEvidenceV2,
+    ) -> Result<(), Box<dyn Error>> {
         fs::create_dir_all(&self.bundle_dir)?;
         fs::write(
             &self.evidence_json_path,
@@ -183,6 +194,13 @@ impl EvidenceReportBundlePaths {
     }
 
     pub(crate) fn write_scatter_v3(
+        &self,
+        evidence: &ScatterSelectionEvidenceV3,
+    ) -> Result<(), Box<dyn Error>> {
+        self.transactional(|staged| staged.write_scatter_v3_unstaged(evidence))
+    }
+
+    fn write_scatter_v3_unstaged(
         &self,
         evidence: &ScatterSelectionEvidenceV3,
     ) -> Result<(), Box<dyn Error>> {
@@ -226,6 +244,13 @@ impl EvidenceReportBundlePaths {
     }
 
     pub(crate) fn write_timeline_v3(
+        &self,
+        evidence: &TimelineSelectionEvidenceV3,
+    ) -> Result<(), Box<dyn Error>> {
+        self.transactional(|staged| staged.write_timeline_v3_unstaged(evidence))
+    }
+
+    fn write_timeline_v3_unstaged(
         &self,
         evidence: &TimelineSelectionEvidenceV3,
     ) -> Result<(), Box<dyn Error>> {
@@ -275,6 +300,38 @@ impl EvidenceReportBundlePaths {
         let manifest_json = serde_json::to_string_pretty(manifest_record)?;
         fs::write(&self.manifest_path, manifest_json)?;
         Ok(())
+    }
+
+    fn transactional(
+        &self,
+        write: impl FnOnce(&EvidenceReportBundlePaths) -> Result<(), Box<dyn Error>>,
+    ) -> Result<(), Box<dyn Error>> {
+        fs::create_dir_all(self.bundle_dir.parent().unwrap_or_else(|| Path::new(".")))?;
+        let temp_dir = self
+            .bundle_dir
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(format!(
+                ".{}.tmp-{}",
+                self.bundle_dir.file_name().unwrap().to_string_lossy(),
+                std::process::id()
+            ));
+        fs::create_dir(&temp_dir)?;
+        let staged = Self {
+            bundle_dir: temp_dir.clone(),
+            evidence_json_path: temp_dir.join(EVIDENCE_JSON_FILE_NAME),
+            evidence_markdown_path: temp_dir.join(EVIDENCE_MARKDOWN_FILE_NAME),
+            visual_context_path: temp_dir.join(VISUAL_CONTEXT_FILE_NAME),
+            manifest_path: temp_dir.join(BUNDLE_MANIFEST_FILE_NAME),
+            export_timestamp_unix_ms: self.export_timestamp_unix_ms,
+            export_counter: self.export_counter,
+        };
+        let result = write(&staged)
+            .and_then(|_| fs::rename(&temp_dir, &self.bundle_dir).map_err(|source| source.into()));
+        if result.is_err() {
+            let _ = fs::remove_dir_all(&temp_dir);
+        }
+        result
     }
 }
 
