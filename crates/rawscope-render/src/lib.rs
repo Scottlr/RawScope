@@ -95,8 +95,9 @@ pub use missingness_reference::{
 };
 pub use plot_geometry::{PlotGeometryError, PlotPointPx, PlotRectPx};
 pub use scatter_brush::{
-    selected_region_summary_masked, BrushScreenPoint, BrushScreenRect, BrushScreenSize,
-    ScatterBrushDrag, ScatterBrushSelection, SelectedCategoryCounts, SelectedRegionSummary,
+    selected_region_summary_masked, selected_region_summary_snapshot, BrushScreenPoint,
+    BrushScreenRect, BrushScreenSize, ScatterBrushDrag, ScatterBrushSelection,
+    SelectedCategoryCounts, SelectedRegionSummary,
 };
 pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
 pub use scatter_density_gpu_state::{
