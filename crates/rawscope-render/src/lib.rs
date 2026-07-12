@@ -29,6 +29,7 @@ mod scatter_inspection_overlay;
 mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
+mod scatter_resident;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_evidence_v4;
@@ -126,6 +127,10 @@ pub use scatter_relief::{
     ReliefFieldConfigError, MAX_RELIEF_ELEVATION_DEGREES, MAX_RELIEF_HEIGHT_STRENGTH,
     MAX_RELIEF_NORMAL_RADIUS_BINS, MIN_RELIEF_ELEVATION_DEGREES, MIN_RELIEF_HEIGHT_STRENGTH,
     MIN_RELIEF_NORMAL_RADIUS_BINS,
+};
+pub use scatter_resident::{
+    ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
+    ScatterViewGenerationCounter,
 };
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,
