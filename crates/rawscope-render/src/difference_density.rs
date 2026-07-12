@@ -4,6 +4,33 @@ use std::{error::Error, fmt};
 
 pub const DIFFERENCE_FIXED_POINT_SCALE: u32 = 1_000_000_000;
 
+/// A shader-friendly split representation of a ratio.
+///
+/// The low component carries the residual after converting the f64 ratio to
+/// f32, avoiding the precision loss of a single f32 conversion for large
+/// totals. Consumers reconstruct the value as `high + low`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StableShareParts {
+    pub high: f32,
+    pub low: f32,
+}
+
+impl StableShareParts {
+    pub fn from_counts(count: u64, total: u64) -> Option<Self> {
+        if total == 0 {
+            return None;
+        }
+        let ratio = count as f64 / total as f64;
+        let high = ratio as f32;
+        let low = (ratio - f64::from(high)) as f32;
+        Some(Self { high, low })
+    }
+
+    pub fn reconstruct(self) -> f64 {
+        f64::from(self.high) + f64::from(self.low)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ScatterDensityMode {
     #[default]
@@ -232,5 +259,15 @@ mod tests {
         let encoded = fixed_point_max_abs_delta(delta);
         let decoded = f64::from(encoded) / f64::from(DIFFERENCE_FIXED_POINT_SCALE);
         assert!((decoded - delta).abs() <= 1.0 / f64::from(DIFFERENCE_FIXED_POINT_SCALE));
+    }
+
+    #[test]
+    fn stable_share_preserves_large_total_ratio() {
+        let total = (1_u64 << 24) + 123;
+        let count = total - 17;
+        let parts = StableShareParts::from_counts(count, total).unwrap();
+        let expected = count as f64 / total as f64;
+        assert!((parts.reconstruct() - expected).abs() < 1.0e-7);
+        assert!(StableShareParts::from_counts(1, 0).is_none());
     }
 }
