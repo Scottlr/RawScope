@@ -2,9 +2,10 @@
 
 use winit::{dpi::PhysicalPosition, event::MouseButton, keyboard::KeyCode, window::CursorIcon};
 
+use rawscope_evidence::ScatterSelectionEvidence;
 use rawscope_render::{
-    ScatterBrushSelection, ScatterSelectionEvidence, SelectedRegionSummary, SelectionDrilldown,
-    TimelineBrushSelection, TimelineSelectionEvidence, TimelineSelectionSummary,
+    ScatterBrushSelection, SelectedRegionSummary, SelectionDrilldown, TimelineBrushSelection,
+    TimelineSelectionEvidence, TimelineSelectionSummary,
 };
 
 use crate::{

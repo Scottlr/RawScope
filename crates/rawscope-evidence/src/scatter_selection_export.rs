@@ -10,7 +10,8 @@ use serde::Serialize;
 use crate::markdown_escape::{escape_table_cell, portable_path_label};
 use crate::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
-    SelectedCategoryCounts, SelectedPointSample, SelectedPointSampleV2, SelectedSourceRowSample,
+    ScatterSelectionKindCounts, SelectedPointSample, SelectedPointSampleV2,
+    SelectedSourceRowSample,
 };
 
 /// Artifact kind used by scatter selection evidence JSON and export manifests.
@@ -482,8 +483,8 @@ struct PointKindCountsArtifact {
     unclassified: usize,
 }
 
-impl From<SelectedCategoryCounts> for PointKindCountsArtifact {
-    fn from(counts: SelectedCategoryCounts) -> Self {
+impl From<ScatterSelectionKindCounts> for PointKindCountsArtifact {
+    fn from(counts: ScatterSelectionKindCounts) -> Self {
         Self {
             cluster: counts.cluster,
             background: counts.background,
@@ -493,8 +494,8 @@ impl From<SelectedCategoryCounts> for PointKindCountsArtifact {
     }
 }
 
-impl From<SelectedCategoryCounts> for CategoryCountsArtifact {
-    fn from(counts: SelectedCategoryCounts) -> Self {
+impl From<ScatterSelectionKindCounts> for CategoryCountsArtifact {
+    fn from(counts: ScatterSelectionKindCounts) -> Self {
         Self {
             cluster: counts.cluster,
             background: counts.background,

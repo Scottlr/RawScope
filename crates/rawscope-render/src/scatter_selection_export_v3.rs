@@ -12,8 +12,9 @@ use serde::Serialize;
 use crate::{
     AggregateEvidenceBin, ComparisonRatio, ScatterAggregateEvidenceContext,
     ScatterAggregateOverview, ScatterEvidenceViewV3, ScatterSelectionComparison,
-    ScatterSelectionEvidenceV3, SelectedPointSampleV2, SelectedSourceRowSample,
+    ScatterSelectionEvidenceV3,
 };
+use rawscope_evidence::{SelectedPointSampleV2, SelectedSourceRowSample};
 
 const MAX_AGGREGATE_CONTEXT_BINS: usize = 16;
 const SCATTER_COMPARISON_BASELINE_LABEL: &str = "active_point_slice";

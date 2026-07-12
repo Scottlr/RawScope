@@ -1,6 +1,9 @@
 //! Evidence report-bundle export routing for the workbench density demos.
 
-use rawscope_evidence::{EvidenceContext, EvidenceDocument, EvidenceVisualContext};
+use rawscope_evidence::{
+    EvidenceContext, EvidenceDocument, EvidenceVisualContext, ScatterEvidenceView,
+    ScatterSelectionEvidenceV2,
+};
 use tracing::{error, info, warn};
 
 use rawscope_render::{
@@ -8,10 +11,10 @@ use rawscope_render::{
     scatter_aggregate_evidence_context_for_bins, timeline_aggregate_evidence_context,
     DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
     PointRevealStats, ScatterAggregateOverview, ScatterCohortEvidence, ScatterDensityMode,
-    ScatterDensityPresentation, ScatterEvidenceView, ScatterInspectionConfig,
-    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, ScatterSelectionEvidenceV4,
-    ScatterVisualQueryV4, TimelineEvidenceView, TimelineSelectionEvidenceV2,
-    TimelineSelectionEvidenceV3, DIFFERENCE_BASELINE_ID, DIFFERENCE_FORMULA_ID,
+    ScatterDensityPresentation, ScatterInspectionConfig, ScatterSelectionEvidenceV3,
+    ScatterSelectionEvidenceV4, ScatterVisualQueryV4, TimelineEvidenceView,
+    TimelineSelectionEvidenceV2, TimelineSelectionEvidenceV3, DIFFERENCE_BASELINE_ID,
+    DIFFERENCE_FORMULA_ID,
 };
 
 use crate::{

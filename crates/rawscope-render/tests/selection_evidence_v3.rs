@@ -6,16 +6,19 @@ use rawscope_data::{
     LoadedSourceTable, ScatterPointKind, ScatterPointRecord, SyntheticDatasetMetadata,
     SyntheticEventType, SyntheticPointCategory, TimelineEventKind, TimelineEventRecord,
 };
+use rawscope_evidence::{
+    scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
+    ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
+    ScatterSelectionGeometry, SelectionEvidenceConfig,
+};
 use rawscope_render::{
     scatter_aggregate_evidence_context, scatter_selection_comparison,
-    scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
     scatter_selection_evidence_v3_json, scatter_selection_evidence_v3_markdown,
     timeline_aggregate_evidence_context, timeline_selection_comparison,
     timeline_selection_evidence_v2_json, timeline_selection_evidence_v2_markdown,
     timeline_selection_evidence_v3_markdown, AggregateBinSample, DensityEncoding,
-    ScatterAggregateOverview, ScatterBrushSelection, ScatterEvidenceView, ScatterSelectionEvidence,
-    ScatterSelectionEvidenceV2, ScatterSelectionEvidenceV3, SelectedRegionSummary,
-    SelectionEvidenceConfig, TimelineAggregateOverview, TimelineBrushSelection,
+    ScatterAggregateOverview, ScatterBrushSelection, ScatterSelectionEvidenceV3,
+    SelectedRegionSummary, TimelineAggregateOverview, TimelineBrushSelection,
     TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2, TimelineSelectionEvidenceV3, TimelineSelectionSummary,
 };
@@ -45,6 +48,13 @@ fn scatter_points() -> Vec<ScatterPointRecord> {
 
 fn scatter_selection() -> ScatterBrushSelection {
     ScatterBrushSelection {
+        x_range: F32Range::new(0.0, 50.0),
+        y_range: F32Range::new(0.0, 60.0),
+    }
+}
+
+fn scatter_geometry() -> ScatterSelectionGeometry {
+    ScatterSelectionGeometry {
         x_range: F32Range::new(0.0, 50.0),
         y_range: F32Range::new(0.0, 60.0),
     }
@@ -83,7 +93,7 @@ fn scatter_evidence_v2() -> ScatterSelectionEvidenceV2 {
     let points = scatter_points();
     let v1 = ScatterSelectionEvidence::from_points(
         &points,
-        scatter_selection(),
+        scatter_geometry(),
         SyntheticDatasetMetadata::new(0, points.len()),
         points.len(),
         SelectionEvidenceConfig { max_sample_size: 2 },

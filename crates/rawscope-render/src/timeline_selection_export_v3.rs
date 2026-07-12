@@ -10,10 +10,11 @@ use rawscope_data::{
 use serde::Serialize;
 
 use crate::{
-    AggregateEvidenceBin, ComparisonRatio, SelectedSourceRowSample, SelectedTimelineEventSampleV2,
+    AggregateEvidenceBin, ComparisonRatio, SelectedTimelineEventSampleV2,
     TimelineAggregateEvidenceContext, TimelineAggregateOverview, TimelineEvidenceViewV3,
     TimelineLaneRange, TimelineSelectionComparison, TimelineSelectionEvidenceV3,
 };
+use rawscope_evidence::SelectedSourceRowSample;
 
 const MAX_AGGREGATE_CONTEXT_BINS: usize = 16;
 const TIMELINE_COMPARISON_BASELINE_LABEL: &str = "active_event_slice";

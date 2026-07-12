@@ -11,6 +11,7 @@ bytemuck = { version = "1.25.0", features = ["derive"] }
 rawscope-core = { version = "0.1.0", path = "../rawscope-core" }
 rawscope-analysis = { version = "0.1.0", path = "../rawscope-analysis" }
 rawscope-data = { version = "0.1.0", path = "../rawscope-data" }
+rawscope-evidence = { version = "0.1.0", path = "../rawscope-evidence" }
 rawscope-gpu = { version = "0.1.0", path = "../rawscope-gpu" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"

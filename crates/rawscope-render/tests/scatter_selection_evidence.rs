@@ -2,8 +2,9 @@ use rawscope_core::{F32Range, RowId};
 use rawscope_data::{
     ScatterPointKind, ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointCategory,
 };
-use rawscope_render::{
-    ScatterBrushSelection, ScatterSelectionEvidence, SelectedPointSample, SelectionEvidenceConfig,
+use rawscope_evidence::{
+    ScatterSelectionEvidence, ScatterSelectionGeometry, SelectedPointSample,
+    SelectionEvidenceConfig,
 };
 
 fn point(row_id: u64, x: f32, y: f32, category: SyntheticPointCategory) -> ScatterPointRecord {
@@ -19,8 +20,8 @@ fn metadata() -> SyntheticDatasetMetadata {
     SyntheticDatasetMetadata::new(42, 5)
 }
 
-fn full_selection() -> ScatterBrushSelection {
-    ScatterBrushSelection {
+fn full_selection() -> ScatterSelectionGeometry {
+    ScatterSelectionGeometry {
         x_range: F32Range::new(0.0, 100.0),
         y_range: F32Range::new(0.0, 100.0),
     }
@@ -102,7 +103,7 @@ fn sample_size_limit_is_respected() {
 #[test]
 fn empty_selection_produces_zero_count_and_empty_sample() {
     let points = vec![point(0, 10.0, 10.0, SyntheticPointCategory::Background)];
-    let selection = ScatterBrushSelection {
+    let selection = ScatterSelectionGeometry {
         x_range: F32Range::new(90.0, 100.0),
         y_range: F32Range::new(90.0, 100.0),
     };
@@ -169,7 +170,7 @@ fn min_max_selected_xy_are_correct() {
 #[test]
 fn evidence_carries_dataset_metadata_and_brush_range() {
     let points = vec![point(0, 12.0, 90.0, SyntheticPointCategory::Background)];
-    let selection = ScatterBrushSelection {
+    let selection = ScatterSelectionGeometry {
         x_range: F32Range::new(10.0, 20.0),
         y_range: F32Range::new(80.0, 95.0),
     };

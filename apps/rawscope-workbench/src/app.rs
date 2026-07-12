@@ -9,6 +9,7 @@ use rawscope_data::{
     generate_synthetic_points, load_scatter_dataset, LoadedSourceTable, ScatterPointRecord,
     SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
 };
+use rawscope_evidence::ScatterSelectionEvidence;
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
     scatter_marginal_summary, BrushScreenPoint, DensityEncoding, ReliefFieldConfig,
@@ -16,10 +17,10 @@ use rawscope_render::{
     ScatterDensityMode, ScatterDensityPresentation, ScatterDensityRenderStats,
     ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDifferenceRenderStats,
     ScatterDifferenceRenderer, ScatterInspectionOverlayRenderer, ScatterMarginalSummary,
-    ScatterSelectionEvidence, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
-    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
-    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
-    TimelineOverviewSummary, TimelineSelectionEvidence, TimelineSelectionSummary, TimelineViewport,
+    ScatterViewport, SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview,
+    TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
+    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionEvidence,
+    TimelineSelectionSummary, TimelineViewport,
 };
 use tracing::info;
 use winit::{

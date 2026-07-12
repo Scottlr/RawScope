@@ -8,7 +8,8 @@ use std::{
 
 use serde::Serialize;
 
-use rawscope_render::{ScatterSelectionEvidenceV2, TimelineSelectionEvidenceV2};
+use rawscope_evidence::ScatterSelectionEvidenceV2;
+use rawscope_render::TimelineSelectionEvidenceV2;
 
 use crate::app_report_bundle::{
     EvidenceReportBundlePaths, SCATTER_REPORT_BUNDLE_DIR_PREFIX, TIMELINE_REPORT_BUNDLE_DIR_PREFIX,

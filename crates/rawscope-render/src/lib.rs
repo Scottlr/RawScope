@@ -30,11 +30,9 @@ mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
 mod scatter_resident;
-mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_evidence_v4;
 mod scatter_selection_evidence_v5;
-mod scatter_selection_export;
 mod scatter_selection_export_v3;
 mod scatter_selection_export_v4;
 mod scatter_selection_export_v5;
@@ -136,10 +134,6 @@ pub use scatter_resident::{
     ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
     ScatterViewGenerationCounter,
 };
-pub use scatter_selection_evidence::{
-    ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,
-    SelectedPointSampleV2, SelectedSourceRowSample, SelectionEvidenceConfig,
-};
 pub use scatter_selection_evidence_v3::{
     AggregateEvidenceBin, ScatterAggregateEvidenceContext, ScatterEvidenceViewV3,
     ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
@@ -155,12 +149,6 @@ pub use scatter_selection_evidence_v5::{
     PinnedScatterInspectionEvidenceV5, ScatterSelectionEvidenceV5, ScatterSelectionEvidenceV5Error,
     SessionDataFormatEvidenceV5, SessionEvidenceContextV5,
     SCATTER_SELECTION_EVIDENCE_V5_SCHEMA_VERSION,
-};
-pub use scatter_selection_export::{
-    scatter_selection_evidence_json, scatter_selection_evidence_markdown,
-    scatter_selection_evidence_v2_json, scatter_selection_evidence_v2_markdown,
-    SCATTER_SELECTION_EVIDENCE_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_SCHEMA_VERSION,
-    SCATTER_SELECTION_EVIDENCE_V2_ARTIFACT_KIND, SCATTER_SELECTION_EVIDENCE_V2_SCHEMA_VERSION,
 };
 pub use scatter_selection_export_v3::{
     scatter_aggregate_evidence_context, scatter_aggregate_evidence_context_for_bins,
