@@ -109,6 +109,11 @@ pub struct WorkbenchApp {
     pub(crate) inspection_presentation: InspectionPresentationState,
     pub(crate) point_reveal: ScatterPointRevealState,
     pub(crate) scatter_projection: ScatterProjectionState,
+    #[expect(
+        dead_code,
+        reason = "active-generation state is introduced before caller migration"
+    )]
+    pub(crate) workbench_state: crate::workbench_state::WorkbenchState,
 }
 
 /// Scatter-specific workbench state.

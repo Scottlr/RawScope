@@ -73,6 +73,8 @@ mod ui_shell;
 mod ui_theme;
 mod ui_view_context;
 mod ui_visual_encoding;
+#[allow(dead_code)]
+mod workbench_state;
 
 use std::{error::Error, io};
 
