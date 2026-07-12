@@ -44,7 +44,7 @@ impl WorkbenchApp {
         self.scatter.point_count_label = preset.row_count_label().to_string();
         self.dataset_identity = Some(dataset.identity);
         self.active_dataset_profile = None;
-        self.dataset_metadata = Some(dataset.metadata);
+        self.workbench_state.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
         self.scatter.viewport = Some(viewport);
         self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
