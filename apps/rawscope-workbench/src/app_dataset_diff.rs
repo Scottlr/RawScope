@@ -14,7 +14,7 @@ impl WorkbenchApp {
 
     pub(crate) fn show_dataset_diff_surface(&mut self) {
         if self.workbench_state.dataset_diff_summary.is_some() {
-            self.visible_surface = WorkbenchSurface::DatasetDiff;
+            self.workbench_state.visible_surface = WorkbenchSurface::DatasetDiff;
             self.clear_active_comparison();
             self.request_redraw();
             self.update_window_title();
@@ -24,8 +24,8 @@ impl WorkbenchApp {
     pub(crate) fn clear_dataset_diff_state(&mut self) {
         self.comparison_source_rows = None;
         self.workbench_state.dataset_diff_summary = None;
-        if self.visible_surface == WorkbenchSurface::DatasetDiff {
-            self.visible_surface = WorkbenchSurface::Primary;
+        if self.workbench_state.visible_surface == WorkbenchSurface::DatasetDiff {
+            self.workbench_state.visible_surface = WorkbenchSurface::Primary;
         }
     }
 
@@ -40,9 +40,9 @@ impl WorkbenchApp {
             .map(|(before, after)| dataset_diff_summary(before, after));
 
         if self.workbench_state.dataset_diff_summary.is_none()
-            && self.visible_surface == WorkbenchSurface::DatasetDiff
+            && self.workbench_state.visible_surface == WorkbenchSurface::DatasetDiff
         {
-            self.visible_surface = WorkbenchSurface::Primary;
+            self.workbench_state.visible_surface = WorkbenchSurface::Primary;
         }
     }
 
@@ -179,7 +179,10 @@ mod tests {
 
         app.inspect_dataset_diff_missingness_column("alpha");
 
-        assert_eq!(app.visible_surface, WorkbenchSurface::Missingness);
+        assert_eq!(
+            app.workbench_state.visible_surface,
+            WorkbenchSurface::Missingness
+        );
         let summary = app
             .missingness
             .selection_summary
@@ -202,7 +205,7 @@ mod tests {
             &[("alpha", LoadedColumnKind::String)],
             &[&[""]],
         )));
-        app.visible_surface = WorkbenchSurface::DatasetDiff;
+        app.workbench_state.visible_surface = WorkbenchSurface::DatasetDiff;
 
         app.switch_point_preset(PointCountPreset {
             key_label: "2",
@@ -211,6 +214,9 @@ mod tests {
 
         assert!(app.comparison_source_rows.is_none());
         assert!(app.workbench_state.dataset_diff_summary.is_none());
-        assert_eq!(app.visible_surface, WorkbenchSurface::Primary);
+        assert_eq!(
+            app.workbench_state.visible_surface,
+            WorkbenchSurface::Primary
+        );
     }
 }

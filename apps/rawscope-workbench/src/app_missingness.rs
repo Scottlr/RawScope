@@ -35,7 +35,7 @@ impl WorkbenchApp {
     pub(crate) fn rebuild_missingness_state(&mut self) {
         let Some(source_rows) = self.current_source_rows() else {
             self.missingness = MissingnessWorkbenchState::default();
-            self.visible_surface = WorkbenchSurface::Primary;
+            self.workbench_state.visible_surface = WorkbenchSurface::Primary;
             return;
         };
 
@@ -46,7 +46,7 @@ impl WorkbenchApp {
 
     pub(crate) fn show_missingness_surface(&mut self) {
         if self.missingness.grid.is_some() {
-            self.visible_surface = WorkbenchSurface::Missingness;
+            self.workbench_state.visible_surface = WorkbenchSurface::Missingness;
             self.clear_active_comparison();
             self.request_redraw();
             self.update_window_title();
@@ -54,8 +54,8 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn show_primary_surface(&mut self) {
-        if self.visible_surface != WorkbenchSurface::Primary {
-            self.visible_surface = WorkbenchSurface::Primary;
+        if self.workbench_state.visible_surface != WorkbenchSurface::Primary {
+            self.workbench_state.visible_surface = WorkbenchSurface::Primary;
             self.rebuild_active_comparison();
             self.request_redraw();
             self.update_window_title();
@@ -140,7 +140,7 @@ impl WorkbenchApp {
             return;
         };
 
-        self.visible_surface = WorkbenchSurface::Missingness;
+        self.workbench_state.visible_surface = WorkbenchSurface::Missingness;
         self.missingness.selection = Some(selection);
         self.missingness.selection_summary = Some(next_summary);
         self.rebuild_active_comparison();

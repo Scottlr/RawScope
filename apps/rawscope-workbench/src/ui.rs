@@ -169,7 +169,7 @@ impl WorkbenchApp {
 
     pub(crate) fn ui_state(&self) -> WorkbenchUiState {
         let active_view = ActiveView::from_demo_mode(self.demo_mode);
-        let visible_surface = self.visible_surface;
+        let visible_surface = self.workbench_state.visible_surface;
         let dataset_identity = self
             .dataset_identity
             .as_ref()
@@ -222,7 +222,7 @@ impl WorkbenchApp {
             .is_none_or(|input| matches!(input, crate::cli::WorkbenchInput::Timeline { .. }));
         let can_show_missingness = self.missingness_is_available();
         let can_show_dataset_diff = self.dataset_diff_is_available();
-        let can_reset = match self.visible_surface {
+        let can_reset = match self.workbench_state.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
                 DemoMode::Scatter => self.scatter.viewport.is_some(),
                 DemoMode::Timeline => self.timeline.viewport.is_some(),
@@ -230,7 +230,7 @@ impl WorkbenchApp {
             WorkbenchSurface::Missingness => false,
             WorkbenchSurface::DatasetDiff => false,
         };
-        let can_export = match self.visible_surface {
+        let can_export = match self.workbench_state.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
                 DemoMode::Scatter => self.scatter.selection_evidence.is_some(),
                 DemoMode::Timeline => self.timeline.selection_evidence.is_some(),
@@ -238,7 +238,7 @@ impl WorkbenchApp {
             WorkbenchSurface::Missingness => false,
             WorkbenchSurface::DatasetDiff => false,
         };
-        let can_clear_selection = match self.visible_surface {
+        let can_clear_selection = match self.workbench_state.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
                 DemoMode::Scatter => {
                     self.scatter.active_brush_selection.is_some()
@@ -389,7 +389,7 @@ impl WorkbenchApp {
         }
 
         if actions.clear_selection_requested {
-            match self.visible_surface {
+            match self.workbench_state.visible_surface {
                 WorkbenchSurface::Primary => match self.demo_mode {
                     DemoMode::Scatter => self.clear_brush(),
                     DemoMode::Timeline => self.clear_timeline_brush(),
@@ -449,7 +449,7 @@ impl WorkbenchApp {
         let Some(gpu) = self.gpu.take() else {
             self.demo_mode = next_mode;
             self.clear_dataset_diff_state();
-            self.visible_surface = WorkbenchSurface::Primary;
+            self.workbench_state.visible_surface = WorkbenchSurface::Primary;
             return;
         };
 
@@ -474,7 +474,7 @@ impl WorkbenchApp {
 }
 
 fn view_label(app: &WorkbenchApp) -> String {
-    if app.visible_surface == WorkbenchSurface::DatasetDiff {
+    if app.workbench_state.visible_surface == WorkbenchSurface::DatasetDiff {
         let Some(summary) = app.workbench_state.dataset_diff_summary.as_ref() else {
             return "Dataset diff unavailable".to_string();
         };
@@ -488,7 +488,7 @@ fn view_label(app: &WorkbenchApp) -> String {
         );
     }
 
-    if app.visible_surface == WorkbenchSurface::Missingness {
+    if app.workbench_state.visible_surface == WorkbenchSurface::Missingness {
         let Some(grid) = app.missingness.grid.as_ref() else {
             return "Missingness unavailable".to_string();
         };
@@ -547,7 +547,7 @@ fn view_label(app: &WorkbenchApp) -> String {
 }
 
 fn selection_label(app: &WorkbenchApp) -> String {
-    if app.visible_surface == WorkbenchSurface::DatasetDiff {
+    if app.workbench_state.visible_surface == WorkbenchSurface::DatasetDiff {
         let Some(summary) = app.workbench_state.dataset_diff_summary.as_ref() else {
             return "Dataset diff unavailable".to_string();
         };
@@ -557,7 +557,7 @@ fn selection_label(app: &WorkbenchApp) -> String {
         );
     }
 
-    if app.visible_surface == WorkbenchSurface::Missingness {
+    if app.workbench_state.visible_surface == WorkbenchSurface::Missingness {
         let Some(summary) = app.missingness.selection_summary.as_ref() else {
             return "No missingness selection".to_string();
         };
@@ -610,7 +610,7 @@ fn selection_label(app: &WorkbenchApp) -> String {
 }
 
 fn axis_labels(app: &WorkbenchApp) -> (String, String) {
-    if app.visible_surface == WorkbenchSurface::DatasetDiff {
+    if app.workbench_state.visible_surface == WorkbenchSurface::DatasetDiff {
         let Some(summary) = app.workbench_state.dataset_diff_summary.as_ref() else {
             return (
                 "dataset diff unavailable".to_string(),
@@ -630,7 +630,7 @@ fn axis_labels(app: &WorkbenchApp) -> (String, String) {
         );
     }
 
-    if app.visible_surface == WorkbenchSurface::Missingness {
+    if app.workbench_state.visible_surface == WorkbenchSurface::Missingness {
         let Some(grid) = app.missingness.grid.as_ref() else {
             return (
                 "missingness rows unavailable".to_string(),

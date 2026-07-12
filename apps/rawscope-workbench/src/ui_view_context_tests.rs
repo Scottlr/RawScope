@@ -36,8 +36,7 @@ fn timeline_context() -> (TimelineMarginalSummary, TimelineOverviewSummary) {
 
 #[test]
 fn scatter_context_projection_uses_scatter_summary() {
-    let app = WorkbenchApp {
-        visible_surface: WorkbenchSurface::Primary,
+    let mut app = WorkbenchApp {
         demo_mode: DemoMode::Scatter,
         scatter: crate::app::ScatterWorkbenchState {
             viewport: Some(rawscope_render::ScatterViewport::new(
@@ -49,6 +48,7 @@ fn scatter_context_projection_uses_scatter_summary() {
         },
         ..WorkbenchApp::default()
     };
+    app.workbench_state.visible_surface = WorkbenchSurface::Primary;
 
     let context = view_context_ui_state(&app).expect("scatter context should project");
 
@@ -61,8 +61,7 @@ fn scatter_context_projection_uses_scatter_summary() {
 #[test]
 fn timeline_context_projection_uses_timeline_summaries() {
     let (timeline_marginals, timeline_overview) = timeline_context();
-    let app = WorkbenchApp {
-        visible_surface: WorkbenchSurface::Primary,
+    let mut app = WorkbenchApp {
         demo_mode: DemoMode::Timeline,
         timeline: crate::app::TimelineWorkbenchState {
             viewport: Some(rawscope_render::TimelineViewport::new(
@@ -75,6 +74,7 @@ fn timeline_context_projection_uses_timeline_summaries() {
         },
         ..WorkbenchApp::default()
     };
+    app.workbench_state.visible_surface = WorkbenchSurface::Primary;
 
     let context = view_context_ui_state(&app).expect("timeline context should project");
 
@@ -86,18 +86,15 @@ fn timeline_context_projection_uses_timeline_summaries() {
 
 #[test]
 fn hidden_surface_does_not_project_view_context() {
-    let app = WorkbenchApp {
-        visible_surface: WorkbenchSurface::Missingness,
-        ..WorkbenchApp::default()
-    };
+    let mut app = WorkbenchApp::default();
+    app.workbench_state.visible_surface = WorkbenchSurface::Missingness;
 
     assert!(view_context_ui_state(&app).is_none());
 }
 
 #[test]
 fn lichess_axes_use_integer_ticks_and_equality_guide() {
-    let app = WorkbenchApp {
-        visible_surface: WorkbenchSurface::Primary,
+    let mut app = WorkbenchApp {
         demo_mode: DemoMode::Scatter,
         active_dataset_profile: Some(rawscope_data::DatasetProfileId::LichessGames),
         scatter: crate::app::ScatterWorkbenchState {
@@ -109,6 +106,7 @@ fn lichess_axes_use_integer_ticks_and_equality_guide() {
         },
         ..WorkbenchApp::default()
     };
+    app.workbench_state.visible_surface = WorkbenchSurface::Primary;
 
     let WorkbenchViewAxes::Scatter(axes) =
         view_axes_ui_state(&app).expect("Lichess axes should project")
@@ -126,8 +124,7 @@ fn lichess_axes_use_integer_ticks_and_equality_guide() {
 
 #[test]
 fn mean_difference_axes_use_zero_guide() {
-    let app = WorkbenchApp {
-        visible_surface: WorkbenchSurface::Primary,
+    let mut app = WorkbenchApp {
         demo_mode: DemoMode::Scatter,
         active_dataset_profile: Some(rawscope_data::DatasetProfileId::LichessGames),
         scatter: crate::app::ScatterWorkbenchState {
@@ -148,6 +145,7 @@ fn mean_difference_axes_use_zero_guide() {
         },
         ..WorkbenchApp::default()
     };
+    app.workbench_state.visible_surface = WorkbenchSurface::Primary;
 
     let WorkbenchViewAxes::Scatter(axes) = view_axes_ui_state(&app).unwrap() else {
         panic!("expected scatter axes");

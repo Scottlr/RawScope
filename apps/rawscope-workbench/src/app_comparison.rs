@@ -18,7 +18,7 @@ pub(crate) enum WorkbenchComparison {
 
 impl WorkbenchApp {
     pub(crate) fn rebuild_active_comparison(&mut self) {
-        self.active_comparison = match self.visible_surface {
+        self.active_comparison = match self.workbench_state.visible_surface {
             WorkbenchSurface::Primary => match self.demo_mode {
                 DemoMode::Scatter => self.scatter_comparison(),
                 DemoMode::Timeline => self.timeline_comparison(),
@@ -191,7 +191,7 @@ mod tests {
         let dataset = generate_synthetic_points(SyntheticPointConfig::new(42, 3));
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
-        app.visible_surface = WorkbenchSurface::Primary;
+        app.workbench_state.visible_surface = WorkbenchSurface::Primary;
         app.dataset_identity = Some(dataset.identity);
         app.scatter.points = scatter_points();
         app.scatter.active_brush_selection = Some(ScatterBrushSelection {
@@ -217,7 +217,7 @@ mod tests {
         let dataset = generate_synthetic_events(SyntheticEventConfig::new(42, 3));
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Timeline;
-        app.visible_surface = WorkbenchSurface::Primary;
+        app.workbench_state.visible_surface = WorkbenchSurface::Primary;
         app.dataset_identity = Some(dataset.identity);
         app.timeline.events = timeline_events();
         app.timeline.viewport = Some(rawscope_render::TimelineViewport::new(
@@ -254,7 +254,7 @@ mod tests {
     fn missingness_selection_rebuilds_comparison() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
-        app.visible_surface = WorkbenchSurface::Missingness;
+        app.workbench_state.visible_surface = WorkbenchSurface::Missingness;
         app.scatter.source_rows = Some(local_source_rows());
         app.rebuild_missingness_state();
         app.select_missingness_cell(0, 0);
@@ -272,7 +272,7 @@ mod tests {
         let dataset = generate_synthetic_points(SyntheticPointConfig::new(42, 3));
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
-        app.visible_surface = WorkbenchSurface::Primary;
+        app.workbench_state.visible_surface = WorkbenchSurface::Primary;
         app.dataset_identity = Some(dataset.identity);
         app.scatter.points = scatter_points();
         app.scatter.selection_summary = Some(SelectedRegionSummary::from_points(
@@ -296,7 +296,7 @@ mod tests {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
         app.scatter.active_preset = PointCountPreset::default();
-        app.visible_surface = WorkbenchSurface::Primary;
+        app.workbench_state.visible_surface = WorkbenchSurface::Primary;
         app.dataset_identity = Some(dataset.identity);
         app.scatter.points = scatter_points();
         app.scatter.selection_summary = Some(SelectedRegionSummary::from_points(
