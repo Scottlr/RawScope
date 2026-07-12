@@ -1,0 +1,30 @@
+name: GPU correctness (opt-in)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 6'
+
+permissions:
+  contents: read
+
+jobs:
+  adapter-backed:
+    name: adapter-backed-gpu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install declared toolchain
+        run: rustup toolchain install --profile minimal
+      - name: Record runner and backend context
+        run: |
+          {
+            echo "### Adapter-backed GPU context"
+            echo "OS: $(uname -a)"
+            echo "Backend: wgpu adapter selected by test harness"
+            echo "Command: cargo test -p rawscope-render --test gpu_scatter_density -- --ignored --nocapture"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - run: cargo test -p rawscope-render --test gpu_scatter_density -- --ignored --nocapture
+      - run: cargo test -p rawscope-render --test gpu_timeline_density -- --ignored --nocapture
+
