@@ -2632,8 +2632,6 @@ dependencies = [
  "rawscope-data",
  "rawscope-evidence",
  "rawscope-gpu",
- "serde",
- "serde_json",
  "wgpu",
 ]
 
