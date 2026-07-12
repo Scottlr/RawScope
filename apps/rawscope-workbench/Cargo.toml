@@ -15,6 +15,7 @@ pollster = "0.4.0"
 rawscope-core = { version = "0.1.0", path = "../../crates/rawscope-core" }
 rawscope-analysis = { version = "0.1.0", path = "../../crates/rawscope-analysis" }
 rawscope-data = { version = "0.1.0", path = "../../crates/rawscope-data", features = ["csv", "parquet"] }
+rawscope-evidence = { version = "0.1.0", path = "../../crates/rawscope-evidence" }
 rawscope-gpu = { version = "0.1.0", path = "../../crates/rawscope-gpu" }
 rawscope-render = { version = "0.1.0", path = "../../crates/rawscope-render" }
 rawscope-session = { version = "0.1.0", path = "../../crates/rawscope-session" }
