@@ -2,8 +2,6 @@ name: GPU correctness (opt-in)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * 6'
 
 permissions:
   contents: read
