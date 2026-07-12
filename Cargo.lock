@@ -2502,6 +2502,7 @@ dependencies = [
  "rawscope-core",
  "rawscope-data",
  "rawscope-session-contracts",
+ "serde",
 ]
 
 [[package]]
