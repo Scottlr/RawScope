@@ -24,6 +24,74 @@ pub(crate) enum GpuDensityReadbackError {
     DevicePoll(wgpu::PollError),
 }
 
+/// Retains a staging buffer and advances one map callback without blocking.
+pub(crate) struct DensityReadbackOperation {
+    buffer: wgpu::Buffer,
+    completion: std::sync::Arc<ReadbackCompletion<(), wgpu::BufferAsyncError>>,
+    grid_bin_count: usize,
+    terminal: bool,
+}
+
+impl DensityReadbackOperation {
+    pub(crate) fn start(
+        buffer: &wgpu::Buffer,
+        grid_bin_count: usize,
+    ) -> Result<Self, GpuDensityReadbackError> {
+        grid_bin_count
+            .checked_mul(size_of::<u32>())
+            .ok_or(GpuDensityReadbackError::ReadbackSizeOverflow)?;
+        let completion =
+            std::sync::Arc::new(ReadbackCompletion::<(), wgpu::BufferAsyncError>::new());
+        let callback_completion = std::sync::Arc::clone(&completion);
+        buffer
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |result| {
+                let _ = callback_completion.publish(result);
+            });
+        Ok(Self {
+            buffer: buffer.clone(),
+            completion,
+            grid_bin_count,
+            terminal: false,
+        })
+    }
+
+    /// Advances WGPU once without waiting; `None` means the callback is pending.
+    pub(crate) fn poll(
+        &mut self,
+        device: &wgpu::Device,
+    ) -> Result<Option<Vec<u32>>, GpuDensityReadbackError> {
+        if self.terminal {
+            return Ok(None);
+        }
+        device
+            .poll(wgpu::PollType::Poll)
+            .map_err(GpuDensityReadbackError::DevicePoll)?;
+        let Some(map_result) = self.completion.take() else {
+            return Ok(None);
+        };
+        self.terminal = true;
+        map_result.map_err(GpuDensityReadbackError::BufferMap)?;
+        let expected_bytes = self
+            .grid_bin_count
+            .checked_mul(size_of::<u32>())
+            .ok_or(GpuDensityReadbackError::ReadbackSizeOverflow)?;
+        let slice = self.buffer.slice(..);
+        let counts = {
+            let mapped = slice.get_mapped_range();
+            if mapped.len() < expected_bytes {
+                return Err(GpuDensityReadbackError::ReadbackBufferTooSmall {
+                    expected_bytes,
+                    actual_bytes: mapped.len(),
+                });
+            }
+            bytemuck::cast_slice::<u8, u32>(&mapped)[..self.grid_bin_count].to_vec()
+        };
+        self.buffer.unmap();
+        Ok(Some(counts))
+    }
+}
+
 pub(crate) fn create_storage_upload_buffer(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -157,16 +225,7 @@ pub(crate) fn readback_counts_from_buffer(
     readback_buffer: &wgpu::Buffer,
     grid_bin_count: usize,
 ) -> Result<Vec<u32>, GpuDensityReadbackError> {
-    let expected_bytes = grid_bin_count
-        .checked_mul(size_of::<u32>())
-        .ok_or(GpuDensityReadbackError::ReadbackSizeOverflow)?;
-    let readback_slice = readback_buffer.slice(..);
-    let completion = ReadbackCompletion::<(), wgpu::BufferAsyncError>::new();
-    let callback_completion = std::sync::Arc::new(completion);
-    let callback_completion_handle = std::sync::Arc::clone(&callback_completion);
-    readback_slice.map_async(wgpu::MapMode::Read, move |result| {
-        let _ = callback_completion_handle.publish(result);
-    });
+    let mut operation = DensityReadbackOperation::start(readback_buffer, grid_bin_count)?;
     device
         .poll(wgpu::PollType::Wait {
             submission_index: None,
@@ -174,22 +233,7 @@ pub(crate) fn readback_counts_from_buffer(
         })
         .map_err(GpuDensityReadbackError::DevicePoll)?;
 
-    let map_result = callback_completion
-        .take()
-        .ok_or(GpuDensityReadbackError::BufferMapCallbackTimedOut)?;
-    map_result.map_err(GpuDensityReadbackError::BufferMap)?;
-
-    let counts = {
-        let mapped = readback_slice.get_mapped_range();
-        if mapped.len() < expected_bytes {
-            return Err(GpuDensityReadbackError::ReadbackBufferTooSmall {
-                expected_bytes,
-                actual_bytes: mapped.len(),
-            });
-        }
-        bytemuck::cast_slice::<u8, u32>(&mapped)[..grid_bin_count].to_vec()
-    };
-    readback_buffer.unmap();
-
-    Ok(counts)
+    operation
+        .poll(device)?
+        .ok_or(GpuDensityReadbackError::BufferMapCallbackTimedOut)
 }
