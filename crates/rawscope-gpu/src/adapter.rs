@@ -9,12 +9,14 @@ pub struct GpuAdapterInfo {
     pub surface_format: String,
     pub present_mode: String,
     pub alpha_mode: String,
+    pub used_software_fallback: bool,
 }
 
 impl GpuAdapterInfo {
     pub(crate) fn from_parts(
         adapter_info: wgpu::AdapterInfo,
         surface_config: &wgpu::SurfaceConfiguration,
+        used_software_fallback: bool,
     ) -> Self {
         Self {
             adapter_name: adapter_info.name,
@@ -23,6 +25,7 @@ impl GpuAdapterInfo {
             surface_format: format!("{:?}", surface_config.format),
             present_mode: format!("{:?}", surface_config.present_mode),
             alpha_mode: format!("{:?}", surface_config.alpha_mode),
+            used_software_fallback,
         }
     }
 }
@@ -33,14 +36,19 @@ pub struct ComputeAdapterInfo {
     pub adapter_name: String,
     pub backend: String,
     pub device_type: String,
+    pub used_software_fallback: bool,
 }
 
 impl ComputeAdapterInfo {
-    pub(crate) fn from_parts(adapter_info: wgpu::AdapterInfo) -> Self {
+    pub(crate) fn from_parts(
+        adapter_info: wgpu::AdapterInfo,
+        used_software_fallback: bool,
+    ) -> Self {
         Self {
             adapter_name: adapter_info.name,
             backend: format!("{:?}", adapter_info.backend),
             device_type: format!("{:?}", adapter_info.device_type),
+            used_software_fallback,
         }
     }
 }

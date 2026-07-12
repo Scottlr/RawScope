@@ -21,11 +21,11 @@ impl ComputeContext {
     /// Initializes headless compute work using an explicit adapter policy.
     pub async fn new_with_policy(policy: AdapterPolicy) -> Result<Self, GpuError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-        let adapter = match instance
+        let (adapter, used_software_fallback) = match instance
             .request_adapter(&policy.request_options(None))
             .await
         {
-            Ok(adapter) => adapter,
+            Ok(adapter) => (adapter, false),
             Err(error) if policy.allows_fallback() => instance
                 .request_adapter(&policy.fallback_request_options(None))
                 .await
@@ -35,7 +35,8 @@ impl ComputeContext {
                         ?error,
                         "preferred headless WGPU adapter unavailable; software fallback failed"
                     );
-                })?,
+                })
+                .map(|adapter| (adapter, true))?,
             Err(error) => return Err(GpuError::RequestAdapter(error)),
         };
 
@@ -52,7 +53,7 @@ impl ComputeContext {
             .await
             .map_err(GpuError::RequestDevice)?;
 
-        let adapter_info = ComputeAdapterInfo::from_parts(adapter_info);
+        let adapter_info = ComputeAdapterInfo::from_parts(adapter_info, used_software_fallback);
         info!(
             adapter = %adapter_info.adapter_name,
             backend = %adapter_info.backend,
