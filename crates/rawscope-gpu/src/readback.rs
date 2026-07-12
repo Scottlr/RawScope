@@ -1,6 +1,9 @@
 //! Nonblocking readback ticket state used by GPU owners.
 
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use crate::DeviceGeneration;
 
@@ -31,6 +34,45 @@ pub enum ReadbackProgress<T> {
     Cancelled,
 }
 
+/// Durable one-shot callback storage for a readback terminal result.
+///
+/// A callback may publish exactly once without waiting for an event queue. The
+/// owning ticket polls and takes the result on its normal owner thread.
+#[derive(Debug)]
+pub struct ReadbackCompletion<T> {
+    result: Mutex<Option<Result<T, ReadbackError>>>,
+}
+
+impl<T> ReadbackCompletion<T> {
+    pub fn new() -> Self {
+        Self {
+            result: Mutex::new(None),
+        }
+    }
+
+    /// Stores one terminal callback result. A second callback is rejected.
+    pub fn publish(&self, result: Result<T, ReadbackError>) -> bool {
+        let Ok(mut slot) = self.result.lock() else {
+            return false;
+        };
+        if slot.is_some() {
+            return false;
+        }
+        *slot = Some(result);
+        true
+    }
+
+    fn take(&self) -> Option<Result<T, ReadbackError>> {
+        self.result.lock().ok()?.take()
+    }
+}
+
+impl<T> Default for ReadbackCompletion<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Owns one readback result and makes terminal publication one-shot.
 #[derive(Debug)]
 pub struct GpuReadbackTicket<T> {
@@ -39,6 +81,7 @@ pub struct GpuReadbackTicket<T> {
     deadline: Instant,
     state: ReadbackState,
     result: Option<T>,
+    completion: Arc<ReadbackCompletion<T>>,
 }
 
 impl<T> GpuReadbackTicket<T> {
@@ -54,6 +97,7 @@ impl<T> GpuReadbackTicket<T> {
             deadline: now + timeout,
             state: ReadbackState::Submitted,
             result: None,
+            completion: Arc::new(ReadbackCompletion::new()),
         }
     }
 
@@ -67,6 +111,26 @@ impl<T> GpuReadbackTicket<T> {
 
     pub fn state(&self) -> ReadbackState {
         self.state
+    }
+
+    pub fn deadline(&self) -> Instant {
+        self.deadline
+    }
+
+    pub fn is_pending(&self) -> bool {
+        matches!(self.state, ReadbackState::Submitted)
+    }
+
+    pub fn completion(&self) -> Arc<ReadbackCompletion<T>> {
+        Arc::clone(&self.completion)
+    }
+
+    /// Commits a callback result if one is waiting, without blocking.
+    pub fn poll_completion(&mut self) -> bool {
+        let Some(result) = self.completion.take() else {
+            return false;
+        };
+        self.complete(result)
     }
 
     pub fn complete(&mut self, result: Result<T, ReadbackError>) -> bool {
@@ -201,5 +265,38 @@ mod tests {
             ReadbackProgress::Failed(ReadbackError::DeviceLost)
         );
         assert!(!ticket.complete_for_device(DeviceGeneration(7), Ok(42)));
+    }
+
+    #[test]
+    fn callback_completion_is_durable_and_one_shot() {
+        let now = Instant::now();
+        let mut ticket = GpuReadbackTicket::submitted(
+            ReadbackGeneration(9),
+            DeviceGeneration(2),
+            now,
+            Duration::from_secs(1),
+        );
+        let completion = ticket.completion();
+        assert!(completion.publish(Ok(17_u32)));
+        assert!(!completion.publish(Ok(18_u32)));
+        assert!(ticket.poll_completion());
+        assert!(!ticket.poll_completion());
+        assert_eq!(ticket.take_result(), ReadbackProgress::Ready(17));
+    }
+
+    #[test]
+    fn callback_after_cancellation_cannot_publish() {
+        let now = Instant::now();
+        let mut ticket = GpuReadbackTicket::submitted(
+            ReadbackGeneration(10),
+            DeviceGeneration(2),
+            now,
+            Duration::from_secs(1),
+        );
+        let completion = ticket.completion();
+        assert!(ticket.cancel());
+        assert!(completion.publish(Ok(21_u32)));
+        assert!(!ticket.poll_completion());
+        assert_eq!(ticket.take_result(), ReadbackProgress::Cancelled);
     }
 }
