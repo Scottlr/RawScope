@@ -33,6 +33,17 @@ impl AdapterPolicy {
         }
     }
 
+    pub fn fallback_request_options<'a>(
+        &self,
+        surface: Option<&'a wgpu::Surface<'a>>,
+    ) -> wgpu::RequestAdapterOptions<'a, 'a> {
+        wgpu::RequestAdapterOptions {
+            power_preference: self.power_preference,
+            force_fallback_adapter: true,
+            compatible_surface: surface,
+        }
+    }
+
     pub fn allows_fallback(&self) -> bool {
         matches!(self.fallback, FallbackPolicy::AllowSoftware)
     }

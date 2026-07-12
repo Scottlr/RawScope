@@ -39,10 +39,24 @@ impl GpuContext {
             .map_err(GpuError::CreateSurface)?;
 
         let adapter_policy = AdapterPolicy::default();
-        let adapter = instance
+        let adapter = match instance
             .request_adapter(&adapter_policy.request_options(Some(&surface)))
             .await
-            .map_err(GpuError::RequestAdapter)?;
+        {
+            Ok(adapter) => adapter,
+            Err(error) if adapter_policy.allows_fallback() => instance
+                .request_adapter(&adapter_policy.fallback_request_options(Some(&surface)))
+                .await
+                .map_err(GpuError::RequestAdapter)
+                .map_err(|fallback_error| {
+                    warn!(
+                        ?error,
+                        "preferred WGPU adapter unavailable; software fallback failed"
+                    );
+                    fallback_error
+                })?,
+            Err(error) => return Err(GpuError::RequestAdapter(error)),
+        };
 
         let adapter_info = adapter.get_info();
         let (device, queue) = adapter
