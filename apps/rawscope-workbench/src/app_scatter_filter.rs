@@ -138,20 +138,21 @@ impl WorkbenchApp {
             }
         };
         let next_filters = prepared.filters.clone();
+        let cohort_mask = prepared.cohort_snapshot.filter_mask();
+        let cohort_revision = prepared.cohort_snapshot.filter_revision();
+        let cohort_included_count = prepared.cohort_snapshot.included_row_count();
         let evaluation = prepared.evaluation;
-        let difference_remains_available =
-            next_filters.is_active() && evaluation.included_count > 0;
-        let evaluation_revision = evaluation.revision;
+        let difference_remains_available = next_filters.is_active() && cohort_included_count > 0;
 
         if let Some(renderer) = self.scatter.density_renderer.as_ref() {
-            if let Err(err) = renderer.validate_filter_mask(&evaluation.mask) {
+            if let Err(err) = renderer.validate_filter_mask(&cohort_mask) {
                 self.scatter_filters.error = Some(err.to_string());
                 self.request_redraw();
                 return;
             }
         }
         if let Some(renderer) = self.scatter.difference_renderer.as_ref() {
-            if let Err(err) = renderer.validate_filter_mask(&evaluation.mask) {
+            if let Err(err) = renderer.validate_filter_mask(&cohort_mask) {
                 self.scatter_filters.error = Some(err.to_string());
                 self.request_redraw();
                 return;
@@ -163,7 +164,7 @@ impl WorkbenchApp {
             .as_ref()
             .zip(self.scatter.density_renderer.as_mut())
             .map(|(gpu, renderer)| {
-                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation_revision)
+                renderer.update_filter_mask(gpu.queue(), &cohort_mask, cohort_revision)
             });
         if let Err(err) = upload_result.transpose() {
             self.scatter_filters.error = Some(err.to_string());
@@ -173,14 +174,14 @@ impl WorkbenchApp {
             (self.gpu.as_ref(), self.scatter.difference_renderer.as_mut())
         {
             if let Err(err) =
-                renderer.update_filter_mask(gpu.queue(), &evaluation.mask, evaluation_revision)
+                renderer.update_filter_mask(gpu.queue(), &cohort_mask, cohort_revision)
             {
                 self.scatter_filters.error = Some(err.to_string());
                 return;
             }
         }
 
-        self.scatter_filters.last_uploaded_revision = evaluation_revision;
+        self.scatter_filters.last_uploaded_revision = cohort_revision;
         self.scatter_filters.filters = next_filters;
         self.scatter_filters.evaluation = Some(evaluation);
         self.scatter_filters.cohort_snapshot = Some(prepared.cohort_snapshot);
