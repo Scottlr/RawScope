@@ -377,14 +377,18 @@ impl WorkbenchApp {
             _ => return None,
         };
         let aggregate_overview = self.timeline.timeline_aggregate_overview.as_ref()?;
+        let selected_row_ids = self
+            .workbench_state
+            .active_selection
+            .as_ref()
+            .and_then(|selection| selection.snapshot.as_ref())
+            .map(|snapshot| snapshot.row_ids())
+            .unwrap_or(evidence_v2.selected_row_id_sample.as_slice());
         Some(TimelineSelectionEvidenceV3::from_v2(
             evidence_v2,
             self.timeline.density_encoding,
             comparison,
-            timeline_aggregate_evidence_context(
-                aggregate_overview,
-                &evidence_v2.selected_row_id_sample,
-            ),
+            timeline_aggregate_evidence_context(aggregate_overview, selected_row_ids),
             self.workbench_state.active_dataset_profile,
         ))
     }
