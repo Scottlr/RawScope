@@ -1,6 +1,7 @@
 //! GPU focus treatment for settled scatter inspection bins.
 
 use bytemuck::{Pod, Zeroable};
+use std::num::NonZeroU64;
 
 use crate::{BrushScreenRect, BrushScreenSize, PlotRectPx, ScatterInspectionHit};
 
@@ -188,6 +189,9 @@ struct InspectionOverlayParams {
     _padding: [u32; 4],
 }
 
+const INSPECTION_OVERLAY_PARAMS_SIZE_BYTES: u64 =
+    std::mem::size_of::<InspectionOverlayParams>() as u64;
+
 impl InspectionOverlayParams {
     fn from_overlay(overlay: ScatterInspectionOverlay, plot_rect: PlotRectPx) -> Option<Self> {
         let screen_size = plot_rect.screen_size();
@@ -279,7 +283,7 @@ fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: None,
+                min_binding_size: NonZeroU64::new(INSPECTION_OVERLAY_PARAMS_SIZE_BYTES),
             },
             count: None,
         }],

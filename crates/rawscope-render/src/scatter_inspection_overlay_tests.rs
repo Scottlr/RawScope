@@ -4,6 +4,13 @@ use rawscope_core::{F32Range, RowId};
 
 use super::*;
 
+#[test]
+fn inspection_overlay_params_match_wgsl_uniform_alignment() {
+    assert_eq!(std::mem::size_of::<InspectionOverlayParams>(), 80);
+    assert_eq!(std::mem::align_of::<InspectionOverlayParams>(), 4);
+    assert_eq!(std::mem::size_of::<InspectionOverlayParams>() % 16, 0);
+}
+
 fn hit(bin_x: u32, bin_y: u32) -> ScatterInspectionHit {
     ScatterInspectionHit {
         bin_x,
