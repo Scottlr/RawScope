@@ -192,6 +192,9 @@ impl WorkbenchApp {
             return;
         };
         self.render_schedule.viewport_changed();
+        if let Some(renderer) = self.scatter.density_renderer.as_mut() {
+            renderer.cancel_full_readback();
+        }
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
         self.scatter.difference_baseline_dirty = true;
@@ -232,6 +235,16 @@ impl WorkbenchApp {
             };
             match poll_result {
                 Ok(None) => {
+                    let still_pending = self
+                        .scatter
+                        .density_renderer
+                        .as_ref()
+                        .is_some_and(|renderer| renderer.has_pending_full_readback());
+                    if !still_pending {
+                        self.scatter.pending_exact_readback = None;
+                        self.render_schedule.work_failed(pending.work);
+                        return Ok(());
+                    }
                     self.request_redraw();
                     return Ok(());
                 }

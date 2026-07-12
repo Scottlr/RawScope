@@ -30,6 +30,7 @@ pub(crate) struct DensityReadbackOperation {
     completion: std::sync::Arc<ReadbackCompletion<(), wgpu::BufferAsyncError>>,
     grid_bin_count: usize,
     terminal: bool,
+    cancelled: bool,
 }
 
 impl DensityReadbackOperation {
@@ -53,7 +54,16 @@ impl DensityReadbackOperation {
             completion,
             grid_bin_count,
             terminal: false,
+            cancelled: false,
         })
+    }
+
+    pub(crate) fn cancel(&mut self) {
+        self.cancelled = true;
+    }
+
+    pub(crate) fn is_terminal(&self) -> bool {
+        self.terminal
     }
 
     /// Advances WGPU once without waiting; `None` means the callback is pending.
@@ -71,6 +81,12 @@ impl DensityReadbackOperation {
             return Ok(None);
         };
         self.terminal = true;
+        if self.cancelled {
+            if map_result.is_ok() {
+                self.buffer.unmap();
+            }
+            return Ok(None);
+        }
         map_result.map_err(GpuDensityReadbackError::BufferMap)?;
         let expected_bytes = self
             .grid_bin_count

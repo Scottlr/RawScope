@@ -294,6 +294,18 @@ impl ScatterDensityGpuState {
             }
         }
     }
+
+    pub fn cancel_full_readback(&mut self) {
+        if let Some(operation) = self.pending_full_readback.as_mut() {
+            operation.cancel();
+        }
+    }
+
+    pub fn has_pending_full_readback(&self) -> bool {
+        self.pending_full_readback
+            .as_ref()
+            .is_some_and(|operation| !operation.is_terminal())
+    }
 }
 
 fn checked_point_count(points: &[ScatterPointRecord]) -> Result<u32, GpuScatterDensityError> {
