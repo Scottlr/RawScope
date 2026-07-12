@@ -5,4 +5,5 @@ pub mod density;
 pub mod diff;
 pub mod missingness;
 pub mod projection;
+pub mod selection;
 pub mod summary;
