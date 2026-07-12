@@ -1,8 +1,8 @@
 //! Timeline brush interaction helpers for the workbench timeline-density demo.
 
 use rawscope_render::{
-    timeline_selection_drilldown, BrushScreenRect, TimelineBrushDrag, TimelineEvidenceConfig,
-    TimelineSelectionEvidence, TimelineSelectionSummary,
+    timeline_selection_drilldown, timeline_selection_drilldown_snapshot, BrushScreenRect,
+    TimelineBrushDrag, TimelineEvidenceConfig, TimelineSelectionEvidence, TimelineSelectionSummary,
 };
 use tracing::info;
 use winit::dpi::PhysicalPosition;
@@ -38,9 +38,9 @@ impl WorkbenchApp {
         }
 
         self.finalize_timeline_brush_from_drag();
+        self.publish_timeline_active_selection();
         self.build_timeline_selection_evidence();
         self.build_timeline_selection_drilldown();
-        self.publish_timeline_active_selection();
         self.rebuild_active_comparison();
         self.log_timeline_selection_summary("finalized");
         self.log_timeline_selection_evidence();
@@ -171,12 +171,30 @@ impl WorkbenchApp {
             return;
         };
 
-        self.timeline.selection_drilldown = Some(timeline_selection_drilldown(
-            &self.timeline.events,
-            selection,
-            self.timeline.source_rows.as_ref(),
-            rawscope_render::DrilldownConfig::default(),
-        ));
+        let snapshot = self
+            .workbench_state
+            .active_selection
+            .as_ref()
+            .and_then(|active| active.snapshot.as_ref())
+            .cloned();
+        self.timeline.selection_drilldown = snapshot
+            .as_ref()
+            .map(|snapshot| {
+                timeline_selection_drilldown_snapshot(
+                    &self.timeline.events,
+                    snapshot,
+                    self.timeline.source_rows.as_ref(),
+                    rawscope_render::DrilldownConfig::default(),
+                )
+            })
+            .or_else(|| {
+                Some(timeline_selection_drilldown(
+                    &self.timeline.events,
+                    selection,
+                    self.timeline.source_rows.as_ref(),
+                    rawscope_render::DrilldownConfig::default(),
+                ))
+            });
     }
 
     fn log_timeline_selection_summary(&self, reason: &'static str) {
