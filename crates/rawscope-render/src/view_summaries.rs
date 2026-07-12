@@ -1,5 +1,8 @@
 //! CPU summary tracks for density view context.
 
+use std::num::NonZeroU32;
+
+use rawscope_analysis::density::{bin_f32, bin_u64, BinIndex, BinPlacement};
 use rawscope_core::{F32Range, U64Range};
 use rawscope_data::{FilterMask, ScatterPointRecord, TimelineEventRecord};
 
@@ -76,10 +79,12 @@ pub fn scatter_marginal_summary(
     let mut y_counts = vec![0u32; y_bin_count as usize];
 
     for point in points {
-        let Some(x_bin) = bin_f32(point.x, x_range, x_bin_count) else {
+        let Some(x_bin) = in_domain_bin(bin_f32(point.x, x_range, non_zero_bins(x_bin_count)))
+        else {
             continue;
         };
-        let Some(y_bin) = bin_f32(point.y, y_range, y_bin_count) else {
+        let Some(y_bin) = in_domain_bin(bin_f32(point.y, y_range, non_zero_bins(y_bin_count)))
+        else {
             continue;
         };
 
@@ -116,8 +121,8 @@ pub fn scatter_marginal_summary_masked(
             continue;
         }
         let (Some(x_bin), Some(y_bin)) = (
-            bin_f32(point.x, x_range, x_bin_count),
-            bin_f32(point.y, y_range, y_bin_count),
+            in_domain_bin(bin_f32(point.x, x_range, non_zero_bins(x_bin_count))),
+            in_domain_bin(bin_f32(point.y, y_range, non_zero_bins(y_bin_count))),
         ) else {
             continue;
         };
@@ -145,7 +150,11 @@ pub fn timeline_marginal_summary(
     let mut lane_counts = vec![0u32; lane_count as usize];
 
     for event in events {
-        let Some(time_bin) = bin_u64(event.timestamp, time_range, time_bin_count) else {
+        let Some(time_bin) = in_domain_bin(bin_u64(
+            event.timestamp,
+            time_range,
+            non_zero_bins(time_bin_count),
+        )) else {
             continue;
         };
         let Some(lane_bin) = bin_lane(event.lane, lane_count) else {
@@ -178,7 +187,11 @@ pub fn timeline_overview_summary(
     let mut time_counts = vec![0u32; time_bin_count as usize];
 
     for event in events {
-        let Some(time_bin) = bin_u64(event.timestamp, full_time_range, time_bin_count) else {
+        let Some(time_bin) = in_domain_bin(bin_u64(
+            event.timestamp,
+            full_time_range,
+            non_zero_bins(time_bin_count),
+        )) else {
             continue;
         };
 
@@ -215,32 +228,17 @@ fn max_count(counts: &[u32]) -> u32 {
     counts.iter().copied().max().unwrap_or(0)
 }
 
-fn bin_f32(value: f32, range: F32Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
-    }
-
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-
-    let normalized = (value - range.min) / range.span();
-    let raw_bin = (normalized * bin_count as f32).floor() as u32;
-    Some(raw_bin.min(bin_count - 1))
+fn non_zero_bins(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).expect("summary bin counts are validated")
 }
 
-fn bin_u64(value: u64, range: U64Range, bin_count: u32) -> Option<u32> {
-    if !range.contains(value) {
-        return None;
+fn in_domain_bin(
+    result: Result<BinPlacement, rawscope_analysis::density::BinningError>,
+) -> Option<u32> {
+    match result.ok()? {
+        BinPlacement::InDomain(BinIndex(index)) => Some(index),
+        BinPlacement::BeforeDomain | BinPlacement::AfterDomain => None,
     }
-
-    if value == range.max {
-        return Some(bin_count - 1);
-    }
-
-    let normalized = (value - range.min) as f64 / range.span() as f64;
-    let raw_bin = (normalized * bin_count as f64).floor() as u32;
-    Some(raw_bin.min(bin_count - 1))
 }
 
 fn bin_lane(lane: u32, lane_count: u32) -> Option<u32> {
