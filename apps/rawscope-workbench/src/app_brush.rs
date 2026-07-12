@@ -391,7 +391,7 @@ mod tests {
     fn clear_brush_clears_scatter_drilldown() {
         let mut app = WorkbenchApp::default();
         app.demo_mode = DemoMode::Scatter;
-        app.dataset_identity =
+        app.workbench_state.dataset_identity =
             Some(generate_synthetic_points(SyntheticPointConfig::new(42, 1)).identity);
         app.scatter.points = vec![ScatterPointRecord {
             row_id: RowId(1),

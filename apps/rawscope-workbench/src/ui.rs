@@ -171,6 +171,7 @@ impl WorkbenchApp {
         let active_view = ActiveView::from_demo_mode(self.demo_mode);
         let visible_surface = self.workbench_state.visible_surface;
         let dataset_identity = self
+            .workbench_state
             .dataset_identity
             .as_ref()
             .map(|identity| {
@@ -194,13 +195,15 @@ impl WorkbenchApp {
         let scatter_filters = scatter_filters_ui_state(self);
         let active_cohort_row_count = if self.demo_mode.is_scatter() {
             scatter_filters.as_ref().map_or(
-                self.dataset_identity
+                self.workbench_state
+                    .dataset_identity
                     .as_ref()
                     .map_or(0, |identity| identity.row_count),
                 |filters| filters.included_count,
             )
         } else {
-            self.dataset_identity
+            self.workbench_state
+                .dataset_identity
                 .as_ref()
                 .map_or(0, |identity| identity.row_count)
         };
@@ -324,14 +327,15 @@ impl WorkbenchApp {
             self.request_redraw();
         }
         if actions.copy_dataset_path {
-            if let Some(path) = self
-                .dataset_identity
-                .as_ref()
-                .and_then(|identity| match &identity.source {
-                    rawscope_data::DatasetSource::LocalCsv { path, .. }
-                    | rawscope_data::DatasetSource::LocalParquet { path, .. } => Some(path),
-                    rawscope_data::DatasetSource::Synthetic { .. } => None,
-                })
+            if let Some(path) =
+                self.workbench_state
+                    .dataset_identity
+                    .as_ref()
+                    .and_then(|identity| match &identity.source {
+                        rawscope_data::DatasetSource::LocalCsv { path, .. }
+                        | rawscope_data::DatasetSource::LocalParquet { path, .. } => Some(path),
+                        rawscope_data::DatasetSource::Synthetic { .. } => None,
+                    })
             {
                 self.egui_context.copy_text(path.display().to_string());
             }

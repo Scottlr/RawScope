@@ -9,7 +9,7 @@ use crate::{
 };
 use rawscope_core::SelectionId;
 use rawscope_data::DatasetProfileId;
-use rawscope_data::{LoadedSourceTable, SyntheticDatasetMetadata};
+use rawscope_data::{DatasetIdentity, LoadedSourceTable, SyntheticDatasetMetadata};
 use rawscope_render::DatasetDiffSummary;
 
 #[derive(Debug, Default)]
@@ -27,6 +27,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) next_selection_id: SelectionId,
     pub(crate) pending_session: Option<PendingSessionContext>,
     pub(crate) active_session: Option<ActiveSessionContext>,
+    pub(crate) dataset_identity: Option<DatasetIdentity>,
 }
 
 #[cfg(test)]

@@ -6,8 +6,8 @@ use egui::Context as EguiContext;
 use egui_wgpu::Renderer as EguiRenderer;
 use egui_winit::State as EguiWinitState;
 use rawscope_data::{
-    generate_synthetic_points, load_scatter_dataset, DatasetIdentity, LoadedSourceTable,
-    ScatterPointRecord, SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
+    generate_synthetic_points, load_scatter_dataset, LoadedSourceTable, ScatterPointRecord,
+    SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
 };
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
@@ -72,7 +72,6 @@ pub struct WorkbenchApp {
     pub(crate) scatter_brush_overlay_renderer: Option<ScatterBrushOverlayRenderer>,
     pub(crate) scatter_inspection_overlay_renderer: Option<ScatterInspectionOverlayRenderer>,
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
-    pub(crate) dataset_identity: Option<DatasetIdentity>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
     pub(crate) active_selection: Option<ActiveLinkedSelection>,
     pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
@@ -290,7 +289,7 @@ impl WorkbenchApp {
             );
             self.initialize_scatter_difference(gpu, &dataset.points, renderer_config)?;
 
-            self.dataset_identity = Some(dataset.identity);
+            self.workbench_state.dataset_identity = Some(dataset.identity);
             self.workbench_state.active_dataset_profile = resolved_binding.active_profile;
             self.workbench_state.dataset_metadata =
                 Some(SyntheticDatasetMetadata::new(0, render_stats.point_count));
@@ -362,7 +361,7 @@ impl WorkbenchApp {
 
         self.scatter.active_preset = active_preset;
         self.scatter.point_count_label = active_preset.row_count_label().to_string();
-        self.dataset_identity = Some(dataset.identity);
+        self.workbench_state.dataset_identity = Some(dataset.identity);
         self.workbench_state.active_dataset_profile = None;
         self.workbench_state.dataset_metadata = Some(dataset.metadata);
         self.clear_active_selection();
