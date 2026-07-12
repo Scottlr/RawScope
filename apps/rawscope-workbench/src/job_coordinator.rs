@@ -10,6 +10,10 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use winit::event_loop::EventLoopProxy;
+
+use crate::workbench_event::WorkbenchUserEvent;
+
 const JOB_QUEUE_CAPACITY: usize = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -62,9 +66,11 @@ impl JobHandle {
 type Job = Box<dyn FnOnce(CancellationToken) -> JobOutcome + Send + 'static>;
 
 struct QueuedJob {
+    id: WorkbenchJobId,
     job: Job,
     cancel: CancellationToken,
     terminal: Arc<Mutex<Option<JobOutcome>>>,
+    proxy: Option<EventLoopProxy<WorkbenchUserEvent>>,
 }
 
 pub(crate) struct JobCoordinator {
@@ -72,6 +78,7 @@ pub(crate) struct JobCoordinator {
     workers: Vec<JoinHandle<()>>,
     next_id: AtomicU64,
     cancellations: Arc<Mutex<Vec<CancellationToken>>>,
+    proxy: Option<EventLoopProxy<WorkbenchUserEvent>>,
 }
 
 impl JobCoordinator {
@@ -86,7 +93,17 @@ impl JobCoordinator {
             workers,
             next_id: AtomicU64::new(1),
             cancellations: Arc::new(Mutex::new(Vec::new())),
+            proxy: None,
         }
+    }
+
+    pub(crate) fn with_proxy(
+        worker_count: usize,
+        proxy: EventLoopProxy<WorkbenchUserEvent>,
+    ) -> Self {
+        let mut coordinator = Self::new(worker_count);
+        coordinator.proxy = Some(proxy);
+        coordinator
     }
 
     pub(crate) fn submit<F>(&self, job: F) -> Result<JobHandle, JobSubmitError>
@@ -97,9 +114,11 @@ impl JobCoordinator {
         let cancel = CancellationToken(Arc::new(AtomicBool::new(false)));
         let terminal = Arc::new(Mutex::new(None));
         let queued = QueuedJob {
+            id,
             job: Box::new(job),
             cancel: cancel.clone(),
             terminal: Arc::clone(&terminal),
+            proxy: self.proxy.clone(),
         };
         let sender = self.sender.as_ref().ok_or(JobSubmitError::ShuttingDown)?;
         match sender.try_send(queued) {
@@ -158,6 +177,12 @@ fn spawn_worker(index: usize, receiver: Arc<Mutex<Receiver<QueuedJob>>>) -> Join
                     .unwrap_or(JobOutcome::Panicked)
             };
             *queued.terminal.lock().expect("job terminal lock") = Some(outcome);
+            if let Some(proxy) = queued.proxy {
+                let _ = proxy.send_event(WorkbenchUserEvent::JobCompleted {
+                    job_id: queued.id,
+                    outcome,
+                });
+            }
         })
         .expect("job worker thread should spawn")
 }

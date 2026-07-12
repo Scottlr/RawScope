@@ -12,9 +12,16 @@ use winit::{
 
 use crate::{
     app::WorkbenchApp, app_interaction_mode::interaction_mode_for_shortcut, demo::PointCountPreset,
+    workbench_event::WorkbenchUserEvent,
 };
 
-impl ApplicationHandler for WorkbenchApp {
+impl ApplicationHandler<WorkbenchUserEvent> for WorkbenchApp {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: WorkbenchUserEvent) {
+        match event {
+            WorkbenchUserEvent::JobCompleted { .. } => self.request_redraw(),
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if let Err(err) = self.create_window_and_gpu(event_loop) {
             error!(error = %err, "failed to initialize RawScope workbench");
