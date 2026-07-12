@@ -233,7 +233,7 @@ impl WorkbenchApp {
                 summary: self.scatter.selection_summary,
                 evidence: self.scatter.selection_evidence.clone(),
                 drilldown: self.scatter.selection_drilldown.clone(),
-                linked_selection: self.active_selection.clone(),
+                linked_selection: self.workbench_state.active_selection.clone(),
                 comparison: self.workbench_state.active_comparison.clone(),
             },
             DemoMode::Timeline => SelectionGestureBackup::Timeline {
@@ -241,7 +241,7 @@ impl WorkbenchApp {
                 summary: self.timeline.selection_summary.clone(),
                 evidence: self.timeline.selection_evidence.clone(),
                 drilldown: self.timeline.selection_drilldown.clone(),
-                linked_selection: self.active_selection.clone(),
+                linked_selection: self.workbench_state.active_selection.clone(),
                 comparison: self.workbench_state.active_comparison.clone(),
             },
         });
@@ -261,7 +261,7 @@ impl WorkbenchApp {
                 self.scatter.selection_summary = summary;
                 self.scatter.selection_evidence = evidence;
                 self.scatter.selection_drilldown = drilldown;
-                self.active_selection = linked_selection;
+                self.workbench_state.active_selection = linked_selection;
                 self.workbench_state.active_comparison = comparison;
             }
             Some(SelectionGestureBackup::Timeline {
@@ -276,7 +276,7 @@ impl WorkbenchApp {
                 self.timeline.selection_summary = summary;
                 self.timeline.selection_evidence = evidence;
                 self.timeline.selection_drilldown = drilldown;
-                self.active_selection = linked_selection;
+                self.workbench_state.active_selection = linked_selection;
                 self.workbench_state.active_comparison = comparison;
             }
             None => {}

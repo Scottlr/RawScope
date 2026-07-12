@@ -414,7 +414,7 @@ mod tests {
 
         app.clear_brush();
 
-        assert!(app.active_selection.is_none());
+        assert!(app.workbench_state.active_selection.is_none());
         assert!(app.scatter.selection_drilldown.is_none());
     }
 }

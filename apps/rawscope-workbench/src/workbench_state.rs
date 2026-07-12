@@ -29,6 +29,7 @@ pub(crate) struct WorkbenchState {
     pub(crate) active_session: Option<ActiveSessionContext>,
     pub(crate) dataset_identity: Option<DatasetIdentity>,
     pub(crate) active_comparison: Option<crate::app_comparison::WorkbenchComparison>,
+    pub(crate) active_selection: Option<crate::app_selection::ActiveLinkedSelection>,
 }
 
 #[cfg(test)]

@@ -33,7 +33,7 @@ impl WorkbenchApp {
     }
 
     fn scatter_comparison(&self) -> Option<WorkbenchComparison> {
-        let active_selection = self.active_selection.as_ref()?;
+        let active_selection = self.workbench_state.active_selection.as_ref()?;
         if !self.datasets_match(&active_selection.dataset_identity) {
             return None;
         }
@@ -45,7 +45,7 @@ impl WorkbenchApp {
     }
 
     fn timeline_comparison(&self) -> Option<WorkbenchComparison> {
-        let active_selection = self.active_selection.as_ref()?;
+        let active_selection = self.workbench_state.active_selection.as_ref()?;
         if !self.datasets_match(&active_selection.dataset_identity) {
             return None;
         }

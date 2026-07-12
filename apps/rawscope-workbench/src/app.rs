@@ -37,7 +37,6 @@ use crate::{
     app_scatter_inspection::ScatterInspectionState,
     app_scatter_point_reveal::ScatterPointRevealState,
     app_scatter_projection::ScatterProjectionState,
-    app_selection::ActiveLinkedSelection,
     app_session::WorkbenchStartup,
     app_visual_transition::WorkbenchVisualTransition,
     cli::WorkbenchInput,
@@ -73,7 +72,6 @@ pub struct WorkbenchApp {
     pub(crate) scatter_inspection_overlay_renderer: Option<ScatterInspectionOverlayRenderer>,
     pub(crate) plot_surface: Option<PlotSurfaceLayout>,
     // Selection evidence v1 still serializes synthetic metadata until T005.
-    pub(crate) active_selection: Option<ActiveLinkedSelection>,
     pub(crate) shell: WorkbenchShellState,
     pub(crate) missingness: MissingnessWorkbenchState,
     pub(crate) scatter: ScatterWorkbenchState,
