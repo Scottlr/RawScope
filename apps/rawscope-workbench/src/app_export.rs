@@ -303,7 +303,7 @@ impl WorkbenchApp {
             .workbench_state
             .active_selection
             .as_ref()
-            .and_then(|selection| selection.snapshot.as_ref())
+            .and_then(|selection| selection.analysis_snapshot.as_ref())
         {
             return scatter_aggregate_evidence_context_for_bins(
                 overview,
