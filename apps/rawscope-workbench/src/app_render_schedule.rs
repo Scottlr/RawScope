@@ -329,13 +329,17 @@ impl WorkbenchApp {
         };
         self.scatter.render_stats = Some(stats);
         if let Some(renderer) = self.scatter.difference_renderer.as_mut() {
-            let active_total = self
-                .scatter_filters
-                .evaluation
-                .as_ref()
-                .map_or(self.scatter.points.len() as u64, |evaluation| {
-                    evaluation.included_count as u64
-                });
+            let active_total = self.scatter_filters.cohort_snapshot.as_ref().map_or_else(
+                || {
+                    self.scatter_filters
+                        .evaluation
+                        .as_ref()
+                        .map_or(self.scatter.points.len() as u64, |evaluation| {
+                            evaluation.included_count as u64
+                        })
+                },
+                |snapshot| snapshot.included_row_count(),
+            );
             let gpu = self.gpu.as_ref().expect("GPU checked above");
             self.scatter.difference_stats = Some(renderer.update_fields(
                 gpu.device(),
