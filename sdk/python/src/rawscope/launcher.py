@@ -129,6 +129,8 @@ def _find_executable(candidate: str | os.PathLike[str]) -> str | None:
     value = os.fspath(candidate)
     path = Path(value).expanduser()
     if path.is_file():
+        if os.name != "nt" and not os.access(path, os.X_OK):
+            return None
         return str(path.resolve())
     return shutil.which(value)
 
