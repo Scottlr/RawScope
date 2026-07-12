@@ -30,7 +30,6 @@ mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
 mod scatter_resident;
-mod scatter_transition;
 mod scatter_selection_evidence;
 mod scatter_selection_evidence_v3;
 mod scatter_selection_evidence_v4;
@@ -39,6 +38,7 @@ mod scatter_selection_export;
 mod scatter_selection_export_v3;
 mod scatter_selection_export_v4;
 mod scatter_selection_export_v5;
+mod scatter_transition;
 mod scatter_viewport;
 mod selection_comparison;
 mod selection_drilldown;
@@ -69,9 +69,9 @@ pub use density_encoding::{
 pub use density_reference::{scatter_density, timeline_density};
 pub use difference_density::{
     difference_inspection, fixed_point_max_abs_delta, normalized_difference_density,
-    StableShareParts,
     DifferenceDensityConfig, DifferenceDensityError, DifferenceDensityGrid, DifferenceDensityStats,
-    DifferenceInspection, DifferencePalette, ScatterDensityMode, DIFFERENCE_FIXED_POINT_SCALE,
+    DifferenceInspection, DifferencePalette, ScatterDensityMode, StableShareParts,
+    DIFFERENCE_FIXED_POINT_SCALE,
 };
 pub use difference_inspection::{
     build_difference_inspection_distribution, DifferenceDirection,
@@ -134,9 +134,6 @@ pub use scatter_resident::{
     ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
     ScatterViewGenerationCounter,
 };
-pub use scatter_transition::{
-    transition_decision, ScatterTransitionField, TransitionDecision,
-};
 pub use scatter_selection_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2, SelectedPointSample,
     SelectedPointSampleV2, SelectedSourceRowSample, SelectionEvidenceConfig,
@@ -176,6 +173,7 @@ pub use scatter_selection_export_v5::{
     scatter_selection_evidence_v5_json, scatter_selection_evidence_v5_markdown,
     SCATTER_SELECTION_EVIDENCE_V5_ARTIFACT_KIND,
 };
+pub use scatter_transition::{transition_decision, ScatterTransitionField, TransitionDecision};
 pub use scatter_viewport::ScatterViewport;
 pub use selection_comparison::{
     missingness_selection_comparison, scatter_selection_comparison,
