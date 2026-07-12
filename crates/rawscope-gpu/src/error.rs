@@ -2,10 +2,17 @@
 
 use std::{error::Error, fmt};
 
+use crate::DeviceLossReason;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GpuRuntimeSignal {
-    UncapturedError { message: String },
-    DeviceLost { reason: String, message: String },
+    UncapturedError {
+        message: String,
+    },
+    DeviceLost {
+        reason: DeviceLossReason,
+        message: String,
+    },
 }
 
 /// Errors returned by the RawScope GPU bootstrap layer.
