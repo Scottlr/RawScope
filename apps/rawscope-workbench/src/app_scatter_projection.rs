@@ -3,8 +3,8 @@
 use std::error::Error;
 
 use rawscope_data::{
-    dataset_profile, project_scatter_points, LoadedColumnKind, ScatterPointRecord,
-    ScatterProjection, ScatterProjectionLabels, ScatterProjectionSpec,
+    dataset_profile, project_scatter_points, LoadedColumnKind, ProjectedScatterData,
+    ScatterPointRecord, ScatterProjection, ScatterProjectionLabels, ScatterProjectionSpec,
 };
 use rawscope_render::ScatterViewport;
 
@@ -17,6 +17,12 @@ pub(crate) struct ScatterProjectionState {
     pub(crate) labels: ScatterProjectionLabels,
     pub(crate) raw_points: Vec<ScatterPointRecord>,
     pub(crate) available: bool,
+}
+
+#[derive(Debug, Clone)]
+struct PreparedProjectionState {
+    projected: ProjectedScatterData,
+    filter_state: Option<(rawscope_data::FilterMask, rawscope_data::FilterRevision)>,
 }
 
 impl Default for ScatterProjectionState {
@@ -79,8 +85,19 @@ impl WorkbenchApp {
         if !self.scatter_projection.available || self.scatter_projection.active == projection {
             return Ok(());
         }
+        let prepared = self.prepare_scatter_projection(projection)?;
+        let projected = prepared.projected;
+        let filter_state = prepared.filter_state;
+
+        self.apply_scatter_projection(projected, filter_state)
+    }
+
+    fn prepare_scatter_projection(
+        &self,
+        projection: ScatterProjection,
+    ) -> Result<PreparedProjectionState, Box<dyn Error>> {
         let Some(spec) = self.scatter_projection.spec.as_ref() else {
-            return Ok(());
+            return Err("scatter projection specification is unavailable".into());
         };
         let projected = project_scatter_points(
             &self.scatter_projection.raw_points,
@@ -88,14 +105,12 @@ impl WorkbenchApp {
             &spec.y_column,
             projection,
         )?;
-
         if let Some(renderer) = self.scatter.density_renderer.as_ref() {
             renderer.validate_dataset(&projected.points)?;
         }
         if let Some(renderer) = self.scatter.difference_renderer.as_ref() {
             renderer.validate_dataset(&projected.points)?;
         }
-
         let filter_state = self
             .scatter_filters
             .cohort_snapshot
@@ -108,6 +123,17 @@ impl WorkbenchApp {
                     .map(|evaluation| (evaluation.mask.clone(), evaluation.revision))
             });
 
+        Ok(PreparedProjectionState {
+            projected,
+            filter_state,
+        })
+    }
+
+    fn apply_scatter_projection(
+        &mut self,
+        projected: ProjectedScatterData,
+        filter_state: Option<(rawscope_data::FilterMask, rawscope_data::FilterRevision)>,
+    ) -> Result<(), Box<dyn Error>> {
         self.scatter.density_dataset_revision += 1;
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())
@@ -199,6 +225,20 @@ mod tests {
             app.scatter.viewport.unwrap().full_y_range(),
             F32Range::from_bounds_expanded(-200.0, 200.0)
         );
+    }
+
+    #[test]
+    fn failed_projection_preparation_keeps_active_projection_and_points() {
+        let mut app = WorkbenchApp::default();
+        app.scatter_projection.available = true;
+        app.scatter_projection.spec = Some(ScatterProjectionSpec::new("x", "y"));
+        app.scatter_projection.active = ScatterProjection::RawXY;
+
+        let result = app.set_scatter_projection(ScatterProjection::MeanDifference);
+
+        assert!(result.is_err());
+        assert_eq!(app.scatter_projection.active, ScatterProjection::RawXY);
+        assert!(app.scatter.points.is_empty());
     }
 
     fn point(row_id: u64, x: f32, y: f32) -> ScatterPointRecord {
