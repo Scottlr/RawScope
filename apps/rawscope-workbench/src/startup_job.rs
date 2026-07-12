@@ -8,7 +8,10 @@ use std::{
 use crate::{
     app_session::{resolve_workbench_startup, WorkbenchStartup},
     cli::WorkbenchArgs,
-    job_coordinator::{CancellationToken, JobCoordinator, JobHandle, JobOutcome, JobSubmitError},
+    job_coordinator::{
+        CancellationToken, JobCoordinator, JobHandle, JobOutcome, JobSubmitError,
+        WorkbenchJobGeneration, WorkbenchJobKind,
+    },
 };
 
 #[derive(Clone)]
@@ -28,19 +31,23 @@ pub(crate) fn submit_startup_resolution(
 ) -> Result<(JobHandle, StartupResolution), JobSubmitError> {
     let result = Arc::new(Mutex::new(None));
     let worker_result = Arc::clone(&result);
-    let handle = coordinator.submit(move |token: CancellationToken| {
-        if token.is_cancelled() {
-            return JobOutcome::Cancelled;
-        }
-        let resolved = resolve_workbench_startup(args);
-        let outcome = if resolved.is_ok() {
-            JobOutcome::Succeeded
-        } else {
-            JobOutcome::Failed
-        };
-        *worker_result.lock().expect("startup result lock") = Some(resolved);
-        outcome
-    })?;
+    let handle = coordinator.submit_with_metadata(
+        WorkbenchJobKind::StartupResolution,
+        WorkbenchJobGeneration(0),
+        move |token: CancellationToken| {
+            if token.is_cancelled() {
+                return JobOutcome::Cancelled;
+            }
+            let resolved = resolve_workbench_startup(args);
+            let outcome = if resolved.is_ok() {
+                JobOutcome::Succeeded
+            } else {
+                JobOutcome::Failed
+            };
+            *worker_result.lock().expect("startup result lock") = Some(resolved);
+            outcome
+        },
+    )?;
     Ok((handle, StartupResolution { result }))
 }
 
