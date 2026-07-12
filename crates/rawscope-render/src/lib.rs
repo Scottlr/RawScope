@@ -26,7 +26,6 @@ mod scatter_point_renderer;
 mod scatter_point_reveal;
 mod scatter_relief;
 mod scatter_resident;
-mod scatter_selection_evidence_v3;
 mod scatter_selection_evidence_v4;
 mod scatter_selection_evidence_v5;
 mod scatter_selection_export_v3;
@@ -96,6 +95,9 @@ pub use rawscope_evidence::{
     TimelineSelectionComparison,
 };
 pub use rawscope_evidence::{
+    ScatterEvidenceViewV3, ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
+};
+pub use rawscope_evidence::{
     SelectedEventTypeCounts, SelectedTimelineEventSample, SelectedTimelineEventSampleV2,
     TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidence,
     TimelineSelectionEvidenceV2,
@@ -139,9 +141,6 @@ pub use scatter_relief::{
 pub use scatter_resident::{
     ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
     ScatterViewGenerationCounter,
-};
-pub use scatter_selection_evidence_v3::{
-    ScatterEvidenceViewV3, ScatterSelectionEvidenceV3, SCATTER_SELECTION_EVIDENCE_V3_SCHEMA_VERSION,
 };
 pub use scatter_selection_evidence_v4::{
     DifferenceDensityEvidenceConfig, PinnedScatterInspectionEvidence, PointRevealEvidence,
