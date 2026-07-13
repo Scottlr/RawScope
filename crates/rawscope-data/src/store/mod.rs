@@ -1,6 +1,7 @@
 //! Generation-owned typed rectangular dataset storage.
 
 mod budget;
+mod category;
 mod cell;
 mod chunk;
 mod schema;
@@ -12,6 +13,10 @@ use rawscope_core::{Generation, GenerationCounter, RowId};
 use crate::DatasetIdentity;
 
 pub use budget::{DatasetBudgetError, DatasetMemoryBudget, DatasetMemoryUsage};
+pub use category::{
+    CategoryCodeKind, CategoryCodeLayout, CategoryIndexAccuracy, CategoryIndexError,
+    CategoryIndexValue, CategoryMembershipIndex, CategoryValueId, IndexedCategoryValue,
+};
 pub use cell::{
     CellRef, CellState, DecodedCsvCell, InvalidCell, InvalidCellReason, NormalizedValue,
     SourceUnavailableReason, SourceValue, StoredCell,
@@ -65,6 +70,14 @@ pub struct DatasetStore {
 }
 
 impl DatasetStore {
+    pub fn category_index(
+        &self,
+        column: rawscope_core::ColumnId,
+        max_values: std::num::NonZeroUsize,
+    ) -> Result<CategoryMembershipIndex, CategoryIndexError> {
+        CategoryMembershipIndex::build(self, column, max_values)
+    }
+
     pub fn generation(&self) -> DatasetGeneration {
         self.generation
     }
