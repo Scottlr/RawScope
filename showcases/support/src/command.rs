@@ -2,7 +2,7 @@
 
 use std::ffi::OsString;
 
-use crate::{not_implemented, DatasetShowcase, Result, ShowcaseContext, ShowcaseError};
+use crate::{DatasetShowcase, Result, ShowcaseContext, ShowcaseError};
 
 /// Command synopsis shared by all showcase binaries.
 pub const SHOWCASE_COMMAND_USAGE: &str = "info|fetch|transform|analyse|visualise|run";
@@ -57,7 +57,7 @@ pub fn run_showcase(
         ShowcaseCommand::Transform => showcase.transform(&context),
         ShowcaseCommand::Analyse => showcase.analyse(&context),
         ShowcaseCommand::Visualise => showcase.visualise(&context),
-        ShowcaseCommand::Run => Err(not_implemented(manifest.id, "run")),
+        ShowcaseCommand::Run => showcase.run(&context),
     }
 }
 

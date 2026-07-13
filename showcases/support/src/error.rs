@@ -1,11 +1,11 @@
-//! Intentional lifecycle and command failures for scaffolded showcases.
+//! Context-rich lifecycle and command failures for dataset showcases.
 
 use std::{error::Error, fmt, path::PathBuf};
 
 /// Result returned by showcase commands.
 pub type Result<T> = std::result::Result<T, ShowcaseError>;
 
-/// Error returned by scaffolded showcase commands.
+/// Error returned by showcase commands.
 pub enum ShowcaseError {
     InvalidCommand {
         supplied: Option<String>,
@@ -16,6 +16,16 @@ pub enum ShowcaseError {
     NotImplemented {
         dataset_id: &'static str,
         operation: &'static str,
+    },
+    Workflow {
+        dataset_id: &'static str,
+        operation: &'static str,
+        source: Box<dyn Error + Send + Sync>,
+    },
+    InvalidArtifact {
+        dataset_id: &'static str,
+        path: PathBuf,
+        reason: String,
     },
 }
 
@@ -41,6 +51,23 @@ impl fmt::Display for ShowcaseError {
                 formatter,
                 "{dataset_id} showcase command '{operation}' is not implemented; external dataset acquisition and processing have not been enabled"
             ),
+            Self::Workflow {
+                dataset_id,
+                operation,
+                source,
+            } => write!(
+                formatter,
+                "{dataset_id} showcase failed to {operation}: {source}"
+            ),
+            Self::InvalidArtifact {
+                dataset_id,
+                path,
+                reason,
+            } => write!(
+                formatter,
+                "{dataset_id} showcase artifact '{}' is invalid: {reason}",
+                path.display()
+            ),
         }
     }
 }
@@ -51,7 +78,28 @@ impl fmt::Debug for ShowcaseError {
     }
 }
 
-impl Error for ShowcaseError {}
+impl Error for ShowcaseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Workflow { source, .. } => Some(source.as_ref()),
+            _ => None,
+        }
+    }
+}
+
+impl ShowcaseError {
+    pub fn workflow(
+        dataset_id: &'static str,
+        operation: &'static str,
+        source: impl Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::Workflow {
+            dataset_id,
+            operation,
+            source: Box::new(source),
+        }
+    }
+}
 
 /// Returns the standard scaffold error for a disabled lifecycle operation.
 pub const fn not_implemented(dataset_id: &'static str, operation: &'static str) -> ShowcaseError {

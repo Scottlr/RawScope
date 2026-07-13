@@ -9,28 +9,26 @@ const NAB_ID: &str = "nab";
 const NAB_MANIFEST: DatasetManifest = DatasetManifest {
     id: NAB_ID,
     name: "Numenta Anomaly Benchmark (NAB)",
-    source_url: "https://github.com/numenta/NAB/tree/master/data",
+    source_url: "https://raw.githubusercontent.com/numenta/NAB/ea702d75cc2258d9d7dd35ca8e5e2539d71f3140/data/realTraffic/speed_7578.csv",
     repository_url: "https://github.com/numenta/NAB",
-    license_name: "Expected AGPL-3.0; verify upstream dataset terms",
-    license_url: "https://github.com/numenta/NAB/blob/master/LICENSE.txt",
+    license_name: "MIT",
+    license_url: "https://github.com/numenta/NAB/blob/ea702d75cc2258d9d7dd35ca8e5e2539d71f3140/LICENSE.txt",
     citation: Some(
         "Lavin and Ahmad, Evaluating Real-Time Anomaly Detection Algorithms: The Numenta Anomaly Benchmark (2015)",
     ),
-    revision: None,
-    checksum: None,
-    planned_inputs: &[
-        "timestamped metric CSV files",
-        "labelled anomaly windows",
-        "detector result files",
-    ],
+    revision: Some("ea702d75cc2258d9d7dd35ca8e5e2539d71f3140"),
+    checksum: Some("sha256:15ba994384730cb5a2e6818f17ded1430b40d92eb7a08e5b1a48a445c8c350f6"),
+    planned_inputs: &["realTraffic/speed_7578.csv (1,127 traffic-speed observations)"],
     planned_uses: &[
-        "ground-truth versus detector windows",
-        "overlap, residual, missing, and lead/lag",
-        "detector consensus",
-        "corpus-level detector roll-ups",
+        "traffic-speed value shape over source order",
+        "timestamp-preserving row evidence",
+        "small external-API integration example",
     ],
-    caveats: &["Upstream licence and dataset terms must be reviewed at the pinned revision."],
-    implementation_status: "scaffold only; no downloads or processing have been performed",
+    caveats: &[
+        "This minimal showcase uses one series, not the full NAB benchmark corpus.",
+        "It visualises source values and does not calculate NAB detector scores.",
+    ],
+    implementation_status: "fetch, transform, visualise, and run are implemented for the smallest NAB series",
 };
 
 pub struct NabShowcase;
@@ -53,6 +51,12 @@ impl DatasetShowcase for NabShowcase {
     }
 
     fn visualise(&self, context: &ShowcaseContext) -> Result<()> {
+        visualise::visualise(context)
+    }
+
+    fn run(&self, context: &ShowcaseContext) -> Result<()> {
+        fetch::fetch(context)?;
+        transform::transform(context)?;
         visualise::visualise(context)
     }
 }
