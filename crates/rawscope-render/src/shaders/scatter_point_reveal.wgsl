@@ -3,6 +3,7 @@ struct RevealPoint {
     y: f32,
     row_id_low: u32,
     row_id_high: u32,
+    layer_id: u32,
 };
 
 struct Params {
@@ -24,6 +25,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) local: vec2<f32>,
     @location(1) emphasized: f32,
+    @location(2) layer_id: u32,
 };
 
 @group(0) @binding(0)
@@ -31,6 +33,9 @@ var<storage, read> points: array<RevealPoint>;
 
 @group(0) @binding(1)
 var<uniform> params: Params;
+
+@group(0) @binding(2)
+var<storage, read> category_palette: array<vec4<f32>>;
 
 @vertex
 fn vs_main(
@@ -61,6 +66,7 @@ fn vs_main(
     output.position = vec4<f32>(centre + corner * radius_clip, 0.0, 1.0);
     output.local = corner;
     output.emphasized = select(0.0, 1.0, is_emphasized);
+    output.layer_id = point.layer_id;
     return output;
 }
 
@@ -73,7 +79,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let edge = 1.0 - smoothstep(0.72, 1.0, distance);
     let neutral = vec3<f32>(0.78, 0.92, 0.96);
     let accent = vec3<f32>(1.0, 0.72, 0.24);
-    let colour = mix(neutral, accent, input.emphasized);
+    let palette_index = min(input.layer_id, 7u);
+    let category_colour = select(
+        neutral,
+        category_palette[palette_index].rgb,
+        input.layer_id < 8u,
+    );
+    let colour = mix(category_colour, accent, input.emphasized);
     let alpha = mix(0.28, 0.82, edge) * params.point_alpha;
     return vec4<f32>(colour, alpha);
 }

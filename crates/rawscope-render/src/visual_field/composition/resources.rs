@@ -12,6 +12,7 @@ use rawscope_gpu::{
 };
 
 use super::super::generation::{VisualFieldGeneration, VisualFieldViewGeneration};
+use super::inspection::{CompositionInspectionCache, CompositionInspectionError};
 use super::layer_counts_match_total;
 
 pub const NO_CATEGORY_LAYER: u32 = u32::MAX;
@@ -199,6 +200,7 @@ impl CategoryChannelGpuResources {
 
 /// GPU-resident bounded value/special lookup for one category layer plan.
 pub struct CategoryLayerPlanGpuResources {
+    plan: Arc<CategoryLayerPlan>,
     plan_generation: rawscope_analysis::visual_field::CategoryLayerPlanGeneration,
     dataset_generation: DatasetGeneration,
     device_generation: DeviceGeneration,
@@ -218,6 +220,7 @@ impl CategoryLayerPlanGpuResources {
         plan: &CategoryLayerPlan,
         device_generation: DeviceGeneration,
     ) -> Result<Self, CompositionResourceError> {
+        let plan = Arc::new(plan.clone());
         let layer_count = NonZeroU8::new(
             u8::try_from(plan.layers().len())
                 .map_err(|_| CompositionResourceError::LayerCountOverflow)?,
@@ -283,6 +286,7 @@ impl CategoryLayerPlanGpuResources {
             bytemuck::bytes_of(&special_layer_params),
         );
         Ok(Self {
+            plan: Arc::clone(&plan),
             plan_generation: plan.generation(),
             dataset_generation: plan.dataset_generation(),
             device_generation,
@@ -302,6 +306,10 @@ impl CategoryLayerPlanGpuResources {
         &self,
     ) -> rawscope_analysis::visual_field::CategoryLayerPlanGeneration {
         self.plan_generation
+    }
+
+    pub fn plan(&self) -> Arc<CategoryLayerPlan> {
+        Arc::clone(&self.plan)
     }
 
     pub const fn dataset_generation(&self) -> DatasetGeneration {
@@ -360,6 +368,7 @@ pub struct CategoryCompositionFieldGeneration {
     active_layer_counts: wgpu::Buffer,
     pending_layer_counts: wgpu::Buffer,
     readback: Option<GpuReadbackTicket<Vec<u32>>>,
+    settled_inspection_cache: Option<Arc<CompositionInspectionCache>>,
     allocated_bytes: u64,
 }
 
@@ -414,6 +423,7 @@ impl CategoryCompositionFieldGeneration {
             active_layer_counts,
             pending_layer_counts,
             readback: None,
+            settled_inspection_cache: None,
             allocated_bytes: allocation.allocated_bytes,
         })
     }
@@ -443,6 +453,7 @@ impl CategoryCompositionFieldGeneration {
             &mut self.active_layer_counts,
             &mut self.pending_layer_counts,
         );
+        self.settled_inspection_cache = None;
         Ok(())
     }
 
@@ -465,10 +476,17 @@ impl CategoryCompositionFieldGeneration {
         ) {
             return Err(CompositionPublicationError::LayerTotalsMismatch);
         }
+        let settled_inspection_cache = CompositionInspectionCache::from_layer_counts(
+            self.exact_field.grid(),
+            layer_counts,
+            self.layer_plan.plan(),
+        )
+        .map_err(CompositionPublicationError::InspectionCache)?;
         std::mem::swap(
             &mut self.active_layer_counts,
             &mut self.pending_layer_counts,
         );
+        self.settled_inspection_cache = Some(Arc::new(settled_inspection_cache));
         Ok(())
     }
 
@@ -496,6 +514,10 @@ impl CategoryCompositionFieldGeneration {
         self.readback.as_ref()
     }
 
+    pub fn settled_inspection_cache(&self) -> Option<Arc<CompositionInspectionCache>> {
+        self.settled_inspection_cache.as_ref().map(Arc::clone)
+    }
+
     pub const fn allocated_bytes(&self) -> u64 {
         self.allocated_bytes
     }
@@ -508,6 +530,7 @@ pub enum CompositionPublicationError {
         actual: CompositionPublicationIdentity,
     },
     LayerTotalsMismatch,
+    InspectionCache(CompositionInspectionError),
 }
 
 impl fmt::Display for CompositionPublicationError {
@@ -520,6 +543,9 @@ impl fmt::Display for CompositionPublicationError {
             Self::LayerTotalsMismatch => formatter.write_str(
                 "category composition layer totals do not match the exact total field",
             ),
+            Self::InspectionCache(error) => {
+                write!(formatter, "category composition inspection cache: {error}")
+            }
         }
     }
 }

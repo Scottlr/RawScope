@@ -2,6 +2,7 @@
 
 pub mod category_layers;
 pub mod comparison;
+pub mod composition;
 pub mod encoding;
 mod mapping;
 pub mod mass_context;
@@ -15,6 +16,9 @@ pub use category_layers::{
     CategoryLayerPlanError, CategoryLayerPlanGeneration, CategoryLayerPlanGenerationCounter,
 };
 pub use comparison::{summarize_difference_cell, ComparisonError, DifferenceCellContext};
+pub use composition::{
+    summarize_composition_cell, CompositionCellSummary, CompositionError, CompositionLayerShare,
+};
 pub use encoding::{DensityEncoding, DensityNormalization, DensityTransform};
 pub use mapping::{
     VisualAxisKind, VisualFieldMapping, VisualFieldMappingError, VisualFieldMode,

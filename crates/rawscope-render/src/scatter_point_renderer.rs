@@ -1,14 +1,16 @@
 //! Instanced screen-space glyph rendering for settled point-reveal selections.
 
 use bytemuck::{Pod, Zeroable};
-use rawscope_analysis::visual_field::PointRevealPlan;
+use rawscope_analysis::visual_field::{
+    CategoryLayerId, PointRevealPlan, MAX_CATEGORY_COMPOSITION_LAYERS,
+};
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::ScatterPointRecord;
 use std::num::NonZeroU64;
 
 use crate::{
-    PlotRectPx, PointRevealConfig, PointRevealPresentationFrame, PointRevealSelection,
-    PointRevealStats,
+    CategoryPaletteEntries, PlotRectPx, PointRevealConfig, PointRevealPresentationFrame,
+    PointRevealSelection, PointRevealStats, NO_CATEGORY_LAYER,
 };
 
 const SHADER_SOURCE: &str = include_str!("shaders/scatter_point_reveal.wgsl");
@@ -20,6 +22,7 @@ pub struct ScatterPointRenderer {
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     point_buffer: wgpu::Buffer,
+    category_palette_buffer: wgpu::Buffer,
     params_buffer: wgpu::Buffer,
     point_capacity: usize,
     rendered_count: u32,
@@ -34,6 +37,8 @@ pub struct ScatterPointRenderer {
 pub enum PointRevealPlanRenderError {
     RowIdNotResident { row_id: RowId },
     CountOverflow,
+    CategoryLayerCountMismatch { layers: usize, points: usize },
+    CategoryLayerOutOfRange { layer_id: CategoryLayerId },
 }
 
 impl std::fmt::Display for PointRevealPlanRenderError {
@@ -48,6 +53,14 @@ impl std::fmt::Display for PointRevealPlanRenderError {
             Self::CountOverflow => {
                 formatter.write_str("point reveal disclosure count overflowed usize")
             }
+            Self::CategoryLayerCountMismatch { layers, points } => write!(
+                formatter,
+                "point reveal category layer count {layers} does not match point count {points}"
+            ),
+            Self::CategoryLayerOutOfRange { layer_id } => write!(
+                formatter,
+                "point reveal category layer {layer_id:?} is outside the categorical palette"
+            ),
         }
     }
 }
@@ -57,6 +70,8 @@ impl std::error::Error for PointRevealPlanRenderError {}
 impl ScatterPointRenderer {
     pub fn new(device: &wgpu::Device, surface_format: wgpu::TextureFormat) -> Self {
         let point_buffer = create_point_buffer(device, 1);
+        let category_palette_buffer =
+            create_category_palette_buffer(device, &CategoryPaletteEntries::category_composition());
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("RawScope Scatter Point Reveal Params"),
             size: std::mem::size_of::<PointRevealParams>() as u64,
@@ -64,8 +79,13 @@ impl ScatterPointRenderer {
             mapped_at_creation: false,
         });
         let bind_group_layout = create_bind_group_layout(device);
-        let bind_group =
-            create_bind_group(device, &bind_group_layout, &point_buffer, &params_buffer);
+        let bind_group = create_bind_group(
+            device,
+            &bind_group_layout,
+            &point_buffer,
+            &params_buffer,
+            &category_palette_buffer,
+        );
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("RawScope Scatter Point Reveal Shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER_SOURCE.into()),
@@ -105,6 +125,7 @@ impl ScatterPointRenderer {
             bind_group_layout,
             bind_group,
             point_buffer,
+            category_palette_buffer,
             params_buffer,
             point_capacity: 1,
             rendered_count: 0,
@@ -146,6 +167,7 @@ impl ScatterPointRenderer {
                 &self.bind_group_layout,
                 &self.point_buffer,
                 &self.params_buffer,
+                &self.category_palette_buffer,
             );
         }
         if !packed.is_empty() {
@@ -171,15 +193,38 @@ impl ScatterPointRenderer {
         y_range: F32Range,
         config: PointRevealConfig,
     ) -> Result<(), PointRevealPlanRenderError> {
-        let mut packed = Vec::with_capacity(plan.row_ids().len());
-        for row_id in plan.row_ids().iter().copied() {
-            let point = points
-                .binary_search_by_key(&row_id, |point| point.row_id)
-                .ok()
-                .and_then(|index| points.get(index))
-                .ok_or(PointRevealPlanRenderError::RowIdNotResident { row_id })?;
-            packed.push(GpuRevealPoint::from(point));
-        }
+        let packed = pack_plan_points(points, plan, None)?;
+        self.upload_plan(device, queue, plan, packed, x_range, y_range, config)
+    }
+
+    /// Uploads the same settled row plan with one real category layer per
+    /// point. Category IDs are attached to resident points; the plan identity
+    /// and row ordering remain unchanged.
+    pub fn update_plan_with_category_layers<G: Copy>(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        points: &[ScatterPointRecord],
+        plan: &PointRevealPlan<G>,
+        layer_ids: &[CategoryLayerId],
+        x_range: F32Range,
+        y_range: F32Range,
+        config: PointRevealConfig,
+    ) -> Result<(), PointRevealPlanRenderError> {
+        let packed = pack_plan_points(points, plan, Some(layer_ids))?;
+        self.upload_plan(device, queue, plan, packed, x_range, y_range, config)
+    }
+
+    fn upload_plan<G: Copy>(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        plan: &PointRevealPlan<G>,
+        packed: Vec<GpuRevealPoint>,
+        x_range: F32Range,
+        y_range: F32Range,
+        config: PointRevealConfig,
+    ) -> Result<(), PointRevealPlanRenderError> {
         if packed.len() > self.point_capacity {
             self.point_capacity = packed.len().next_power_of_two();
             self.point_buffer = create_point_buffer(device, self.point_capacity);
@@ -188,6 +233,7 @@ impl ScatterPointRenderer {
                 &self.bind_group_layout,
                 &self.point_buffer,
                 &self.params_buffer,
+                &self.category_palette_buffer,
             );
         }
         if !packed.is_empty() {
@@ -323,6 +369,7 @@ struct GpuRevealPoint {
     y: f32,
     row_id_low: u32,
     row_id_high: u32,
+    layer_id: u32,
 }
 
 const GPU_REVEAL_POINT_SIZE_BYTES: u64 = std::mem::size_of::<GpuRevealPoint>() as u64;
@@ -334,8 +381,43 @@ impl From<&ScatterPointRecord> for GpuRevealPoint {
             y: point.y,
             row_id_low: point.row_id.0 as u32,
             row_id_high: (point.row_id.0 >> 32) as u32,
+            layer_id: NO_CATEGORY_LAYER,
         }
     }
+}
+
+fn pack_plan_points<G: Copy>(
+    points: &[ScatterPointRecord],
+    plan: &PointRevealPlan<G>,
+    layer_ids: Option<&[CategoryLayerId]>,
+) -> Result<Vec<GpuRevealPoint>, PointRevealPlanRenderError> {
+    if let Some(layer_ids) = layer_ids {
+        if layer_ids.len() != plan.row_ids().len() {
+            return Err(PointRevealPlanRenderError::CategoryLayerCountMismatch {
+                layers: layer_ids.len(),
+                points: plan.row_ids().len(),
+            });
+        }
+    }
+    let row_ids = plan.row_ids();
+    let mut packed = Vec::with_capacity(row_ids.len());
+    for (index, row_id) in row_ids.iter().copied().enumerate() {
+        let point = points
+            .binary_search_by_key(&row_id, |point| point.row_id)
+            .ok()
+            .and_then(|point_index| points.get(point_index))
+            .ok_or(PointRevealPlanRenderError::RowIdNotResident { row_id })?;
+        let mut packed_point = GpuRevealPoint::from(point);
+        if let Some(layer_ids) = layer_ids {
+            let layer_id = layer_ids[index];
+            if layer_id.get() >= MAX_CATEGORY_COMPOSITION_LAYERS {
+                return Err(PointRevealPlanRenderError::CategoryLayerOutOfRange { layer_id });
+            }
+            packed_point.layer_id = u32::from(layer_id.get());
+        }
+        packed.push(packed_point);
+    }
+    Ok(packed)
 }
 
 #[repr(C)]
@@ -417,6 +499,18 @@ fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                 },
                 count: None,
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: NonZeroU64::new(
+                        (MAX_CATEGORY_COMPOSITION_LAYERS as u64) * 16,
+                    ),
+                },
+                count: None,
+            },
         ],
     })
 }
@@ -426,6 +520,7 @@ fn create_bind_group(
     layout: &wgpu::BindGroupLayout,
     point_buffer: &wgpu::Buffer,
     params_buffer: &wgpu::Buffer,
+    category_palette_buffer: &wgpu::Buffer,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("RawScope Scatter Point Reveal Bind Group"),
@@ -439,8 +534,31 @@ fn create_bind_group(
                 binding: 1,
                 resource: params_buffer.as_entire_binding(),
             },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: category_palette_buffer.as_entire_binding(),
+            },
         ],
     })
+}
+
+fn create_category_palette_buffer(
+    device: &wgpu::Device,
+    palette: &CategoryPaletteEntries,
+) -> wgpu::Buffer {
+    let bytes = bytemuck::cast_slice(palette.linear_rgba.as_ref());
+    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("RawScope Scatter Point Category Palette"),
+        size: bytes.len() as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: true,
+    });
+    buffer
+        .slice(..)
+        .get_mapped_range_mut()
+        .copy_from_slice(bytes);
+    buffer.unmap();
+    buffer
 }
 
 #[cfg(test)]
@@ -449,7 +567,7 @@ mod tests {
 
     #[test]
     fn point_reveal_abis_match_wgsl_scalar_layout() {
-        assert_eq!(std::mem::size_of::<GpuRevealPoint>(), 16);
+        assert_eq!(std::mem::size_of::<GpuRevealPoint>(), 20);
         assert_eq!(std::mem::align_of::<GpuRevealPoint>(), 4);
         assert_eq!(std::mem::size_of::<PointRevealParams>(), 48);
         assert_eq!(std::mem::align_of::<PointRevealParams>(), 4);
@@ -471,5 +589,19 @@ mod tests {
             (800.0, 600.0)
         );
         assert_eq!((params.emphasized_low, params.emphasized_high), (6, 1));
+    }
+
+    #[test]
+    fn point_plan_identity_survives_category_coloring() {
+        let point = ScatterPointRecord {
+            row_id: RowId(42),
+            x: 0.25,
+            y: 0.75,
+            kind: rawscope_data::ScatterPointKind::Unclassified,
+        };
+        let mut packed = GpuRevealPoint::from(&point);
+        packed.layer_id = 3;
+        assert_eq!((packed.row_id_low, packed.row_id_high), (42, 0));
+        assert_eq!(packed.layer_id, 3);
     }
 }

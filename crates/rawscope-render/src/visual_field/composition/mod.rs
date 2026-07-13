@@ -6,6 +6,8 @@
 //! replaced independently.
 
 mod compute;
+mod inspection;
+mod presentation;
 mod resources;
 
 use std::num::NonZeroU32;
@@ -16,6 +18,16 @@ use rawscope_core::{F32Range, GridSize};
 pub use compute::{
     clear_pending_layer_counts, composition_bind_group, composition_bind_group_layout,
     composition_compute_pipeline, CompositionParams,
+};
+pub use inspection::{
+    CompositionInspectionCache, CompositionInspectionDetail, CompositionInspectionError,
+    CompositionInspectionLayer, CompositionInspectionLayerMetadata,
+};
+pub use presentation::{
+    composition_render_bind_group, composition_render_bind_group_layout,
+    composition_render_pipeline, present_composition_cell, CompositionCellPresentation,
+    CompositionPaletteGpuResources, CompositionPresentationConfig, CompositionPresentationError,
+    CompositionRenderParams, CompositionRenderPipeline,
 };
 pub use resources::{
     CategoryChannelGpuResources, CategoryChannelIdentity, CategoryCompositionFieldGeneration,

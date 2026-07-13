@@ -15,6 +15,10 @@ use crate::cohort::CohortSnapshot;
 pub struct CategoryLayerId(u8);
 
 impl CategoryLayerId {
+    pub const fn new(value: u8) -> Self {
+        Self(value)
+    }
+
     pub const fn get(self) -> u8 {
         self.0
     }
