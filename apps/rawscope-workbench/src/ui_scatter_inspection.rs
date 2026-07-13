@@ -1,7 +1,6 @@
 //! Bounded tooltip and pinned content for scatter-density inspection.
 
 use egui::{pos2, Rect};
-use rawscope_data::dataset_profile;
 use rawscope_render::{
     DifferenceInspectionSummary, ScatterDensityMode, ScatterInspectionHit, ScatterInspectionSummary,
 };
@@ -43,12 +42,10 @@ fn scatter_inspection_ui_state_with_pin(
     app: &WorkbenchApp,
     include_pinned: bool,
 ) -> Option<ScatterInspectionUiState> {
-    let (x_label, y_label) = app
-        .workbench_state
-        .active_dataset_profile
-        .and_then(|profile_id| dataset_profile(profile_id).scatter_binding)
-        .map(|binding| (binding.x_column.to_string(), binding.y_column.to_string()))
-        .unwrap_or_else(|| ("x".to_string(), "y".to_string()));
+    let (x_label, y_label) = (
+        app.scatter_projection.labels.x_label.clone(),
+        app.scatter_projection.labels.y_label.clone(),
+    );
     let hovered = app
         .scatter_inspection
         .hovered

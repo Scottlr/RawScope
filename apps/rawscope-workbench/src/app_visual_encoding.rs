@@ -6,7 +6,12 @@ use rawscope_render::{
 };
 use tracing::error;
 
-use crate::{app::WorkbenchApp, demo::DemoMode, ui::WorkbenchSurface};
+use crate::{
+    app::WorkbenchApp,
+    controllers::visual_field::{VisualFieldCommand, VisualFieldCommandResult},
+    demo::DemoMode,
+    ui::WorkbenchSurface,
+};
 
 impl WorkbenchApp {
     pub(crate) fn set_relief_config(&mut self, config: ReliefFieldConfig) {
@@ -46,9 +51,18 @@ impl WorkbenchApp {
         let previous_mode = self.scatter.density_mode;
         self.scatter.density_mode = mode;
         if mode == ScatterDensityMode::FilteredDifference {
+            if let Some(controller) = self.visual_field_controller.as_mut() {
+                let _ = controller.handle(VisualFieldCommand::SetMode(
+                    rawscope_analysis::visual_field::VisualFieldMode::CohortComparison,
+                ));
+            }
             self.set_scatter_comparison_presentation(ComparisonPresentation::SignedDifference);
             let _ = self.set_scatter_comparison_split(ComparisonSplit::default().fraction());
             self.invalidate_scatter_point_reveal();
+        } else if let Some(controller) = self.visual_field_controller.as_mut() {
+            let _ = controller.handle(VisualFieldCommand::SetMode(
+                rawscope_analysis::visual_field::VisualFieldMode::Density,
+            ));
         }
         self.begin_density_mode_transition(previous_mode, mode);
     }
@@ -99,6 +113,14 @@ impl WorkbenchApp {
         }
         if self.scatter.density_presentation == presentation {
             return;
+        }
+
+        if let Some(controller) = self.visual_field_controller.as_mut() {
+            let result =
+                controller.handle(VisualFieldCommand::SetDensityPresentation(presentation));
+            if matches!(result, VisualFieldCommandResult::Rejected(_)) {
+                return;
+            }
         }
 
         self.scatter.density_presentation = presentation;

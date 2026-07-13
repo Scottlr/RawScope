@@ -1,7 +1,7 @@
 //! View-axis and summary context projection for density views.
 
 use egui::{vec2, Color32, Pos2, Rect, RichText, Sense, Ui};
-use rawscope_data::{dataset_profile, DatasetFieldRole, DatasetIdentity, ScatterProjection};
+use rawscope_data::{DatasetFieldRole, DatasetIdentity, LoadedColumnKind, ScatterProjection};
 use rawscope_render::{
     scatter_axes_context_with_options, timeline_axes_context, AxisValueFormat, ScatterAxesOptions,
     ScatterMarginalSummary, ScatterReferenceGuide, ScatterReferenceGuideKind, SummaryBin,
@@ -52,22 +52,31 @@ pub(crate) fn view_axes_ui_state(app: &WorkbenchApp) -> Option<WorkbenchViewAxes
                 )
             };
 
-            let use_rating_axes = app.workbench_state.active_dataset_profile
-                == Some(rawscope_data::DatasetProfileId::LichessGames);
-            let show_equality_guide = app
-                .workbench_state
-                .active_dataset_profile
-                .map(dataset_profile)
-                .is_some_and(|profile| profile.scatter_defaults.show_equality_guide);
+            let integer_axes = app.scatter_filters.catalog.as_ref().is_some_and(|catalog| {
+                [
+                    app.scatter_projection.labels.x_label.as_str(),
+                    app.scatter_projection.labels.y_label.as_str(),
+                ]
+                .into_iter()
+                .all(|column_name| {
+                    catalog.fields.iter().any(|field| {
+                        field.column_name == column_name
+                            && field.source_kind == LoadedColumnKind::Integer
+                    })
+                })
+            });
             let value_format =
-                if use_rating_axes && app.scatter_projection.active == ScatterProjection::RawXY {
+                if integer_axes && app.scatter_projection.active == ScatterProjection::RawXY {
                     AxisValueFormat::Integer
                 } else {
                     AxisValueFormat::Decimal {
                         max_fraction_digits: 1,
                     }
                 };
-            let guides = match (show_equality_guide, app.scatter_projection.active) {
+            let guides = match (
+                app.scatter_projection.show_equality_guide,
+                app.scatter_projection.active,
+            ) {
                 (true, ScatterProjection::RawXY) => vec![ScatterReferenceGuide {
                     kind: ScatterReferenceGuideKind::Equality,
                     label: "equal rating".to_string(),
