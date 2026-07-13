@@ -172,6 +172,15 @@ pub use view_summaries::{
     timeline_overview_summary, ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineOverviewWindow,
 };
+pub use visual_field::composition::{
+    clear_pending_layer_counts, composition_bind_group, composition_bind_group_layout,
+    composition_compute_pipeline, composition_reference, composition_reference_layers,
+    publication_generation_matches, CategoryChannelGpuResources, CategoryChannelIdentity,
+    CategoryCompositionFieldGeneration, CategoryCompositionReference,
+    CategoryLayerPlanGpuResources, CompositionParams, CompositionPublicationError,
+    CompositionPublicationIdentity, CompositionReferenceError, CompositionResourceError,
+    SpecialLayerParams, NO_CATEGORY_LAYER,
+};
 pub use visual_field::PointRevealPresentationFrame;
 pub use visual_field::{
     aggregate_visual_field_resources, choose_visual_resolution,
