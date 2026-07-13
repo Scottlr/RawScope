@@ -189,6 +189,7 @@ impl WorkbenchApp {
         self.scatter.pending_settled_context_readback = false;
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
+        self.reproject_point_reveal_viewport();
         self.scatter.difference_baseline_dirty = true;
         if let (Some(gpu), Some(renderer)) =
             (self.gpu.as_ref(), self.scatter.density_renderer.as_mut())

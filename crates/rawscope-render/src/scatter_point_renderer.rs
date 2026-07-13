@@ -1,6 +1,7 @@
 //! Instanced screen-space glyph rendering for settled point-reveal selections.
 
 use bytemuck::{Pod, Zeroable};
+use rawscope_analysis::visual_field::PointRevealPlan;
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::ScatterPointRecord;
 use std::num::NonZeroU64;
@@ -28,6 +29,30 @@ pub struct ScatterPointRenderer {
     radius_px: f32,
     emphasized_row_id: Option<RowId>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointRevealPlanRenderError {
+    RowIdNotResident { row_id: RowId },
+    CountOverflow,
+}
+
+impl std::fmt::Display for PointRevealPlanRenderError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::RowIdNotResident { row_id } => {
+                write!(
+                    formatter,
+                    "point reveal row {row_id:?} is not resident in the projected buffer"
+                )
+            }
+            Self::CountOverflow => {
+                formatter.write_str("point reveal disclosure count overflowed usize")
+            }
+        }
+    }
+}
+
+impl std::error::Error for PointRevealPlanRenderError {}
 
 impl ScatterPointRenderer {
     pub fn new(device: &wgpu::Device, surface_format: wgpu::TextureFormat) -> Self {
@@ -133,8 +158,64 @@ impl ScatterPointRenderer {
         self.radius_px = config.radius_px.clamp(MIN_RADIUS_PX, MAX_RADIUS_PX);
     }
 
+    /// Upload one already-settled row plan.  Resolution is by the existing
+    /// row-id keyed point buffer; stale or invalid identities are rejected
+    /// instead of being silently dropped.
+    pub fn update_plan<G: Copy>(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        points: &[ScatterPointRecord],
+        plan: &PointRevealPlan<G>,
+        x_range: F32Range,
+        y_range: F32Range,
+        config: PointRevealConfig,
+    ) -> Result<(), PointRevealPlanRenderError> {
+        let mut packed = Vec::with_capacity(plan.row_ids().len());
+        for row_id in plan.row_ids().iter().copied() {
+            let point = points
+                .binary_search_by_key(&row_id, |point| point.row_id)
+                .ok()
+                .and_then(|index| points.get(index))
+                .ok_or(PointRevealPlanRenderError::RowIdNotResident { row_id })?;
+            packed.push(GpuRevealPoint::from(point));
+        }
+        if packed.len() > self.point_capacity {
+            self.point_capacity = packed.len().next_power_of_two();
+            self.point_buffer = create_point_buffer(device, self.point_capacity);
+            self.bind_group = create_bind_group(
+                device,
+                &self.bind_group_layout,
+                &self.point_buffer,
+                &self.params_buffer,
+            );
+        }
+        if !packed.is_empty() {
+            queue.write_buffer(&self.point_buffer, 0, bytemuck::cast_slice(&packed));
+        }
+        self.rendered_count = packed.len() as u32;
+        self.stats = PointRevealStats {
+            eligible_count: usize::try_from(plan.eligible_count())
+                .map_err(|_| PointRevealPlanRenderError::CountOverflow)?,
+            rendered_count: packed.len(),
+            sampled: plan.sampled(),
+            blend: 1.0,
+        };
+        self.x_range = x_range;
+        self.y_range = y_range;
+        self.radius_px = config.radius_px.clamp(MIN_RADIUS_PX, MAX_RADIUS_PX);
+        Ok(())
+    }
+
     pub fn set_emphasized_row(&mut self, row_id: Option<RowId>) {
         self.emphasized_row_id = row_id;
+    }
+
+    /// Reproject the resident point plan into a new viewport without touching
+    /// row membership or rebuilding the plan.
+    pub fn set_viewport(&mut self, x_range: F32Range, y_range: F32Range) {
+        self.x_range = x_range;
+        self.y_range = y_range;
     }
 
     pub fn hide(&mut self) {

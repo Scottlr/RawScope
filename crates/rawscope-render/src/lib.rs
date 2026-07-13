@@ -130,7 +130,7 @@ pub use scatter_inspection_overlay::{
     project_scatter_inspection_overlay, InspectionFocusKind, ScatterInspectionOverlay,
     ScatterInspectionOverlayRenderer,
 };
-pub use scatter_point_renderer::ScatterPointRenderer;
+pub use scatter_point_renderer::{PointRevealPlanRenderError, ScatterPointRenderer};
 pub use scatter_point_reveal::{
     project_point_to_plot_fraction, select_points_for_reveal, PointRevealConfig, PointRevealError,
     PointRevealSelection, PointRevealStats,

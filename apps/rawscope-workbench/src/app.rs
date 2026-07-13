@@ -152,6 +152,16 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) selection_drilldown: Option<SelectionDrilldown>,
     pub(crate) pending_exact_readback: Option<crate::app_render_schedule::PendingExactReadback>,
     pub(crate) pending_settled_context_readback: bool,
+    pub(crate) point_reveal_plan: Option<
+        std::sync::Arc<
+            rawscope_analysis::visual_field::PointRevealPlan<
+                rawscope_render::VisualFieldViewGeneration,
+            >,
+        >,
+    >,
+    pub(crate) point_reveal_frame: rawscope_analysis::visual_field::SemanticZoomFrame,
+    pub(crate) pending_point_reveal_job:
+        Option<crate::app_scatter_point_reveal::PendingPointRevealJob>,
 }
 
 /// Timeline-specific workbench state.
@@ -202,6 +212,12 @@ impl Default for ScatterWorkbenchState {
             selection_drilldown: None,
             pending_exact_readback: None,
             pending_settled_context_readback: false,
+            point_reveal_plan: None,
+            point_reveal_frame: rawscope_analysis::visual_field::SemanticZoomFrame {
+                density_alpha: 1.0,
+                point_alpha: 0.0,
+            },
+            pending_point_reveal_job: None,
         }
     }
 }

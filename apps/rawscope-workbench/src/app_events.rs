@@ -33,7 +33,7 @@ impl ApplicationHandler<WorkbenchUserEvent> for WorkbenchApp {
                                 event_loop.exit();
                             }
                         }
-                        Ok(false) => {}
+                        Ok(false) => self.complete_point_reveal_job(job_id),
                         Err(error) => {
                             error!(error = %error, "failed to resolve RawScope GPU initialization");
                             event_loop.exit();
