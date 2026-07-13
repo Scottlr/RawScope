@@ -3,9 +3,8 @@
 use egui::{Align, Color32, Layout, Rect, RichText, Sense, Ui};
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
-    DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
-    ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
-    ScatterDifferenceRenderStats,
+    ComparisonFieldRenderStats, DensityEncoding, DensityPalette, DensityTransform, PointRevealMode,
+    PointRevealStats, ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
 };
 
 use crate::{
@@ -36,7 +35,7 @@ pub(crate) struct DensityEncodingUiState {
     pub(crate) scatter_projection: Option<ScatterProjection>,
     pub(crate) scatter_density_mode: Option<ScatterDensityMode>,
     pub(crate) difference_available: bool,
-    pub(crate) difference_stats: Option<ScatterDifferenceRenderStats>,
+    pub(crate) difference_stats: Option<ComparisonFieldRenderStats>,
     pub(crate) relief_config: Option<ReliefFieldConfig>,
 }
 
@@ -68,7 +67,7 @@ impl DensityEncodingUiState {
         scatter_projection: Option<ScatterProjection>,
         scatter_density_mode: ScatterDensityMode,
         difference_available: bool,
-        difference_stats: Option<ScatterDifferenceRenderStats>,
+        difference_stats: Option<ComparisonFieldRenderStats>,
         relief_config: ReliefFieldConfig,
     ) -> Self {
         Self::new(

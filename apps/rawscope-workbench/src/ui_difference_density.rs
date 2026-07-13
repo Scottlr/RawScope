@@ -1,7 +1,7 @@
 //! Difference-density mode controls and truthful diverging legend.
 
 use egui::{Align, Color32, Layout, Rect, Sense, Ui};
-use rawscope_render::{DifferencePalette, ScatterDensityMode, ScatterDifferenceRenderStats};
+use rawscope_render::{ComparisonFieldRenderStats, DifferencePalette, ScatterDensityMode};
 
 use crate::ui_theme::segmented_button;
 
@@ -32,7 +32,7 @@ pub(crate) fn density_mode_selector(
     selected
 }
 
-pub(crate) fn draw_difference_legend(ui: &mut Ui, stats: Option<ScatterDifferenceRenderStats>) {
+pub(crate) fn draw_difference_legend(ui: &mut Ui, stats: Option<ComparisonFieldRenderStats>) {
     ui.label("Active share minus full-baseline share");
     let colors = DifferencePalette::TealNeutralCoral.legend_rgb();
     let width = ui.available_width().max(120.0);

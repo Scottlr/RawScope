@@ -18,9 +18,9 @@ mod tests {
     use rawscope_core::F32Range;
 
     use crate::{
-        validate_relief_field_config, DensityEncoding, ReliefFieldConfig, ReliefFieldConfigError,
-        ScatterDensityPresentation, ScatterDensityRendererConfig, MAX_RELIEF_HEIGHT_STRENGTH,
-        MIN_RELIEF_NORMAL_RADIUS_BINS,
+        validate_relief_field_config, DensityEncoding, DensityPresentationConfig,
+        ReliefFieldConfig, ReliefFieldConfigError, ScatterDensityPresentation,
+        MAX_RELIEF_HEIGHT_STRENGTH, MIN_RELIEF_NORMAL_RADIUS_BINS,
     };
 
     use super::*;
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn relief_presentation_preserves_density_encoding_contract() {
         let encoding = DensityEncoding::scatter_default();
-        let config = ScatterDensityRendererConfig::new(
+        let config = DensityPresentationConfig::new(
             F32Range::new(0.0, 1.0),
             F32Range::new(0.0, 1.0),
             16,

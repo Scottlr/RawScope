@@ -3,20 +3,21 @@
 use std::{error::Error, fmt, sync::mpsc::RecvError};
 
 use rawscope_core::{DensityCountGrid, F32Range, GridSize};
-use rawscope_data::{FilterMask, FilterRevision, ScatterPointRecord};
+use rawscope_data::{FilterMask, FilterRevision};
 use rawscope_gpu::ComputeContext;
 
-use crate::{
-    gpu_density_pipeline::GpuDensityReadbackError, DensityReadbackPolicy, ScatterDensityGpuState,
-    ScatterDensityRendererConfig, ScatterDensityUpdate,
-};
+use crate::gpu_density_pipeline::GpuDensityReadbackError;
+
+use super::density_presentation::DensityPresentationConfig;
+use super::exact_field::{DensityReadbackPolicy, ResidentExactField, ResidentExactFieldUpdate};
+use super::point_pack::VisualFieldPoint;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GpuScatterDensityGrid {
+pub struct VisualFieldCountGrid {
     counts: DensityCountGrid,
 }
 
-impl GpuScatterDensityGrid {
+impl VisualFieldCountGrid {
     pub fn new(width: u32, height: u32, counts: Vec<u32>) -> Self {
         Self {
             counts: DensityCountGrid::new(GridSize::new(width, height), counts),
@@ -40,7 +41,7 @@ impl GpuScatterDensityGrid {
 }
 
 #[derive(Debug)]
-pub enum GpuScatterDensityError {
+pub enum VisualFieldGpuError {
     PointCountTooLarge {
         point_count: usize,
     },
@@ -61,7 +62,7 @@ pub enum GpuScatterDensityError {
     DevicePoll(wgpu::PollError),
 }
 
-impl fmt::Display for GpuScatterDensityError {
+impl fmt::Display for VisualFieldGpuError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::PointCountTooLarge { point_count } => {
@@ -109,7 +110,7 @@ impl fmt::Display for GpuScatterDensityError {
     }
 }
 
-impl Error for GpuScatterDensityError {
+impl Error for VisualFieldGpuError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::BufferMap(error) => Some(error),
@@ -125,7 +126,7 @@ impl Error for GpuScatterDensityError {
     }
 }
 
-impl From<GpuDensityReadbackError> for GpuScatterDensityError {
+impl From<GpuDensityReadbackError> for VisualFieldGpuError {
     fn from(error: GpuDensityReadbackError) -> Self {
         match error {
             GpuDensityReadbackError::BufferMap(error) => Self::BufferMap(error),
@@ -146,15 +147,15 @@ impl From<GpuDensityReadbackError> for GpuScatterDensityError {
     }
 }
 
-pub fn gpu_scatter_density(
+pub fn visual_field_density<T: VisualFieldPoint>(
     context: &ComputeContext,
-    points: &[ScatterPointRecord],
+    points: &[T],
     x_range: F32Range,
     y_range: F32Range,
     width: u32,
     height: u32,
-) -> Result<GpuScatterDensityGrid, GpuScatterDensityError> {
-    gpu_scatter_density_on_device(
+) -> Result<VisualFieldCountGrid, VisualFieldGpuError> {
+    visual_field_density_on_device(
         context.device(),
         context.queue(),
         points,
@@ -165,57 +166,57 @@ pub fn gpu_scatter_density(
     )
 }
 
-pub fn gpu_scatter_density_on_device(
+pub fn visual_field_density_on_device<T: VisualFieldPoint>(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    points: &[ScatterPointRecord],
+    points: &[T],
     x_range: F32Range,
     y_range: F32Range,
     width: u32,
     height: u32,
-) -> Result<GpuScatterDensityGrid, GpuScatterDensityError> {
-    let config = ScatterDensityRendererConfig::new(x_range, y_range, width, height);
-    let mut state = ScatterDensityGpuState::new(device, queue, points, config, 0)?;
+) -> Result<VisualFieldCountGrid, VisualFieldGpuError> {
+    let config = DensityPresentationConfig::new(x_range, y_range, width, height);
+    let mut state = ResidentExactField::new(device, queue, points, config, 0)?;
     let output = state.update_with_output(
         device,
         queue,
-        ScatterDensityUpdate {
+        ResidentExactFieldUpdate {
             config,
             readback: DensityReadbackPolicy::FullCounts,
         },
     )?;
     let counts = output
         .counts
-        .ok_or(GpuScatterDensityError::MissingReadbackCounts)?;
-    Ok(GpuScatterDensityGrid::new(width, height, counts))
+        .ok_or(VisualFieldGpuError::MissingReadbackCounts)?;
+    Ok(VisualFieldCountGrid::new(width, height, counts))
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn gpu_scatter_density_masked(
+pub fn visual_field_density_masked<T: VisualFieldPoint>(
     context: &ComputeContext,
-    points: &[ScatterPointRecord],
+    points: &[T],
     mask: &FilterMask,
     revision: FilterRevision,
     x_range: F32Range,
     y_range: F32Range,
     width: u32,
     height: u32,
-) -> Result<GpuScatterDensityGrid, GpuScatterDensityError> {
+) -> Result<VisualFieldCountGrid, VisualFieldGpuError> {
     let device = context.device();
     let queue = context.queue();
-    let config = ScatterDensityRendererConfig::new(x_range, y_range, width, height);
-    let mut state = ScatterDensityGpuState::new(device, queue, points, config, 0)?;
+    let config = DensityPresentationConfig::new(x_range, y_range, width, height);
+    let mut state = ResidentExactField::new(device, queue, points, config, 0)?;
     state.update_filter_mask(queue, mask.as_gpu_u32_slice(), revision)?;
     let output = state.update_with_output(
         device,
         queue,
-        ScatterDensityUpdate {
+        ResidentExactFieldUpdate {
             config,
             readback: DensityReadbackPolicy::FullCounts,
         },
     )?;
     let counts = output
         .counts
-        .ok_or(GpuScatterDensityError::MissingReadbackCounts)?;
-    Ok(GpuScatterDensityGrid::new(width, height, counts))
+        .ok_or(VisualFieldGpuError::MissingReadbackCounts)?;
+    Ok(VisualFieldCountGrid::new(width, height, counts))
 }

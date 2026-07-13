@@ -1,24 +1,23 @@
 //! Dataset-resident scatter density compute resources.
 
-use rawscope_data::{FilterRevision, ScatterPointRecord};
+use rawscope_data::FilterRevision;
 
-use crate::{
-    gpu_density_pipeline::{
-        readback_counts_from_buffer, DensityReadbackOperation, GpuDensityReadbackError,
-    },
-    gpu_scatter_density::GpuScatterDensityError,
-    gpu_scatter_density_pack::ScatterParams,
-    ScatterDensityRenderStats, ScatterDensityRendererConfig,
+use super::density_presentation::{DensityPresentationConfig, DensityPresentationRenderStats};
+use super::gpu::VisualFieldGpuError;
+use super::point_pack::VisualFieldParams;
+use super::point_pack::VisualFieldPoint;
+use crate::gpu_density_pipeline::{
+    readback_counts_from_buffer, DensityReadbackOperation, GpuDensityReadbackError,
 };
 
 const WORKGROUP_SIZE: u32 = 64;
 const MAX_WORKGROUPS: u32 = 65_535;
 const MAX_POINTS_PER_DISPATCH: u32 = WORKGROUP_SIZE * MAX_WORKGROUPS;
-const COMPUTE_SHADER: &str = include_str!("shaders/scatter_density.wgsl");
+const COMPUTE_SHADER: &str = include_str!("../shaders/scatter_density.wgsl");
 
-#[path = "scatter_density_gpu_lifecycle.rs"]
+#[path = "exact_field_lifecycle.rs"]
 mod lifecycle;
-#[path = "scatter_density_compute_resources.rs"]
+#[path = "exact_field_resources.rs"]
 mod resources;
 
 use resources::{
@@ -39,17 +38,17 @@ impl DensityReadbackPolicy {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ScatterDensityUpdate {
-    pub config: ScatterDensityRendererConfig,
+pub struct ResidentExactFieldUpdate {
+    pub config: DensityPresentationConfig,
     pub readback: DensityReadbackPolicy,
 }
 
-pub(crate) struct ScatterDensityUpdateOutput {
-    pub stats: ScatterDensityRenderStats,
+pub(crate) struct ResidentExactFieldUpdateOutput {
+    pub stats: DensityPresentationRenderStats,
     pub counts: Option<Vec<u32>>,
 }
 
-pub struct ScatterDensityGpuState {
+pub struct ResidentExactField {
     point_buffer: wgpu::Buffer,
     point_count: u32,
     point_capacity: usize,
@@ -73,14 +72,14 @@ pub struct ScatterDensityGpuState {
     pending_full_readback: Option<DensityReadbackOperation>,
 }
 
-impl ScatterDensityGpuState {
-    pub fn new(
+impl ResidentExactField {
+    pub fn new<T: VisualFieldPoint>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        points: &[ScatterPointRecord],
-        config: ScatterDensityRendererConfig,
+        points: &[T],
+        config: DensityPresentationConfig,
         dataset_revision: u64,
-    ) -> Result<Self, GpuScatterDensityError> {
+    ) -> Result<Self, VisualFieldGpuError> {
         let point_count = checked_point_count(points)?;
         let point_buffer = point_buffer(device, queue, points);
         let filter_mask_buffer = filter_mask_buffer(device, queue, points.len());
@@ -143,8 +142,8 @@ impl ScatterDensityGpuState {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        update: ScatterDensityUpdate,
-    ) -> Result<ScatterDensityRenderStats, GpuScatterDensityError> {
+        update: ResidentExactFieldUpdate,
+    ) -> Result<DensityPresentationRenderStats, VisualFieldGpuError> {
         Ok(self.update_with_output(device, queue, update)?.stats)
     }
 
@@ -152,8 +151,8 @@ impl ScatterDensityGpuState {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        update: ScatterDensityUpdate,
-    ) -> Result<ScatterDensityUpdateOutput, GpuScatterDensityError> {
+        update: ResidentExactFieldUpdate,
+    ) -> Result<ResidentExactFieldUpdateOutput, VisualFieldGpuError> {
         if (self.grid_width, self.grid_height)
             != (update.config.grid_width, update.config.grid_height)
         {
@@ -162,7 +161,7 @@ impl ScatterDensityGpuState {
         let destination = destination_count_buffer(self.active_count_buffer);
         let chunks = dispatch_chunks(self.point_count);
         for (index, chunk) in chunks.iter().enumerate() {
-            let params = ScatterParams::new(
+            let params = VisualFieldParams::new(
                 update.config.x_range,
                 update.config.y_range,
                 self.grid_width,
@@ -235,8 +234,8 @@ impl ScatterDensityGpuState {
                     .map_err(map_readback)?[0];
         }
         self.active_count_buffer = destination;
-        Ok(ScatterDensityUpdateOutput {
-            stats: ScatterDensityRenderStats {
+        Ok(ResidentExactFieldUpdateOutput {
+            stats: DensityPresentationRenderStats {
                 point_count: self.point_count as usize,
                 grid_width: self.grid_width,
                 grid_height: self.grid_height,
@@ -252,9 +251,9 @@ impl ScatterDensityGpuState {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> Result<(), GpuScatterDensityError> {
+    ) -> Result<(), VisualFieldGpuError> {
         if self.pending_full_readback.is_some() {
-            return Err(GpuScatterDensityError::ReadbackInProgress);
+            return Err(VisualFieldGpuError::ReadbackInProgress);
         }
         let count_size = count_size_bytes(self.grid_width, self.grid_height);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -282,7 +281,7 @@ impl ScatterDensityGpuState {
     pub fn poll_full_readback(
         &mut self,
         device: &wgpu::Device,
-    ) -> Result<Option<Vec<u32>>, GpuScatterDensityError> {
+    ) -> Result<Option<Vec<u32>>, VisualFieldGpuError> {
         let Some(mut operation) = self.pending_full_readback.take() else {
             return Ok(None);
         };
@@ -308,8 +307,8 @@ impl ScatterDensityGpuState {
     }
 }
 
-fn checked_point_count(points: &[ScatterPointRecord]) -> Result<u32, GpuScatterDensityError> {
-    u32::try_from(points.len()).map_err(|_| GpuScatterDensityError::PointCountTooLarge {
+fn checked_point_count<T>(points: &[T]) -> Result<u32, VisualFieldGpuError> {
+    u32::try_from(points.len()).map_err(|_| VisualFieldGpuError::PointCountTooLarge {
         point_count: points.len(),
     })
 }
@@ -329,10 +328,10 @@ fn dispatch_chunks(count: u32) -> Vec<(u32, u32)> {
 fn count_size_bytes(width: u32, height: u32) -> u64 {
     u64::from(width) * u64::from(height) * 4
 }
-fn map_readback(error: GpuDensityReadbackError) -> GpuScatterDensityError {
+fn map_readback(error: GpuDensityReadbackError) -> VisualFieldGpuError {
     error.into()
 }
 
 #[cfg(test)]
-#[path = "scatter_density_gpu_state_tests.rs"]
+#[path = "exact_field_tests.rs"]
 mod tests;

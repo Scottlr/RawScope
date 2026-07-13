@@ -7,14 +7,14 @@ use rawscope_data::{
 };
 use rawscope_gpu::ComputeContext;
 use rawscope_render::{
-    gpu_scatter_density, gpu_scatter_density_masked, normalized_difference_density,
-    scatter_density, DensityReadbackPolicy, ScatterDensityGpuState, ScatterDensityRendererConfig,
-    ScatterDensityUpdate,
+    normalized_difference_density, scatter_density, visual_field_density,
+    visual_field_density_masked, DensityPresentationConfig, DensityReadbackPolicy,
+    ResidentExactField, ResidentExactFieldUpdate,
 };
 
 #[test]
 #[ignore = "requires a local WGPU adapter"]
-fn gpu_scatter_density_matches_cpu_reference_for_synthetic_points() {
+fn visual_field_density_matches_cpu_reference_for_synthetic_points() {
     pollster::block_on(async {
         let context = ComputeContext::new()
             .await
@@ -30,7 +30,7 @@ fn gpu_scatter_density_matches_cpu_reference_for_synthetic_points() {
             width,
             height,
         );
-        let gpu_grid = gpu_scatter_density(
+        let gpu_grid = visual_field_density(
             &context,
             &dataset.points,
             dataset.x_range,
@@ -49,7 +49,7 @@ fn gpu_scatter_density_matches_cpu_reference_for_synthetic_points() {
 
 #[test]
 #[ignore = "requires a local WGPU adapter"]
-fn gpu_scatter_density_matches_cpu_reference_for_edges_and_out_of_range_points() {
+fn visual_field_density_matches_cpu_reference_for_edges_and_out_of_range_points() {
     pollster::block_on(async {
         let context = ComputeContext::new()
             .await
@@ -67,7 +67,7 @@ fn gpu_scatter_density_matches_cpu_reference_for_edges_and_out_of_range_points()
         let height = 10;
 
         let cpu_grid = scatter_density(&points, x_range, y_range, width, height);
-        let gpu_grid = gpu_scatter_density(&context, &points, x_range, y_range, width, height)
+        let gpu_grid = visual_field_density(&context, &points, x_range, y_range, width, height)
             .expect("GPU scatter-density should complete");
 
         assert_eq!(gpu_grid.counts(), cpu_counts(&cpu_grid));
@@ -99,7 +99,7 @@ fn gpu_difference_matches_cpu_reference() {
         });
         let evaluation = evaluate_filters(&source, &catalog, &filters).unwrap();
         let range = F32Range::new(0.0, 10.0);
-        let active = gpu_scatter_density_masked(
+        let active = visual_field_density_masked(
             &context,
             &points,
             &evaluation.mask,
@@ -138,8 +138,8 @@ fn resident_state_reuses_point_capacity_for_view_updates() {
     pollster::block_on(async {
         let context = ComputeContext::new().await.unwrap();
         let dataset = generate_synthetic_points(SyntheticPointConfig::new(7, 256));
-        let config = ScatterDensityRendererConfig::new(dataset.x_range, dataset.y_range, 16, 16);
-        let mut state = ScatterDensityGpuState::new(
+        let config = DensityPresentationConfig::new(dataset.x_range, dataset.y_range, 16, 16);
+        let mut state = ResidentExactField::new(
             context.device(),
             context.queue(),
             &dataset.points,
@@ -152,7 +152,7 @@ fn resident_state_reuses_point_capacity_for_view_updates() {
             .update(
                 context.device(),
                 context.queue(),
-                ScatterDensityUpdate {
+                ResidentExactFieldUpdate {
                     config,
                     readback: DensityReadbackPolicy::None,
                 },
@@ -170,15 +170,10 @@ fn dataset_revision_replaces_resident_point_state() {
         let context = ComputeContext::new().await.unwrap();
         let first = generate_synthetic_points(SyntheticPointConfig::new(7, 128));
         let second = generate_synthetic_points(SyntheticPointConfig::new(8, 320));
-        let config = ScatterDensityRendererConfig::new(first.x_range, first.y_range, 16, 16);
-        let mut state = ScatterDensityGpuState::new(
-            context.device(),
-            context.queue(),
-            &first.points,
-            config,
-            1,
-        )
-        .unwrap();
+        let config = DensityPresentationConfig::new(first.x_range, first.y_range, 16, 16);
+        let mut state =
+            ResidentExactField::new(context.device(), context.queue(), &first.points, config, 1)
+                .unwrap();
         state
             .replace_dataset(context.device(), context.queue(), &second.points, 2)
             .unwrap();
@@ -193,7 +188,7 @@ fn gpu_max_reduction_matches_cpu_reference() {
     pollster::block_on(async {
         let context = ComputeContext::new().await.unwrap();
         let dataset = generate_synthetic_points(SyntheticPointConfig::new(9, 512));
-        let config = ScatterDensityRendererConfig::new(dataset.x_range, dataset.y_range, 24, 20);
+        let config = DensityPresentationConfig::new(dataset.x_range, dataset.y_range, 24, 20);
         let cpu = scatter_density(&dataset.points, dataset.x_range, dataset.y_range, 24, 20);
         let expected_max = cpu
             .bins()
@@ -201,7 +196,7 @@ fn gpu_max_reduction_matches_cpu_reference() {
             .map(|bin| bin.row_count)
             .max()
             .unwrap_or(0);
-        let mut state = ScatterDensityGpuState::new(
+        let mut state = ResidentExactField::new(
             context.device(),
             context.queue(),
             &dataset.points,
@@ -213,7 +208,7 @@ fn gpu_max_reduction_matches_cpu_reference() {
             .update(
                 context.device(),
                 context.queue(),
-                ScatterDensityUpdate {
+                ResidentExactFieldUpdate {
                     config,
                     readback: DensityReadbackPolicy::MaxOnly,
                 },
@@ -234,7 +229,7 @@ fn settled_gpu_density_matches_cpu_reference_after_pan() {
         let panned_y = F32Range::new(10.0, 70.0);
         let cpu = scatter_density(&dataset.points, panned_x, panned_y, 32, 32);
         let gpu =
-            gpu_scatter_density(&context, &dataset.points, panned_x, panned_y, 32, 32).unwrap();
+            visual_field_density(&context, &dataset.points, panned_x, panned_y, 32, 32).unwrap();
         assert_eq!(gpu.counts(), cpu_counts(&cpu));
     });
 }
@@ -266,7 +261,7 @@ fn gpu_filter_mask_matches_cpu_filtered_density() {
             .collect::<Vec<_>>();
         let range = F32Range::new(0.0, 10.0);
         let cpu = scatter_density(&included, range, range, 10, 10);
-        let gpu = gpu_scatter_density_masked(
+        let gpu = visual_field_density_masked(
             &context,
             &points,
             &evaluation.mask,
@@ -298,15 +293,14 @@ fn equal_filter_revision_skips_gpu_upload() {
             include_missing: false,
         });
         let evaluation = evaluate_filters(&source, &catalog, &filters).unwrap();
-        let config = ScatterDensityRendererConfig::new(
+        let config = DensityPresentationConfig::new(
             F32Range::new(0.0, 10.0),
             F32Range::new(0.0, 10.0),
             10,
             10,
         );
         let mut state =
-            ScatterDensityGpuState::new(context.device(), context.queue(), &points, config, 1)
-                .unwrap();
+            ResidentExactField::new(context.device(), context.queue(), &points, config, 1).unwrap();
 
         assert!(state
             .update_filter_mask(

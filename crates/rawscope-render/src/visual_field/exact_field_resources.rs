@@ -2,16 +2,14 @@
 
 use std::num::NonZeroU64;
 
-use rawscope_data::ScatterPointRecord;
+use super::super::point_pack::{pack_gpu_points, VisualFieldParams, VisualFieldPoint};
 
-use crate::gpu_scatter_density_pack::{pack_points, ScatterParams};
-
-pub(super) fn point_buffer(
+pub(super) fn point_buffer<T: VisualFieldPoint>(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    points: &[ScatterPointRecord],
+    points: &[T],
 ) -> wgpu::Buffer {
-    let packed = pack_points(points);
+    let packed = pack_gpu_points(points);
     let packed_bytes = bytemuck::cast_slice(&packed);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("RawScope Resident Scatter Points"),
@@ -45,7 +43,7 @@ pub(super) fn params_buffers(device: &wgpu::Device, count: usize) -> Vec<wgpu::B
         .map(|_| {
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("RawScope Resident Scatter Params"),
-                size: std::mem::size_of::<ScatterParams>() as u64,
+                size: std::mem::size_of::<VisualFieldParams>() as u64,
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             })
@@ -112,7 +110,7 @@ pub(super) fn compute_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                     },
                     has_dynamic_offset: false,
                     min_binding_size: (binding == 1)
-                        .then(|| NonZeroU64::new(std::mem::size_of::<ScatterParams>() as u64))
+                        .then(|| NonZeroU64::new(std::mem::size_of::<VisualFieldParams>() as u64))
                         .flatten(),
                 },
                 count: None,

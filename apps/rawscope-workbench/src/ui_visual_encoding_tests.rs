@@ -1,8 +1,7 @@
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
-    DensityEncoding, DensityPalette, DensityTransform, PointRevealMode, PointRevealStats,
-    ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
-    ScatterDifferenceRenderStats,
+    ComparisonFieldRenderStats, DensityEncoding, DensityPalette, DensityTransform, PointRevealMode,
+    PointRevealStats, ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
 };
 
 use super::DensityEncodingUiState;
@@ -138,7 +137,7 @@ fn lichess_projection_options_include_mean_difference() {
 
 #[test]
 fn difference_mode_projects_cohort_totals_and_availability() {
-    let stats = ScatterDifferenceRenderStats {
+    let stats = ComparisonFieldRenderStats {
         baseline_total: 200_000,
         active_total: 94_499,
         baseline_recompute_count: 1,
