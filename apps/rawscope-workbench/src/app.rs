@@ -5,6 +5,7 @@ use std::{error::Error, io, path::PathBuf, sync::Arc};
 use egui::Context as EguiContext;
 use egui_wgpu::Renderer as EguiRenderer;
 use egui_winit::State as EguiWinitState;
+use rawscope_core::GridSize;
 use rawscope_data::{
     generate_synthetic_points, load_scatter_dataset, LoadedSourceTable, ScatterPointRecord,
     SyntheticDatasetMetadata, SyntheticPointConfig, TimelineEventRecord,
@@ -12,14 +13,16 @@ use rawscope_data::{
 use rawscope_evidence::{ScatterSelectionEvidence, TimelineSelectionEvidence};
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, BrushScreenPoint, ComparisonFieldRenderStats,
-    ComparisonFieldRenderer, DensityEncoding, DensityPresentation, DensityPresentationConfig,
-    DensityPresentationRenderStats, ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag,
-    ScatterBrushOverlayRenderer, ScatterBrushSelection, ScatterDensityMode,
-    ScatterDensityPresentation, ScatterInspectionOverlayRenderer, ScatterMarginalSummary,
-    ScatterViewport, SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview,
-    TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
-    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport,
+    choose_visual_resolution_for_quality, scatter_marginal_summary, BrushScreenPoint,
+    ComparisonFieldRenderStats, ComparisonFieldRenderer, DensityEncoding, DensityPresentation,
+    DensityPresentationConfig, DensityPresentationRenderStats, ReliefFieldConfig,
+    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterInspectionOverlayRenderer,
+    ScatterMarginalSummary, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
+    TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport, VisualFieldQuality,
+    VisualResolutionError, VisualResolutionPolicy,
 };
 use tracing::info;
 use winit::{
@@ -57,12 +60,24 @@ pub(crate) const WINDOW_TITLE: &str = "RawScope Workbench";
 pub(crate) const INITIAL_WIDTH: f64 = 1280.0;
 pub(crate) const INITIAL_HEIGHT: f64 = 720.0;
 pub(crate) const DEMO_SEED: u64 = 42;
-pub(crate) const DEMO_GRID_WIDTH: u32 = 256;
-pub(crate) const DEMO_GRID_HEIGHT: u32 = 256;
 pub(crate) const MARGINAL_BIN_COUNT: u32 = 64;
 pub(crate) const TIMELINE_OVERVIEW_BIN_COUNT: u32 = 128;
 pub(crate) const WHEEL_ZOOM_IN_SCALE: f32 = 0.82;
 pub(crate) const WHEEL_ZOOM_OUT_SCALE: f32 = 1.22;
+
+pub(crate) fn default_scatter_grid(
+    gpu: &GpuContext,
+    quality: VisualFieldQuality,
+) -> Result<GridSize, VisualResolutionError> {
+    choose_visual_resolution_for_quality(
+        (INITIAL_WIDTH as u32, INITIAL_HEIGHT as u32),
+        &VisualResolutionPolicy::default(),
+        quality,
+        &gpu.device().limits(),
+        u64::MAX,
+    )
+    .map(|decision| decision.grid)
+}
 
 /// Winit application state for RawScope density views.
 #[derive(Default)]
@@ -318,6 +333,7 @@ impl WorkbenchApp {
         self.clear_inspection_presentation();
         self.clear_aggregate_overviews();
         self.workbench_state.active_session = None;
+        let exact_grid = default_scatter_grid(gpu, VisualFieldQuality::Exact)?;
         let active_profile = self.input.as_ref().and_then(|input| match input {
             WorkbenchInput::Scatter { profile, .. } => *profile,
             WorkbenchInput::Timeline { .. } => None,
@@ -357,8 +373,8 @@ impl WorkbenchApp {
             let renderer_config = DensityPresentationConfig::new(
                 viewport.x_range(),
                 viewport.y_range(),
-                DEMO_GRID_WIDTH,
-                DEMO_GRID_HEIGHT,
+                exact_grid.width(),
+                exact_grid.height(),
             )
             .with_encoding(self.scatter.density_encoding)
             .with_presentation(self.scatter.density_presentation)
@@ -431,8 +447,8 @@ impl WorkbenchApp {
         let renderer_config = DensityPresentationConfig::new(
             viewport.x_range(),
             viewport.y_range(),
-            DEMO_GRID_WIDTH,
-            DEMO_GRID_HEIGHT,
+            exact_grid.width(),
+            exact_grid.height(),
         )
         .with_encoding(self.scatter.density_encoding)
         .with_presentation(self.scatter.density_presentation)
