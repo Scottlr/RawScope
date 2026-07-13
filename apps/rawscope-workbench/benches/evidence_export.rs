@@ -1,3 +1,5 @@
+mod visual_field_fixture;
+
 use std::{
     fs,
     hint::black_box,
@@ -7,21 +9,23 @@ use std::{
 };
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rawscope_core::{F32Range, RowId, U64Range};
+use rawscope_core::{F32Range, GridSize, RowId, U64Range};
 use rawscope_data::{
     DatasetIdentity, LoadedColumnKind, LoadedColumnSchema, LoadedSourceRow, LoadedSourceTable,
     ScatterPointKind, ScatterPointRecord, TimelineEventKind, TimelineEventRecord,
 };
 use rawscope_evidence::{
     ScatterEvidenceView, ScatterSelectionEvidence, ScatterSelectionEvidenceV2,
-    SelectionEvidenceConfig, TimelineEvidenceConfig, TimelineEvidenceView, TimelineLaneRange,
-    TimelineSelectionEvidence, TimelineSelectionEvidenceV2,
+    ScatterSelectionGeometry, SelectionEvidenceConfig, TimelineEvidenceConfig,
+    TimelineEvidenceView, TimelineLaneRange, TimelineSelectionEvidenceV2,
 };
 use rawscope_render::{
-    timeline_selection_evidence_from_events, ScatterBrushSelection, TimelineBrushSelection,
+    estimate_visual_field_resources, timeline_selection_evidence_from_events,
+    ScatterBrushSelection, TimelineBrushSelection, VisualFieldResourceOptions,
 };
 use rawscope_workbench::benchmark_support::{
-    write_scatter_report_bundle, write_timeline_report_bundle, BenchmarkRunMetadata,
+    write_scatter_report_bundle, write_timeline_report_bundle, write_visual_field_report_bundle,
+    BenchmarkRunMetadata,
 };
 
 const EXPORT_BENCHMARK_TIMESTAMP_MS: u128 = 1_735_689_600_000;
@@ -50,6 +54,7 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
             10,
             "bundle_writes",
         ),
+        visual_field_metadata(),
     ] {
         metadata
             .validate()
@@ -63,6 +68,7 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
 
     let scatter_evidence = scatter_evidence_fixture();
     let timeline_evidence = timeline_evidence_fixture();
+    let visual_field_evidence = visual_field_fixture::evidence_variants();
 
     let mut group = c.benchmark_group("workbench_evidence_export");
     group.sample_size(10);
@@ -87,6 +93,28 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
         },
     );
 
+    for (mode, evidence) in &visual_field_evidence {
+        group.bench_with_input(
+            BenchmarkId::new(
+                format!("visual_field_{mode}_bundle_write"),
+                EXPORT_SAMPLE_SIZE,
+            ),
+            evidence,
+            |bencher, evidence| {
+                bencher.iter(|| {
+                    let export_counter = EXPORT_COUNTER.fetch_add(1, Ordering::Relaxed);
+                    write_visual_field_report_bundle(
+                        output_root.path(),
+                        evidence,
+                        EXPORT_BENCHMARK_TIMESTAMP_MS,
+                        export_counter,
+                    )
+                    .expect("visual-field benchmark bundle should write");
+                });
+            },
+        );
+    }
+
     group.bench_with_input(
         BenchmarkId::new("timeline_bundle_write", EXPORT_SAMPLE_SIZE),
         &timeline_evidence,
@@ -105,6 +133,48 @@ fn evidence_export_benchmarks(c: &mut Criterion) {
     );
 
     group.finish();
+}
+
+fn visual_field_metadata() -> BenchmarkRunMetadata {
+    let mut metadata = BenchmarkRunMetadata::for_scenario(
+        "workbench-visual-field-lifecycle-v1",
+        "neutral-visual-fields-v1",
+        16_384,
+        "density-composition-comparison-time-value-ridges",
+        10,
+        "nanoseconds_or_bytes",
+    );
+    metadata.gpu_adapter = "captured-by-opt-in-gpu-bench".to_string();
+    metadata.gpu_backend = "captured-by-opt-in-gpu-bench".to_string();
+    metadata.gpu_driver = "captured-by-opt-in-gpu-bench".to_string();
+    metadata.grid_width = 128;
+    metadata.grid_height = 96;
+    metadata.quality_tier = "exact".to_string();
+    metadata.visible_category_layers = 4;
+    metadata.active_bytes = Some(
+        estimate_visual_field_resources(
+            GridSize::new(128, 96),
+            VisualFieldResourceOptions {
+                category_layers: 4,
+                ridge_fields: 3,
+                ..VisualFieldResourceOptions::default()
+            },
+        )
+        .expect("visual-field metadata resource estimate should be valid")
+        .total_bytes()
+        .expect("visual-field metadata resource bytes should be checked"),
+    );
+    metadata.pending_bytes = Some(0);
+    metadata.retiring_bytes = Some(0);
+    metadata.derived_resources = vec![
+        "mass-contours".to_string(),
+        "marginals".to_string(),
+        "category-composition".to_string(),
+        "comparison".to_string(),
+        "ridges:fine-medium-coarse".to_string(),
+        "semantic-point-plan".to_string(),
+    ];
+    metadata
 }
 
 fn scatter_evidence_fixture() -> ScatterSelectionEvidenceV2 {
@@ -148,7 +218,10 @@ fn scatter_evidence_fixture() -> ScatterSelectionEvidenceV2 {
     };
     let v1 = ScatterSelectionEvidence::from_points(
         &points,
-        selection,
+        ScatterSelectionGeometry {
+            x_range: selection.x_range,
+            y_range: selection.y_range,
+        },
         rawscope_data::SyntheticDatasetMetadata::new(0, EXPORT_BENCHMARK_ROW_COUNT),
         EXPORT_BENCHMARK_ROW_COUNT,
         SelectionEvidenceConfig {

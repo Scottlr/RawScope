@@ -8,13 +8,17 @@ use std::{
 
 use serde::Serialize;
 
-use rawscope_evidence::{ScatterSelectionEvidenceV2, TimelineSelectionEvidenceV2};
+use rawscope_evidence::{
+    ScatterSelectionEvidenceV2, TimelineSelectionEvidenceV2, VisualFieldEvidenceV1,
+};
 
 use crate::app_report_bundle::{
     EvidenceReportBundlePaths, SCATTER_REPORT_BUNDLE_DIR_PREFIX, TIMELINE_REPORT_BUNDLE_DIR_PREFIX,
+    VISUAL_FIELD_REPORT_BUNDLE_DIR_PREFIX,
 };
 
 pub const BENCHMARK_METADATA_SCHEMA_VERSION: u32 = 1;
+pub const BENCHMARK_UNKNOWN_VALUE: &str = "unknown";
 
 /// Reproducibility context attached to a product benchmark scenario.
 #[derive(Debug, Clone, Serialize)]
@@ -33,6 +37,23 @@ pub struct BenchmarkRunMetadata {
     pub date_unix_seconds: u64,
     pub sample_count: u64,
     pub metric_unit: String,
+    pub gpu_adapter: String,
+    pub gpu_backend: String,
+    pub gpu_driver: String,
+    pub grid_width: u32,
+    pub grid_height: u32,
+    pub quality_tier: String,
+    pub visible_category_layers: u32,
+    pub active_bytes: Option<u64>,
+    pub pending_bytes: Option<u64>,
+    pub retiring_bytes: Option<u64>,
+    pub derived_resources: Vec<String>,
+    /// Filled by a benchmark result collector when quantiles are persisted;
+    /// `None` prevents metadata from implying a measured value was available.
+    pub pointer_submit_p50_ns: Option<u64>,
+    pub pointer_submit_p95_ns: Option<u64>,
+    pub settle_p50_ns: Option<u64>,
+    pub settle_p95_ns: Option<u64>,
 }
 
 impl BenchmarkRunMetadata {
@@ -67,6 +88,21 @@ impl BenchmarkRunMetadata {
             date_unix_seconds,
             sample_count,
             metric_unit: metric_unit.into(),
+            gpu_adapter: BENCHMARK_UNKNOWN_VALUE.to_string(),
+            gpu_backend: BENCHMARK_UNKNOWN_VALUE.to_string(),
+            gpu_driver: BENCHMARK_UNKNOWN_VALUE.to_string(),
+            grid_width: 0,
+            grid_height: 0,
+            quality_tier: BENCHMARK_UNKNOWN_VALUE.to_string(),
+            visible_category_layers: 0,
+            active_bytes: None,
+            pending_bytes: None,
+            retiring_bytes: None,
+            derived_resources: Vec::new(),
+            pointer_submit_p50_ns: None,
+            pointer_submit_p95_ns: None,
+            settle_p50_ns: None,
+            settle_p95_ns: None,
         }
     }
 
@@ -88,6 +124,20 @@ impl BenchmarkRunMetadata {
         }
         if self.metric_unit.trim().is_empty() {
             return Err("benchmark metric unit must not be empty");
+        }
+        let only_one_grid_dimension_known = (self.grid_width == 0) ^ (self.grid_height == 0);
+        if only_one_grid_dimension_known {
+            return Err("benchmark grid dimensions must be both present or both unknown");
+        }
+        if let (Some(p50), Some(p95)) = (self.pointer_submit_p50_ns, self.pointer_submit_p95_ns) {
+            if p50 > p95 {
+                return Err("pointer benchmark p50 must not exceed p95");
+            }
+        }
+        if let (Some(p50), Some(p95)) = (self.settle_p50_ns, self.settle_p95_ns) {
+            if p50 > p95 {
+                return Err("settle benchmark p50 must not exceed p95");
+            }
         }
         Ok(())
     }
@@ -129,6 +179,23 @@ pub fn write_timeline_report_bundle(
     bundle_paths.write_timeline(evidence)
 }
 
+/// Writes the canonical generic visual-field evidence artifact through the
+/// same transactional report owner used by the workbench.
+pub fn write_visual_field_report_bundle(
+    output_dir: impl AsRef<Path>,
+    evidence: &VisualFieldEvidenceV1,
+    export_timestamp_unix_ms: u128,
+    export_counter: u64,
+) -> Result<(), Box<dyn Error>> {
+    let bundle_paths = EvidenceReportBundlePaths::next_available(
+        output_dir,
+        VISUAL_FIELD_REPORT_BUNDLE_DIR_PREFIX,
+        export_timestamp_unix_ms,
+        export_counter,
+    );
+    bundle_paths.write_visual_field(evidence)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,6 +228,24 @@ mod tests {
         assert_eq!(
             metadata.validate(),
             Err("benchmark metric unit must not be empty")
+        );
+    }
+
+    #[test]
+    fn benchmark_metadata_rejects_inconsistent_quantiles() {
+        let mut metadata = BenchmarkRunMetadata::for_scenario(
+            "interaction-v1",
+            "fixture-v1",
+            128,
+            "workspace-default",
+            10,
+            "nanoseconds",
+        );
+        metadata.pointer_submit_p50_ns = Some(20);
+        metadata.pointer_submit_p95_ns = Some(10);
+        assert_eq!(
+            metadata.validate(),
+            Err("pointer benchmark p50 must not exceed p95")
         );
     }
 }

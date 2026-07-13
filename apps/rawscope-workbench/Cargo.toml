@@ -32,3 +32,7 @@ criterion = { workspace = true }
 name = "evidence_export"
 harness = false
 
+[[bench]]
+name = "interaction_coordinator"
+harness = false
+

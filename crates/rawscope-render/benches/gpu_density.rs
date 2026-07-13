@@ -7,7 +7,7 @@ use rawscope_data::{
     SyntheticPointConfig,
 };
 use rawscope_gpu::ComputeContext;
-use rawscope_render::{gpu_scatter_density, gpu_timeline_density};
+use rawscope_render::{gpu_timeline_density, visual_field_density};
 
 const DENSITY_GRID_WIDTH: u32 = 512;
 const DENSITY_GRID_HEIGHT: u32 = 512;
@@ -45,7 +45,7 @@ fn gpu_density_benchmarks(c: &mut Criterion) {
             &dataset,
             |bencher, dataset| {
                 bencher.iter(|| {
-                    let grid = gpu_scatter_density(
+                    let grid = visual_field_density(
                         &context,
                         black_box(&dataset.points),
                         dataset.x_range,

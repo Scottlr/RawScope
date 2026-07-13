@@ -27,6 +27,8 @@ use serde::Serialize;
 pub(crate) const EXPORT_DIR: &str = "target/rawscope-exports";
 pub(crate) const SCATTER_REPORT_BUNDLE_DIR_PREFIX: &str = "report-scatter";
 pub(crate) const TIMELINE_REPORT_BUNDLE_DIR_PREFIX: &str = "report-timeline";
+#[allow(dead_code)]
+pub(crate) const VISUAL_FIELD_REPORT_BUNDLE_DIR_PREFIX: &str = "report-visual-field";
 
 const BUNDLE_MANIFEST_FILE_NAME: &str = "manifest.json";
 const EVIDENCE_JSON_FILE_NAME: &str = "evidence.json";
