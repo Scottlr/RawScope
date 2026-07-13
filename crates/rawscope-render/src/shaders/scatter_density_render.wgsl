@@ -35,6 +35,16 @@ struct RenderParams {
     transition_padding1: f32,
     transition_padding2: f32,
     transition_padding3: f32,
+    contour_thresholds: array<u32, 4>,
+    contour_count: u32,
+    contour_padding1: u32,
+    contour_padding2: u32,
+    contour_padding3: u32,
+    previous_contour_thresholds: array<u32, 4>,
+    previous_contour_count: u32,
+    previous_contour_padding1: u32,
+    previous_contour_padding2: u32,
+    previous_contour_padding3: u32,
 };
 
 struct VertexOutput {
@@ -124,6 +134,14 @@ fn clamped_bin_count(bin: vec2<i32>, previous: bool) -> f32 {
 }
 
 fn reconstructed_intensity(grid_position: vec2<f32>, previous: bool) -> f32 {
+    return density_intensity_value(
+        reconstructed_count(grid_position, previous),
+        select(max_counts[0], params.previous_max_bin_count, previous),
+        select(params.transform_id, params.previous_transform_id, previous),
+    );
+}
+
+fn reconstructed_count(grid_position: vec2<f32>, previous: bool) -> f32 {
     let base_bin = vec2<i32>(floor(grid_position));
     let blend = fract(grid_position);
     let count00 = clamped_bin_count(base_bin, previous);
@@ -132,12 +150,56 @@ fn reconstructed_intensity(grid_position: vec2<f32>, previous: bool) -> f32 {
     let count11 = clamped_bin_count(base_bin + vec2<i32>(1, 1), previous);
     let lower_count = mix(count00, count10, blend.x);
     let upper_count = mix(count01, count11, blend.x);
-    let interpolated_count = mix(lower_count, upper_count, blend.y);
-    return density_intensity_value(
-        interpolated_count,
-        select(max_counts[0], params.previous_max_bin_count, previous),
-        select(params.transform_id, params.previous_transform_id, previous),
-    );
+    return mix(lower_count, upper_count, blend.y);
+}
+
+fn contour_for_count(count: f32, previous: bool) -> f32 {
+    let threshold_count = select(params.contour_count, params.previous_contour_count, previous);
+    if count <= 0.0 || threshold_count == 0u {
+        return 0.0;
+    }
+
+    var contour = 0.0;
+    for (var index = 0u; index < 4u; index = index + 1u) {
+        if index >= threshold_count {
+            break;
+        }
+        let threshold = f32(select(
+            params.contour_thresholds[index],
+            params.previous_contour_thresholds[index],
+            previous,
+        ));
+        if threshold <= 0.0 {
+            continue;
+        }
+        let distance = abs(count - threshold);
+        let width = max(fwidth(count) * 0.72, 0.35);
+        contour = max(contour, 1.0 - smoothstep(width, width * 1.8, distance));
+    }
+    return contour;
+}
+
+fn topographic_count(grid_position: vec2<f32>, previous: bool) -> f32 {
+    let cardinal_offset = 1.15;
+    let diagonal_offset = vec2<f32>(cardinal_offset);
+    let centre = reconstructed_count(grid_position, previous) * 0.28;
+    let cardinal = (
+        reconstructed_count(grid_position + vec2<f32>(cardinal_offset, 0.0), previous)
+        + reconstructed_count(grid_position - vec2<f32>(cardinal_offset, 0.0), previous)
+        + reconstructed_count(grid_position + vec2<f32>(0.0, cardinal_offset), previous)
+        + reconstructed_count(grid_position - vec2<f32>(0.0, cardinal_offset), previous)
+    ) * 0.12;
+    let diagonal = (
+        reconstructed_count(grid_position + diagonal_offset, previous)
+        + reconstructed_count(grid_position - diagonal_offset, previous)
+        + reconstructed_count(
+            grid_position + vec2<f32>(diagonal_offset.x, -diagonal_offset.y), previous,
+        )
+        + reconstructed_count(
+            grid_position + vec2<f32>(-diagonal_offset.x, diagonal_offset.y), previous,
+        )
+    ) * 0.06;
+    return centre + cardinal + diagonal;
 }
 
 fn topographic_intensity(grid_position: vec2<f32>, previous: bool) -> f32 {
@@ -182,18 +244,14 @@ fn topographic_colour(uv: vec2<f32>, previous: bool) -> vec3<f32> {
     let light_direction = normalize(vec3<f32>(-0.45, -0.55, 0.72));
     let relief = 0.72 + 0.38 * max(dot(normal, light_direction), 0.0);
 
-    let contour_coordinate = intensity * 10.0;
-    let contour_phase = fract(contour_coordinate);
-    let contour_distance = min(contour_phase, 1.0 - contour_phase);
-    let contour_width = max(fwidth(contour_coordinate) * 0.72, 0.012);
-    let contour_line = 1.0 - smoothstep(contour_width, contour_width * 1.8, contour_distance);
-    let contour_strength = contour_line * smoothstep(0.06, 0.24, intensity) * 0.42;
-
     let background_colour = density_colour(0.0, palette_id);
     let shaded_density_colour = density_colour(intensity, palette_id) * relief;
     let field_visibility = smoothstep(0.015, 0.09, intensity);
     let base_colour = mix(background_colour, shaded_density_colour, field_visibility);
     let contour_colour = min(base_colour + vec3<f32>(0.22, 0.18, 0.08), vec3<f32>(1.0));
+    let contour_strength = contour_for_count(topographic_count(grid_position, previous), previous)
+        * smoothstep(0.06, 0.24, intensity)
+        * 0.42;
     return mix(base_colour, contour_colour, contour_strength);
 }
 
@@ -246,11 +304,7 @@ fn relief_colour(uv: vec2<f32>, previous: bool) -> vec3<f32> {
     let base = density_colour(intensity, palette_id);
     var shaded = base * mix(1.0, lighting * shadow, visibility);
 
-    let contour_coordinate = intensity * 12.0;
-    let contour_phase = fract(contour_coordinate);
-    let contour_distance = min(contour_phase, 1.0 - contour_phase);
-    let contour_width = max(fwidth(contour_coordinate) * 0.65, 0.012);
-    let contour = 1.0 - smoothstep(contour_width, contour_width * 1.8, contour_distance);
+    let contour = contour_for_count(topographic_count(position, previous), previous);
     shaded *= 1.0 - contour * params.relief_contour_strength * visibility;
     return clamp(shaded, vec3<f32>(0.0), vec3<f32>(1.0));
 }

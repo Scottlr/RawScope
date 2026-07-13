@@ -33,6 +33,14 @@ mod view_summaries;
 mod visual_field;
 mod visual_transition;
 
+/// Settled count context bound to the renderer's view-generation identity.
+///
+/// The analysis contract remains generic so it can be used without a renderer;
+/// this facade alias is the concrete context that workbench consumers share
+/// with GPU presentation and inspection.
+pub type SettledDensityContext<G = visual_field::VisualFieldViewGeneration> =
+    rawscope_analysis::visual_field::SettledDensityContext<G>;
+
 pub use aggregate_cache::{
     scatter_aggregate_overview, timeline_aggregate_overview, AggregateBinSample,
     AggregateCacheConfig, AggregateCacheError, ScatterAggregateOverview, TimelineAggregateOverview,
@@ -180,7 +188,7 @@ pub use visual_field::{
 pub use visual_field::{
     transition_decision, ComparisonFieldRenderStats, ComparisonFieldRenderer, DensityPresentation,
     DensityPresentationConfig, DensityPresentationRenderStats, DensityReadbackPolicy,
-    ResidentExactField, ResidentExactFieldUpdate, TransitionDecision,
+    MassContourUniforms, ResidentExactField, ResidentExactFieldUpdate, TransitionDecision,
     VisualFieldDatasetGpuResources, VisualFieldGeneration, VisualFieldQuality,
     VisualFieldReprojection, VisualFieldReprojectionError, VisualFieldTransitionField,
     VisualFieldViewGeneration, VisualFieldViewGenerationCounter, VisualFieldViewport,
@@ -191,7 +199,8 @@ pub use visual_field::{
 };
 pub use visual_field::{
     CategoricalPalette, CategoryPaletteEntries, ContinuousPalette, ContinuousPaletteLut,
-    PaletteGpuResources, CONTINUOUS_PALETTE_ROW_COUNT, PALETTE_LUT_BYTES, PALETTE_LUT_SIZE,
+    PaletteGpuResources, CONTINUOUS_PALETTE_ROW_COUNT, MAX_MASS_CONTOUR_LEVELS, PALETTE_LUT_BYTES,
+    PALETTE_LUT_SIZE,
 };
 pub use visual_transition::{
     ease_out_cubic, semantic_color_crossfade, transition_progress, validate_transition_config,

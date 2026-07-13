@@ -5,8 +5,8 @@ use rawscope_core::F32Range;
 use std::num::NonZeroU64;
 
 use super::DensityPresentationConfig;
-use crate::PaletteGpuResources;
 use crate::VisualFieldViewport;
+use crate::{MassContourUniforms, PaletteGpuResources, MAX_MASS_CONTOUR_LEVELS};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -44,6 +44,12 @@ pub(super) struct DensityRenderParams {
     previous_source_y_max: f32,
     transition_progress: f32,
     transition_padding: [f32; 3],
+    contour_thresholds: [u32; MAX_MASS_CONTOUR_LEVELS],
+    contour_count: u32,
+    contour_padding: [u32; 3],
+    previous_contour_thresholds: [u32; MAX_MASS_CONTOUR_LEVELS],
+    previous_contour_count: u32,
+    previous_contour_padding: [u32; 3],
 }
 
 const DENSITY_RENDER_PARAMS_SIZE_BYTES: u64 = std::mem::size_of::<DensityRenderParams>() as u64;
@@ -60,6 +66,8 @@ impl DensityRenderParams {
         previous_max_bin_count: u32,
         previous_source: VisualFieldViewport,
         transition_progress: f32,
+        contours: MassContourUniforms,
+        previous_contours: MassContourUniforms,
     ) -> Self {
         Self {
             grid_width: source.grid_width,
@@ -95,6 +103,12 @@ impl DensityRenderParams {
             previous_source_y_max: previous_source.y_range.max,
             transition_progress: transition_progress.clamp(0.0, 1.0),
             transition_padding: [0.0; 3],
+            contour_thresholds: contours.thresholds(),
+            contour_count: contours.threshold_count(),
+            contour_padding: [0; 3],
+            previous_contour_thresholds: previous_contours.thresholds(),
+            previous_contour_count: previous_contours.threshold_count(),
+            previous_contour_padding: [0; 3],
         }
     }
 }
@@ -106,7 +120,7 @@ mod tests {
 
     #[test]
     fn relief_render_params_are_wgsl_aligned() {
-        assert_eq!(std::mem::size_of::<DensityRenderParams>(), 144);
+        assert_eq!(std::mem::size_of::<DensityRenderParams>(), 208);
         assert_eq!(std::mem::align_of::<DensityRenderParams>(), 4);
         assert_eq!(std::mem::size_of::<DensityRenderParams>() % 16, 0);
     }

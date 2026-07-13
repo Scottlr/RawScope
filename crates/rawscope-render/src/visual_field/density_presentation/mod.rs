@@ -17,6 +17,7 @@ const RENDER_SHADER_SOURCE: &str = include_str!("../../shaders/scatter_density_r
 
 #[path = "resources.rs"]
 mod resources;
+use super::mass_contour::MassContourUniforms;
 use resources::{density_render_bind_group, density_render_bind_group_layout, DensityRenderParams};
 
 mod exact;
@@ -108,6 +109,8 @@ pub struct DensityPresentation {
     pub(super) previous_stats: DensityPresentationRenderStats,
     pub(super) previous_field: VisualFieldViewport,
     pub(super) transition_progress: f32,
+    pub(super) contours: MassContourUniforms,
+    pub(super) previous_contours: MassContourUniforms,
     pub(super) palette: Arc<crate::PaletteGpuResources>,
 }
 
@@ -174,6 +177,8 @@ impl DensityPresentation {
             max_bin_count,
             completed_field,
             1.0,
+            MassContourUniforms::empty(),
+            MassContourUniforms::empty(),
         );
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("RawScope Scatter Density Render Params Buffer"),
@@ -224,6 +229,8 @@ impl DensityPresentation {
             previous_stats: output.stats,
             previous_field: completed_field,
             transition_progress: 1.0,
+            contours: MassContourUniforms::empty(),
+            previous_contours: MassContourUniforms::empty(),
             palette,
         })
     }
@@ -283,6 +290,8 @@ impl DensityPresentation {
             previous_stats.max_bin_count,
             previous_field,
             0.0,
+            self.contours,
+            self.previous_contours,
         );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&render_params));
         self.stats = output.stats;
@@ -345,6 +354,8 @@ impl DensityPresentation {
             self.previous_stats.max_bin_count,
             self.previous_field,
             self.transition_progress,
+            self.contours,
+            self.previous_contours,
         );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
     }
@@ -361,8 +372,40 @@ impl DensityPresentation {
             self.previous_stats.max_bin_count,
             self.previous_field,
             self.transition_progress,
+            self.contours,
+            self.previous_contours,
         );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+    }
+
+    /// Publishes exact mass thresholds from the settled field used by this
+    /// renderer.  The previous set remains available to the shader while the
+    /// field transition is in progress.
+    pub fn set_settled_mass_contours(
+        &mut self,
+        queue: &wgpu::Queue,
+        contours: MassContourUniforms,
+    ) {
+        self.previous_contours = self.contours;
+        self.contours = contours;
+        let params = DensityRenderParams::new(
+            self.config,
+            self.stats.max_bin_count,
+            self.completed_field,
+            self.display_x_range,
+            self.display_y_range,
+            self.previous_config,
+            self.previous_stats.max_bin_count,
+            self.previous_field,
+            self.transition_progress,
+            self.contours,
+            self.previous_contours,
+        );
+        queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
+    }
+
+    pub fn settled_mass_contours(&self) -> MassContourUniforms {
+        self.contours
     }
 
     pub fn completed_field(&self) -> VisualFieldViewport {
