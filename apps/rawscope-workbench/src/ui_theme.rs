@@ -27,9 +27,42 @@ const ERROR: Color32 = Color32::from_rgb(232, 96, 101);
 const ERROR_BACKGROUND: Color32 = Color32::from_rgb(49, 27, 30);
 const SUCCESS: Color32 = Color32::from_rgb(102, 194, 132);
 
-const CONTROL_CORNER_RADIUS_PX: u8 = 4;
-const PANEL_HORIZONTAL_MARGIN_PX: i8 = 14;
-const PANEL_VERTICAL_MARGIN_PX: i8 = 10;
+/// One closed metrics contract for the fixed analytical shell.
+///
+/// These values describe egui chrome only.  The WGPU plot remains sized by
+/// `allocate_plot_surface` and never consumes a second set of geometry rules.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct WorkbenchChromeMetrics {
+    pub(crate) outer_margin_points: f32,
+    pub(crate) region_gap_points: f32,
+    pub(crate) panel_corner_radius_px: u8,
+    pub(crate) command_bar_height_points: f32,
+    pub(crate) activity_rail_width_points: f32,
+    pub(crate) activity_rail_collapsed_width_points: f32,
+    pub(crate) inspector_width_points: f32,
+    pub(crate) status_bar_height_points: f32,
+    pub(crate) minimum_plot_width_points: f32,
+    pub(crate) minimum_plot_height_points: f32,
+    pub(crate) panel_horizontal_padding_points: i8,
+    pub(crate) panel_vertical_padding_points: i8,
+}
+
+pub(crate) const CHROME_METRICS: WorkbenchChromeMetrics = WorkbenchChromeMetrics {
+    outer_margin_points: 8.0,
+    region_gap_points: 6.0,
+    panel_corner_radius_px: 8,
+    command_bar_height_points: 50.0,
+    activity_rail_width_points: 58.0,
+    activity_rail_collapsed_width_points: 42.0,
+    inspector_width_points: 380.0,
+    status_bar_height_points: 32.0,
+    minimum_plot_width_points: 360.0,
+    minimum_plot_height_points: 240.0,
+    panel_horizontal_padding_points: 14,
+    panel_vertical_padding_points: 10,
+};
+
+const CONTROL_CORNER_RADIUS_PX: u8 = CHROME_METRICS.panel_corner_radius_px;
 
 pub(crate) fn apply_theme(context: &Context) {
     register_icon_fonts(context);
@@ -87,16 +120,32 @@ fn register_icon_fonts(context: &Context) {
 pub(crate) fn toolbar_frame() -> Frame {
     Frame::new()
         .fill(APP_BACKGROUND)
-        .inner_margin(Margin::symmetric(PANEL_HORIZONTAL_MARGIN_PX, 9))
+        .corner_radius(CHROME_METRICS.panel_corner_radius_px)
+        .inner_margin(Margin::symmetric(
+            CHROME_METRICS.panel_horizontal_padding_points,
+            8,
+        ))
+        .stroke(Stroke::new(1.0, BORDER_SUBTLE))
+}
+
+pub(crate) fn activity_rail_frame() -> Frame {
+    Frame::new()
+        .fill(PANEL_BACKGROUND)
+        .corner_radius(CHROME_METRICS.panel_corner_radius_px)
+        .inner_margin(Margin::symmetric(
+            8,
+            CHROME_METRICS.panel_vertical_padding_points,
+        ))
         .stroke(Stroke::new(1.0, BORDER_SUBTLE))
 }
 
 pub(crate) fn right_rail_frame() -> Frame {
     Frame::new()
         .fill(PANEL_BACKGROUND)
+        .corner_radius(CHROME_METRICS.panel_corner_radius_px)
         .inner_margin(Margin::symmetric(
-            PANEL_HORIZONTAL_MARGIN_PX,
-            PANEL_VERTICAL_MARGIN_PX,
+            CHROME_METRICS.panel_horizontal_padding_points,
+            CHROME_METRICS.panel_vertical_padding_points,
         ))
         .stroke(Stroke::new(1.0, BORDER_SUBTLE))
 }
@@ -104,7 +153,11 @@ pub(crate) fn right_rail_frame() -> Frame {
 pub(crate) fn status_bar_frame() -> Frame {
     Frame::new()
         .fill(APP_BACKGROUND)
-        .inner_margin(Margin::symmetric(PANEL_HORIZONTAL_MARGIN_PX, 5))
+        .corner_radius(CHROME_METRICS.panel_corner_radius_px)
+        .inner_margin(Margin::symmetric(
+            CHROME_METRICS.panel_horizontal_padding_points,
+            5,
+        ))
         .stroke(Stroke::new(1.0, BORDER_SUBTLE))
 }
 

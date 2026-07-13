@@ -54,6 +54,7 @@ mod startup_job;
 mod startup_lifecycle;
 mod timeline_render_schedule;
 mod ui;
+mod ui_activity_rail;
 mod ui_comparison;
 mod ui_controls;
 mod ui_dataset_diff;
@@ -71,9 +72,11 @@ mod ui_projection_cache;
 mod ui_relief;
 mod ui_scatter_inspection;
 mod ui_shell;
+mod ui_shell_layout;
 mod ui_theme;
 mod ui_view_context;
 mod ui_visual_encoding;
+mod ui_workspace_inspector;
 #[allow(dead_code)]
 mod workbench_event;
 #[allow(dead_code)]

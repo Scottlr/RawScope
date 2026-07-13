@@ -23,6 +23,7 @@ pub(crate) struct UiActions {
     pub(crate) export_requested: bool,
     pub(crate) clear_selection_requested: bool,
     pub(crate) copy_dataset_path: bool,
+    pub(crate) toggle_activity_rail: bool,
     pub(crate) toggle_inspector: bool,
     pub(crate) set_interaction_mode: Option<WorkbenchInteractionMode>,
     pub(crate) set_density_transform: Option<DensityTransform>,

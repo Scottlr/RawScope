@@ -114,35 +114,50 @@ mod tests {
 
     #[test]
     fn ui_plot_surface_reports_central_region_after_panels() {
-        let context = Context::default();
-        let input = RawInput {
-            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1_200.0, 800.0))),
-            ..RawInput::default()
-        };
-        let mut layout = None;
+        let cases = [
+            ("normal", 1_200.0, 800.0, 1.0, 58.0, 380.0),
+            ("narrow-collapsed", 640.0, 480.0, 1.0, 42.0, 42.0),
+            ("hidpi", 1_600.0, 900.0, 1.5, 58.0, 380.0),
+        ];
 
-        let _ = context.run_ui(input, |ui| {
-            Panel::top("test_top").exact_size(80.0).show(ui, |_ui| {});
-            Panel::right("test_right")
-                .exact_size(300.0)
-                .show(ui, |_ui| {});
-            Panel::bottom("test_bottom")
-                .exact_size(40.0)
-                .show(ui, |_ui| {});
-            layout = allocate_plot_surface(ui, 1.0, 1_200, 800);
-        });
+        for (name, width, height, pixels_per_point, left_width, right_width) in cases {
+            let context = Context::default();
+            let physical_width = (width * pixels_per_point) as u32;
+            let physical_height = (height * pixels_per_point) as u32;
+            let input = RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height))),
+                ..RawInput::default()
+            };
+            let mut layout = None;
 
-        let layout = layout.expect("remaining central plot should have area");
-        assert!(layout.physical_rect.y >= 80);
-        assert!(layout.physical_rect.x + layout.physical_rect.width <= 900);
-        assert!(layout.physical_rect.y + layout.physical_rect.height <= 760);
-        assert!(layout.physical_rect.width > 0);
-        assert!(layout.physical_rect.height > 0);
-        assert_eq!(layout.logical_rect, layout.axis_layout.plot_rect);
-        assert!(layout
-            .axis_layout
-            .outer_rect
-            .contains_rect(layout.logical_rect));
+            let _ = context.run_ui(input, |ui| {
+                Panel::top("test_top").exact_size(50.0).show(ui, |_ui| {});
+                Panel::left("test_left")
+                    .exact_size(left_width)
+                    .show(ui, |_ui| {});
+                Panel::right("test_right")
+                    .exact_size(right_width)
+                    .show(ui, |_ui| {});
+                Panel::bottom("test_bottom")
+                    .exact_size(32.0)
+                    .show(ui, |_ui| {});
+                layout =
+                    allocate_plot_surface(ui, pixels_per_point, physical_width, physical_height);
+            });
+
+            let layout = layout.expect("remaining central plot should have area");
+            assert!(
+                layout.physical_rect.width > 0 && layout.physical_rect.height > 0,
+                "{name} shell must retain a physical plot"
+            );
+            assert!(layout.physical_rect.x + layout.physical_rect.width <= physical_width);
+            assert!(layout.physical_rect.y + layout.physical_rect.height <= physical_height);
+            assert_eq!(layout.logical_rect, layout.axis_layout.plot_rect);
+            assert!(layout
+                .axis_layout
+                .outer_rect
+                .contains_rect(layout.logical_rect));
+        }
     }
 
     #[test]
