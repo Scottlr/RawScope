@@ -83,8 +83,22 @@ impl TimeAxisTransform {
         if !min_normalized.is_finite() || !max_normalized.is_finite() {
             return Err(TimeValueProjectionError::NonFiniteCoordinate);
         }
-        let min = self.denormalized(min_normalized.min(max_normalized));
-        let max = self.denormalized(min_normalized.max(max_normalized));
+        let min_coordinate = min_normalized.min(max_normalized).clamp(0.0, 1.0);
+        let max_coordinate = max_normalized.max(min_normalized).clamp(0.0, 1.0);
+        let min = if self.span_micros == 0 {
+            self.origin_micros
+        } else {
+            let offset = (min_coordinate * self.span_micros as f64).floor() as i128;
+            (i128::from(self.origin_micros) + offset)
+                .clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64
+        };
+        let max = if self.span_micros == 0 {
+            self.origin_micros
+        } else {
+            let offset = (max_coordinate * self.span_micros as f64).ceil() as i128;
+            (i128::from(self.origin_micros) + offset)
+                .clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64
+        };
         Ok((min, max))
     }
 }
@@ -190,5 +204,11 @@ mod tests {
         assert_eq!(transform.normalized(42), 0.5);
         assert_eq!(transform.denormalized(0.0), 42);
         assert_eq!(transform.denormalized(1.0), 42);
+    }
+
+    #[test]
+    fn brush_bounds_round_outward_to_exact_timestamp_values() {
+        let transform = TimeAxisTransform::from_domain(0, 10).unwrap();
+        assert_eq!(transform.denormalized_range(0.21, 0.29).unwrap(), (2, 3));
     }
 }
