@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use rawscope_analysis::visual_field::{
-    ProjectedVisualFieldGeneration, VisualAxisDomain, VisualFieldMapping, VisualFieldMappingError,
-    VisualFieldMode, VisualFieldModeSupport, VisualFieldProjection, VisualFieldRowPolicy,
+    ProjectedVisualFieldGeneration, TimeAxisTransform, VisualAxisDomain, VisualFieldMapping,
+    VisualFieldMappingError, VisualFieldMode, VisualFieldModeSupport, VisualFieldProjection,
+    VisualFieldRowPolicy,
 };
 use rawscope_core::{ColumnId, RowId};
 use rawscope_data::{
@@ -289,6 +290,12 @@ fn time_value_mapping_retains_exact_timestamp_endpoints() {
         }
     );
     assert_eq!(generation.points()[0].x, -9_007_199_254_740_992.0);
+}
+
+#[test]
+fn time_value_brush_uses_exact_timestamp_bounds() {
+    let transform = TimeAxisTransform::from_domain(10, 20).unwrap();
+    assert_eq!(transform.denormalized_range(0.21, 0.29).unwrap(), (12, 13));
 }
 
 #[test]

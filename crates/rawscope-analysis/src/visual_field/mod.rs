@@ -8,6 +8,7 @@ pub mod mass_context;
 pub mod point_reveal;
 mod projection;
 pub mod ridges;
+pub mod time_value;
 
 pub use category_layers::{
     CategoryLayer, CategoryLayerId, CategoryLayerKind, CategoryLayerLookup, CategoryLayerPlan,
@@ -38,4 +39,8 @@ pub use ridges::{
     DEFAULT_RIDGE_MINIMUM_ANISOTROPY_BASIS_POINTS, DEFAULT_RIDGE_MINIMUM_STRENGTH_BASIS_POINTS,
     RIDGE_BASIS_POINTS_DENOMINATOR, RIDGE_EIGENGAP_EPSILON, RIDGE_FORMULA_VERSION,
     RIDGE_NORMALIZATION_EPSILON,
+};
+pub use time_value::{
+    TimeAxisTransform, TimeValueProjectionError, VisualAxisSelectionRange, VisualFieldBrushError,
+    VisualFieldBrushSelection,
 };
