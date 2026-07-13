@@ -13,6 +13,7 @@ mod resolution;
 mod resource_estimate;
 
 pub mod comparison;
+pub mod composition;
 pub mod density_presentation;
 
 pub use dataset_resources::VisualFieldDatasetGpuResources;

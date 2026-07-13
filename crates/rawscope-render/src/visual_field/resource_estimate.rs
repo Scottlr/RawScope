@@ -16,7 +16,10 @@ pub const DEFAULT_BIND_PIPELINE_BYTES: u64 = 4 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VisualFieldResourceOptions {
-    /// Number of category-derived layers retained for this field.
+    /// Number of category-composition layers retained for this field.
+    ///
+    /// Each layer is counted twice because composition keeps active and
+    /// pending layer-major fields live during publication.
     pub category_layers: u8,
     /// Number of derived ridge fields retained for this field.
     pub ridge_fields: u8,
@@ -105,19 +108,26 @@ impl VisualFieldResourceEstimate {
         let coordinate_bytes = checked_mul(bins, 8)?;
         let channel_bytes = checked_mul(bins, 4)?;
         let count_field_bytes = checked_mul(checked_mul(bins, 4)?, 2)?;
-        let derived_fields = u64::from(options.category_layers)
+        let category_field_count = checked_mul(u64::from(options.category_layers), 2)?;
+        let derived_fields = category_field_count
             .checked_add(u64::from(options.ridge_fields))
             .ok_or(VisualFieldResourceEstimateError::ArithmeticOverflow)?;
         let derived_field_bytes = checked_mul(checked_mul(bins, 4)?, derived_fields)?;
         let transition_bytes =
             checked_mul(checked_mul(bins, 4)?, u64::from(options.transition_fields))?;
-        let readback_bytes = if options.readback {
+        let exact_readback_bytes = if options.readback {
             checked_mul(bins, 4)?
         } else {
             0
         };
-        let staging_bytes = readback_bytes
-            .checked_add(options.bind_pipeline_bytes)
+        let category_readback_bytes = if options.readback {
+            checked_mul(checked_mul(bins, 4)?, u64::from(options.category_layers))?
+        } else {
+            0
+        };
+        let staging_bytes = exact_readback_bytes
+            .checked_add(category_readback_bytes)
+            .and_then(|bytes| bytes.checked_add(options.bind_pipeline_bytes))
             .and_then(|bytes| bytes.checked_add(options.palette_lut_bytes))
             .ok_or(VisualFieldResourceEstimateError::ArithmeticOverflow)?;
 
@@ -254,9 +264,9 @@ mod tests {
         assert_eq!(estimate.coordinate_bytes, 256);
         assert_eq!(estimate.channel_bytes, 128);
         assert_eq!(estimate.count_field_bytes, 256);
-        assert_eq!(estimate.derived_field_bytes, 640);
+        assert_eq!(estimate.derived_field_bytes, 896);
         assert_eq!(estimate.transition_bytes, 256);
-        assert_eq!(estimate.staging_bytes, 256);
+        assert_eq!(estimate.staging_bytes, 512);
 
         let overflow = VisualFieldResourceEstimate::for_grid_with_options(
             grid,
