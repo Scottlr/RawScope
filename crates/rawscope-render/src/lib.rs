@@ -205,6 +205,15 @@ pub use visual_field::{
     VisualFieldViewGenerationCounter, VisualFieldViewport,
 };
 pub use visual_field::{
+    encode_ridge_field, ridge_compute_bind_group, ridge_compute_bind_group_layout,
+    ridge_compute_pipeline, ridge_dispatch, ridge_presentation_availability,
+    ridge_render_bind_group, ridge_render_bind_group_layout, ridge_render_pipeline,
+    transform_ridge_tangent, validate_ridge_identity, GpuRidgeCell, RidgeComputePipeline,
+    RidgeFieldGeneration, RidgeFieldGpuResources, RidgeGpuParams, RidgeInteraction,
+    RidgePresentationAvailability, RidgeRenderParams, RidgeRenderPipeline, RidgeReprojection,
+    RidgeResourceError, RidgeResourcePlan,
+};
+pub use visual_field::{
     pack_visual_points, relief_normal_from_samples, GpuQuantization, GpuQuantizationDisclosure,
     PackedVisualPoint, VisualFieldPoint, VisualPackingError,
 };

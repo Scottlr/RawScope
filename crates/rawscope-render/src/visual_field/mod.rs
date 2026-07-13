@@ -11,6 +11,7 @@ mod point_presentation;
 mod reprojection;
 mod resolution;
 mod resource_estimate;
+mod ridges;
 
 pub mod comparison;
 pub mod composition;
@@ -29,6 +30,15 @@ pub use gpu::{
 pub use mass_contour::{MassContourUniforms, MAX_MASS_CONTOUR_LEVELS};
 pub use reprojection::{
     VisualFieldReprojection, VisualFieldReprojectionError, VisualFieldViewport,
+};
+pub use ridges::{
+    encode_ridge_field, ridge_compute_bind_group, ridge_compute_bind_group_layout,
+    ridge_compute_pipeline, ridge_dispatch, ridge_presentation_availability,
+    ridge_render_bind_group, ridge_render_bind_group_layout, ridge_render_pipeline,
+    transform_ridge_tangent, validate_ridge_identity, GpuRidgeCell, RidgeComputePipeline,
+    RidgeFieldGeneration, RidgeFieldGpuResources, RidgeGpuParams, RidgeInteraction,
+    RidgePresentationAvailability, RidgeRenderParams, RidgeRenderPipeline, RidgeReprojection,
+    RidgeResourceError, RidgeResourcePlan,
 };
 
 pub use comparison::{
