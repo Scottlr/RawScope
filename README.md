@@ -73,8 +73,9 @@ RawScope currently supports:
 - A local Python bridge for file paths plus pandas, Polars, and PyArrow inputs; dataframe inputs are materialized into temporary or persistent Parquet session bundles.
 - A feature-gated Rust adapter boundary, with SpanFold interval comparisons transformed into evidence-preserving CSV session bundles.
 - A CPU-backed missingness heatmap slice for local datasets with retained source rows, including cell selection and row-id summaries for missing values.
+- Profile-independent numeric-pair and time-value visual-field contracts with bounded category composition, cohort comparison, density ridges, semantic point planning, and exact-count evidence semantics. These generic owners are covered by neutral deterministic integration tests and the documented production-path benchmark targets; the native launcher remains intentionally focused on its scatter and discrete-lane timeline demos.
 
-These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, in-app screenshot capture, or production report workflows.
+These features are still correctness-first and visual-proof oriented. RawScope does not claim universal performance from one machine, full GPU row-id preservation, in-app screenshot capture, or a generic live mode switch in the launcher.
 
 Benchmark commands, benchmark input sizes, GPU opt-in rules, and claim guidance live in `docs/BENCHMARKS.md`.
 
@@ -144,6 +145,14 @@ Selection evidence note: finalized brushes also build a small CPU-side evidence 
 
 Evidence export note: pressing `E` writes the active demo's cached selection evidence into a collision-safe bundle directory under `target/rawscope-exports/`. Scatter exports use `report-scatter-<unix-ms>-<counter>/`; timeline exports use `report-timeline-<unix-ms>-<counter>/`. Each bundle contains `evidence.json`, `evidence.md`, `manifest.json`, and `visual-context.txt`. Legacy bundles use the deterministic placeholder context; new scatter v5 bundles record the visual-query, session, and pinned-inspection context while native image capture remains deferred. If no finalized brush evidence exists in the active demo, the app logs a warning and does not write files. These bundles are local-first CPU-side evidence artifacts, not cloud publishing or a final screenshot pipeline.
 
+The library-owned report adapter also writes the additive
+`rawscope.visual-field-evidence` v1 artifact for generic numeric-pair and
+time-value projections, including composition, comparison, ridge, contour,
+marginal, and semantic-sample disclosures. The current `E` shortcut remains
+limited to the native scatter/timeline selection artifacts; generic mode export
+is exercised by the workbench benchmark target and is not presented as a live
+launcher feature yet.
+
 ## Python Bridge
 
 The optional source-installable SDK opens the same native workbench from a
@@ -169,6 +178,9 @@ and supports the session v1 contract documented in
 [`docs/schemas/session-v1.md`](docs/schemas/session-v1.md) and the additive
 scatter evidence v5 contract in
 [`docs/schemas/scatter-selection-evidence-v5.md`](docs/schemas/scatter-selection-evidence-v5.md).
+The additive session v2 bindings also map profile-free numeric-pair and
+time-value roles, with an optional bounded category, into the shared visual-field
+controller contract; legacy v1 sessions remain readable.
 
 Inspection facts are exact for the selected density cell and active cohort;
 row ids, natural keys, and category values are bounded samples when the cell

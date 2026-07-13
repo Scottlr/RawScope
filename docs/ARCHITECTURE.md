@@ -49,13 +49,32 @@ large raw rows
 
 Many rows become bins, bins become density textures, textures become visual fields, and visual fields support drilldown back to rows.
 
-The current Milestone 6 slice keeps this narrower: `rawscope-render` owns GPU scatter-density compute, GPU timeline-density compute, simple scatter and timeline presentation renderers, scatter-specific viewport math, timeline time-axis viewport math, testable brush geometry, CPU-side selected-region summaries/evidence for synthetic points, CPU-side selected-event summaries/evidence for synthetic timeline events, a CPU-backed missingness reference grid and selection summary, deterministic JSON/Markdown scatter and timeline evidence artifact formatting, a CPU-backed selection drilldown model, and a minimal brush overlay pass. `rawscope-data` now owns explicit local CSV readers plus narrow Parquet-backed chunk metadata, schema summaries, binding validation, and retained source rows for the current scatter/timeline workflows. Compute uploads synthetic point/event coordinates, bins counts with WGSL atomics, and can read counts back for correctness and density colour scaling. Brush interaction separates in-progress screen-space drag rectangles from finalized data-space selections; summaries, evidence, drilldown, overlay projection, and exported artifacts use finalized data-space selections as their source of truth. Timeline brushes finalize into data-space time ranges plus half-open lane ranges, then re-project after zoom, pan, resize, or reset. Timeline evidence is still CPU-side over synthetic records: it samples the lowest selected row ids deterministically and is cached by the workbench until the brush or dataset changes. The missingness slice operates on retained local source rows, buckets rows deterministically, and summarizes selected cells back to missing counts, column names, and sorted row ids without requiring a GPU path. The native workbench renders scatter and timeline density counts with the same WGPU device/queue used by the window surface, then composites the projected brush rectangle and egui shell after the density pass, avoiding a separate compute device in the visual path. `rawscope-workbench` translates winit mouse/keyboard events into viewport updates, brush updates, deterministic point-count presets, visible egui workbench state, missingness cell selection for local CSV or Parquet data, one-shot evidence logging, and collision-safe local report-bundle writes that include evidence JSON, Markdown, manifest metadata, and a deterministic visual-context placeholder, then asks the active renderer to re-bin the visible range. Timeline density uses a startup `--demo timeline` path that generates deterministic synthetic events, computes GPU timeline-density counts, renders a simple full-window density view, and translates wheel/drag/reset input into time-range viewport changes while keeping lane mapping stable. Native image capture remains deferred behind the documented readback/PNG design, and `rawscope-gpu` continues to own both the reusable headless compute context for ignored correctness tests and the window surface context. GPU row-id preservation and broader file-dialog/report UI remain deferred until a later evidence-focused design.
+The generic visual-field path is now the shared owner for continuous two-
+dimensional analysis. `rawscope-analysis::visual_field` validates one
+profile-independent numeric-pair or time-value mapping, preserves typed domains,
+and owns exact count-derived marginals, tied mass contours, bounded category
+composition, cohort-share differences, semantic density-to-point planning, and
+multiscale undirected ridges. `rawscope-render::visual_field` owns the resident
+field/resource contract, reprojection, palette LUT, resolution policy, and
+derived presentation resources. `rawscope-workbench` owns the typed controller,
+session-role adaptation, command/generation intent, and canonical report
+adapter; `rawscope-evidence` owns the versioned visual-field artifact. The old
+scatter and discrete-lane timeline codecs remain narrow compatibility owners for
+their documented wire versions rather than parallel generic runtime state.
+
+Neutral deterministic workbench integration tests and the benchmark targets in
+`docs/BENCHMARKS.md` exercise these owners without requiring an external profile
+or dataset. The native launcher still exposes the established scatter and
+discrete-lane timeline demos, so the generic contracts are not described here as
+a universal chart switch or a claim of measured performance on every machine.
+
+The native launcher keeps this narrower: `rawscope-render` owns GPU scatter-density compute, GPU timeline-density compute, simple scatter and timeline presentation renderers, scatter-specific viewport math, timeline time-axis viewport math, testable brush geometry, CPU-side selected-region summaries/evidence for synthetic points, CPU-side selected-event summaries/evidence for synthetic timeline events, a CPU-backed missingness reference grid and selection summary, deterministic JSON/Markdown scatter and timeline evidence artifact formatting, a CPU-backed selection drilldown model, and a minimal brush overlay pass. `rawscope-data` now owns explicit local CSV readers plus narrow Parquet-backed chunk metadata, schema summaries, binding validation, and retained source rows for the current scatter/timeline workflows. Compute uploads synthetic point/event coordinates, bins counts with WGSL atomics, and can read counts back for correctness and density colour scaling. Brush interaction separates in-progress screen-space drag rectangles from finalized data-space selections; summaries, evidence, drilldown, overlay projection, and exported artifacts use finalized data-space selections as their source of truth. Timeline brushes finalize into data-space time ranges plus half-open lane ranges, then re-project after zoom, pan, resize, or reset. Timeline evidence is still CPU-side over synthetic records: it samples the lowest selected row ids deterministically and is cached by the workbench until the brush or dataset changes. The missingness slice operates on retained local source rows, buckets rows deterministically, and summarizes selected cells back to missing counts, column names, and sorted row ids without requiring a GPU path. The native workbench renders scatter and timeline density counts with the same WGPU device/queue used by the window surface, then composites the projected brush rectangle and egui shell after the density pass, avoiding a separate compute device in the visual path. `rawscope-workbench` translates winit mouse/keyboard events into viewport updates, brush updates, deterministic point-count presets, visible egui workbench state, missingness cell selection for local CSV or Parquet data, one-shot evidence logging, and collision-safe local report-bundle writes that include evidence JSON, Markdown, manifest metadata, and a deterministic visual-context placeholder, then asks the active renderer to re-bin the visible range. Timeline density uses a startup `--demo timeline` path that generates deterministic synthetic events, computes GPU timeline-density counts, renders a simple full-window density view, and translates wheel/drag/reset input into time-range viewport changes while keeping lane mapping stable. Native image capture remains deferred behind the documented readback/PNG design, and `rawscope-gpu` continues to own both the reusable headless compute context for ignored correctness tests and the window surface context. GPU row-id preservation and broader file-dialog/report UI remain deferred until a later evidence-focused design.
 
 ## Visual Query Concept
 
 A visual query describes the data fields, ranges, grouping, aggregation, filters, view transform, and selection state needed to render a view. It is not a general SQL replacement. It is the contract between data, render, UI, and evidence layers for answering a visual question.
 
-Examples of future visual query inputs include:
+Examples of visual query inputs include:
 
 - x and y columns for scatter density
 - time and lane columns for timeline density
@@ -63,13 +82,13 @@ Examples of future visual query inputs include:
 - baseline and selected cohorts for distribution drift
 - key columns for dataset diff views
 
-## Initial Crate Responsibilities
+## Crate Responsibilities
 
 - `rawscope-core`: shared types, ranges, dimensions, view specs, selections, errors, and visual query definitions
 - `rawscope-data`: dataset metadata, local CSV and Parquet readers, retained source rows, schema summaries, and narrow chunked columnar metadata for current local datasets
-- `rawscope-gpu`: WGPU device/session abstraction, surface bootstrap, headless compute bootstrap, and future buffer allocation, texture allocation, compute pipeline cache, shader loading, and GPU timing hooks
-- `rawscope-render`: CPU density references, correctness-first GPU scatter-density compute, and future density renderers, heatmap renderers, timeline renderers, selection overlays, axes, grids, and crosshair helpers
-- `rawscope-workbench`: desktop app shell that eventually opens projects/datasets, hosts views, manages layout, coordinates interactions, and exports reports
+- `rawscope-gpu`: WGPU device/session abstraction, surface bootstrap, headless compute bootstrap, checked limits, recovery, and generation-safe readback mechanics
+- `rawscope-render`: CPU references plus resident visual-field resources, GPU density/composition/ridge presentation owners, palettes, reprojection, resolution/resource policy, selection overlays, axes, and timeline renderers
+- `rawscope-workbench`: desktop app shell, typed visual-field controller/session adaptation, layout, interaction coordination, and canonical/legacy report-bundle adapters
 
 ## Separation Of Concerns
 

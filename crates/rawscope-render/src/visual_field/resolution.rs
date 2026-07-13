@@ -522,7 +522,11 @@ mod tests {
     #[test]
     fn resolution_respects_device_and_budget_limits() {
         let mut limits = wgpu::Limits::default();
-        limits.max_storage_buffer_binding_size = 500_000;
+        // The default visual-field estimate includes the bounded category,
+        // ridge, transition, and readback resources. Keep the limit above the
+        // smallest exact tier's largest binding while below the next tier so
+        // this remains a real device-limited fallback assertion.
+        limits.max_storage_buffer_binding_size = 2_000_000;
         let decision = choose_visual_resolution_for_quality(
             (1_600, 900),
             &policy(),
