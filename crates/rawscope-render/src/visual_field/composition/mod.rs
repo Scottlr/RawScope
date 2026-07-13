@@ -193,6 +193,30 @@ pub fn publication_generation_matches(
     expected == actual
 }
 
+/// Verifies the publication invariant for one settled layer readback.
+pub fn layer_counts_match_total(
+    layer_counts: &[u32],
+    exact_counts: &[u32],
+    layer_count: u8,
+) -> bool {
+    let Some(expected_len) = exact_counts.len().checked_mul(usize::from(layer_count)) else {
+        return false;
+    };
+    if layer_count == 0 || exact_counts.is_empty() || layer_counts.len() != expected_len {
+        return false;
+    }
+    let mut totals = vec![0_u32; exact_counts.len()];
+    for layer in layer_counts.chunks_exact(exact_counts.len()) {
+        for (total, count) in totals.iter_mut().zip(layer) {
+            let Some(next) = total.checked_add(*count) else {
+                return false;
+            };
+            *total = next;
+        }
+    }
+    totals == exact_counts
+}
+
 fn resolve_layer(
     code: u32,
     code_layout: rawscope_data::CategoryCodeLayout,
@@ -384,6 +408,13 @@ mod tests {
         let mut stale = identity;
         stale.device_generation = rawscope_gpu::DeviceGeneration(2);
         assert!(!publication_generation_matches(identity, stale));
+    }
+
+    #[test]
+    fn composition_publication_rejects_layer_total_mismatch() {
+        assert!(layer_counts_match_total(&[1, 0, 0, 1], &[1, 1], 2));
+        assert!(!layer_counts_match_total(&[1, 0, 0, 0], &[1, 1], 2));
+        assert!(!layer_counts_match_total(&[1, u32::MAX, 0, 0], &[1, 1], 2));
     }
 
     fn rawscope_render_view_counter() -> crate::VisualFieldViewGenerationCounter {

@@ -12,6 +12,7 @@ use rawscope_gpu::{
 };
 
 use super::super::generation::{VisualFieldGeneration, VisualFieldViewGeneration};
+use super::layer_counts_match_total;
 
 pub const NO_CATEGORY_LAYER: u32 = u32::MAX;
 
@@ -233,13 +234,27 @@ impl CategoryLayerPlanGpuResources {
             .map(|layer| validate_layer_id(layer.get(), layer_count.get()))
             .collect::<Result<Vec<_>, _>>()?
             .into();
+        // Keep three fixed slots after tracked values so the storage array has
+        // a meaningful length even when the source has no tracked values.
+        // The shader can therefore resolve untracked, missing, and invalid
+        // codes without reading an uninitialised padding word.
+        let lookup_upload: Arc<[u32]> = value_to_layer
+            .iter()
+            .copied()
+            .chain([
+                special_layer_id(plan.lookup().untracked_layer, layer_count.get())?,
+                special_layer_id(plan.lookup().missing_layer, layer_count.get())?,
+                special_layer_id(plan.lookup().invalid_layer, layer_count.get())?,
+            ])
+            .collect::<Vec<_>>()
+            .into();
         let special_layer_params = SpecialLayerParams {
             untracked_layer: special_layer_id(plan.lookup().untracked_layer, layer_count.get())?,
             missing_layer: special_layer_id(plan.lookup().missing_layer, layer_count.get())?,
             invalid_layer: special_layer_id(plan.lookup().invalid_layer, layer_count.get())?,
             layer_count: u32::from(layer_count.get()),
         };
-        let lookup_bytes = bytes_for_entries(value_to_layer.len() as u64)?;
+        let lookup_bytes = bytes_for_entries(lookup_upload.len() as u64)?;
         let special_bytes = std::mem::size_of::<SpecialLayerParams>() as u64;
         validate_storage_bytes(device, lookup_bytes)?;
         validate_storage_bytes(device, special_bytes)?;
@@ -253,7 +268,7 @@ impl CategoryLayerPlanGpuResources {
             queue.write_buffer(
                 &value_to_layer_buffer,
                 0,
-                bytemuck::cast_slice(value_to_layer.as_ref()),
+                bytemuck::cast_slice(lookup_upload.as_ref()),
             );
         }
         let special_layer_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -431,6 +446,32 @@ impl CategoryCompositionFieldGeneration {
         Ok(())
     }
 
+    /// Publishes a settled pending field only after its layer readback proves
+    /// equality with the exact total field for every bin.
+    pub fn publish_if_current_with_counts(
+        &mut self,
+        expected: CompositionPublicationIdentity,
+        layer_counts: &[u32],
+        exact_counts: &[u32],
+    ) -> Result<(), CompositionPublicationError> {
+        let actual = self.identity();
+        if actual != expected {
+            return Err(CompositionPublicationError::GenerationMismatch { expected, actual });
+        }
+        if !layer_counts_match_total(
+            layer_counts,
+            exact_counts,
+            self.layer_plan.layer_count().get(),
+        ) {
+            return Err(CompositionPublicationError::LayerTotalsMismatch);
+        }
+        std::mem::swap(
+            &mut self.active_layer_counts,
+            &mut self.pending_layer_counts,
+        );
+        Ok(())
+    }
+
     pub fn exact_field(&self) -> Arc<VisualFieldGeneration> {
         Arc::clone(&self.exact_field)
     }
@@ -466,6 +507,7 @@ pub enum CompositionPublicationError {
         expected: CompositionPublicationIdentity,
         actual: CompositionPublicationIdentity,
     },
+    LayerTotalsMismatch,
 }
 
 impl fmt::Display for CompositionPublicationError {
@@ -474,6 +516,9 @@ impl fmt::Display for CompositionPublicationError {
             Self::GenerationMismatch { expected, actual } => write!(
                 formatter,
                 "category composition publication generation mismatch: expected {expected:?}, actual {actual:?}"
+            ),
+            Self::LayerTotalsMismatch => formatter.write_str(
+                "category composition layer totals do not match the exact total field",
             ),
         }
     }

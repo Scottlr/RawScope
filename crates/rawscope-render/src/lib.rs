@@ -175,8 +175,8 @@ pub use view_summaries::{
 pub use visual_field::composition::{
     clear_pending_layer_counts, composition_bind_group, composition_bind_group_layout,
     composition_compute_pipeline, composition_reference, composition_reference_layers,
-    publication_generation_matches, CategoryChannelGpuResources, CategoryChannelIdentity,
-    CategoryCompositionFieldGeneration, CategoryCompositionReference,
+    layer_counts_match_total, publication_generation_matches, CategoryChannelGpuResources,
+    CategoryChannelIdentity, CategoryCompositionFieldGeneration, CategoryCompositionReference,
     CategoryLayerPlanGpuResources, CompositionParams, CompositionPublicationError,
     CompositionPublicationIdentity, CompositionReferenceError, CompositionResourceError,
     SpecialLayerParams, NO_CATEGORY_LAYER,

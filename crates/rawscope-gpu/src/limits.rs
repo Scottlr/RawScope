@@ -174,9 +174,12 @@ impl CategoryCompositionResourcePlan {
             .checked_mul(4)
             .ok_or(GpuLimitError::ArithmeticOverflow)?
             .max(4);
-        // Special categories are carried by the fixed parameter block; this
-        // lookup contains only the bounded tracked-value assignments.
-        let lookup_bytes = tracked_value_count
+        // Keep fixed slots for untracked, missing, and invalid assignments so
+        // zero-tracked datasets still have a meaningful storage-array length.
+        let lookup_entries = tracked_value_count
+            .checked_add(3)
+            .ok_or(GpuLimitError::ArithmeticOverflow)?;
+        let lookup_bytes = lookup_entries
             .checked_mul(4)
             .ok_or(GpuLimitError::ArithmeticOverflow)?
             .max(4);
@@ -316,5 +319,32 @@ mod tests {
             CategoryCompositionResourcePlan::for_grid(4, 4, 2, 1, 1, &tiny),
             Err(GpuLimitError::BufferTooLarge { .. })
         ));
+    }
+
+    #[test]
+    fn composition_plan_rejects_layer_ceiling_and_checked_overflow() {
+        let limits = wgpu::Limits::downlevel_defaults();
+        assert_eq!(
+            CategoryCompositionResourcePlan::for_grid(
+                1,
+                1,
+                MAX_CATEGORY_COMPOSITION_LAYERS.saturating_add(1),
+                1,
+                1,
+                &limits,
+            ),
+            Err(GpuLimitError::LayerCountTooLarge {
+                requested: MAX_CATEGORY_COMPOSITION_LAYERS.saturating_add(1),
+                max: MAX_CATEGORY_COMPOSITION_LAYERS,
+            })
+        );
+        assert_eq!(
+            CategoryCompositionResourcePlan::for_grid(1, 1, 1, u64::MAX, 1, &limits),
+            Err(GpuLimitError::ArithmeticOverflow)
+        );
+        assert_eq!(
+            CategoryCompositionResourcePlan::for_grid(1, 1, 1, 1, u64::MAX, &limits),
+            Err(GpuLimitError::ArithmeticOverflow)
+        );
     }
 }
