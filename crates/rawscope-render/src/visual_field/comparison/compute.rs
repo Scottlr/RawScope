@@ -3,6 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
 use rawscope_data::{FilterMask, FilterRevision};
+use rawscope_evidence::DensityTransform;
 use rawscope_gpu::DeviceGeneration;
 use std::sync::Arc;
 
@@ -25,7 +26,7 @@ use super::resources::{
 };
 use crate::PaletteGpuResources;
 
-use super::presentation::ComparisonFieldRenderStats;
+use super::presentation::{ComparisonFieldRenderStats, ComparisonPresentation, ComparisonSplit};
 
 pub struct ComparisonFieldRenderer {
     pub(super) baseline: ResidentExactField,
@@ -42,6 +43,11 @@ pub struct ComparisonFieldRenderer {
     pub(super) baseline_total: u64,
     pub(super) active_total: u64,
     pub(super) baseline_recompute_count: u64,
+    pub(super) presentation: ComparisonPresentation,
+    pub(super) split: ComparisonSplit,
+    pub(super) shared_density_max_count: u32,
+    pub(super) max_support_share: f32,
+    pub(super) density_transform: DensityTransform,
     pub(super) palette: Arc<PaletteGpuResources>,
 }
 
@@ -135,6 +141,11 @@ impl ComparisonFieldRenderer {
             baseline_total: points.len() as u64,
             active_total: points.len() as u64,
             baseline_recompute_count: 0,
+            presentation: ComparisonPresentation::SignedDifference,
+            split: ComparisonSplit::default(),
+            shared_density_max_count: points.len().min(u32::MAX as usize) as u32,
+            max_support_share: 1.0,
+            density_transform: config.encoding.transform,
             palette,
         };
         renderer.update_fields(device, queue, config, true, points.len() as u64, 0)?;
@@ -154,6 +165,7 @@ impl ComparisonFieldRenderer {
             .replace_dataset(device, queue, points, dataset_revision)?;
         self.baseline_total = points.len() as u64;
         self.active_total = points.len() as u64;
+        self.shared_density_max_count = points.len().min(u32::MAX as usize) as u32;
         Ok(())
     }
 
@@ -207,6 +219,7 @@ impl ComparisonFieldRenderer {
         };
         self.display_x_range = config.x_range;
         self.display_y_range = config.y_range;
+        self.density_transform = config.encoding.transform;
         self.dispatch_reduction(device, queue);
         Ok(self.stats())
     }
@@ -214,6 +227,53 @@ impl ComparisonFieldRenderer {
     pub fn set_display_viewport(&mut self, x_range: F32Range, y_range: F32Range) {
         self.display_x_range = x_range;
         self.display_y_range = y_range;
+    }
+
+    /// Changes only the published comparison presentation control.
+    ///
+    /// This is intentionally a CPU-side state update; no field generation,
+    /// dispatch, upload, or readback is scheduled by the split interaction.
+    pub fn set_split(&mut self, split: ComparisonSplit) -> bool {
+        if self.split == split {
+            return false;
+        }
+        self.split = split;
+        true
+    }
+
+    pub const fn split(&self) -> ComparisonSplit {
+        self.split
+    }
+
+    pub fn set_presentation(&mut self, presentation: ComparisonPresentation) {
+        self.presentation = presentation;
+    }
+
+    pub const fn presentation(&self) -> ComparisonPresentation {
+        self.presentation
+    }
+
+    /// Sets the one shared count maximum used by both vertical split sides.
+    pub fn set_shared_density_max_count(&mut self, max_count: u32) {
+        self.shared_density_max_count = max_count;
+    }
+
+    pub const fn shared_density_max_count(&self) -> u32 {
+        self.shared_density_max_count
+    }
+
+    /// Sets the shared support maximum used only for signed-difference
+    /// visibility. Values below zero and non-finite values disable fading.
+    pub fn set_max_support_share(&mut self, max_support_share: f32) {
+        self.max_support_share = if max_support_share.is_finite() {
+            max_support_share.max(0.0)
+        } else {
+            0.0
+        };
+    }
+
+    pub const fn max_support_share(&self) -> f32 {
+        self.max_support_share
     }
 
     pub fn stats(&self) -> ComparisonFieldRenderStats {
@@ -314,6 +374,18 @@ impl ComparisonFieldRenderer {
             display_x_max: self.display_x_range.max,
             display_y_min: self.display_y_range.min,
             display_y_max: self.display_y_range.max,
+            split_fraction: self.split.fraction(),
+            presentation: match self.presentation {
+                ComparisonPresentation::SignedDifference => 0,
+                ComparisonPresentation::VerticalSplit => 1,
+            },
+            shared_density_max_count: self.shared_density_max_count,
+            density_transform: match self.density_transform {
+                DensityTransform::Linear => 0,
+                DensityTransform::Log1p => 1,
+            },
+            max_support_share: self.max_support_share,
+            _padding2: [0; 3],
         }
     }
 }
@@ -335,6 +407,12 @@ pub(super) struct DifferenceGpuParams {
     display_x_max: f32,
     display_y_min: f32,
     display_y_max: f32,
+    split_fraction: f32,
+    presentation: u32,
+    shared_density_max_count: u32,
+    density_transform: u32,
+    max_support_share: f32,
+    _padding2: [u32; 3],
 }
 
 #[cfg(test)]
@@ -343,7 +421,7 @@ mod abi_tests {
 
     #[test]
     fn difference_params_match_wgsl_uniform_alignment() {
-        assert_eq!(std::mem::size_of::<DifferenceGpuParams>(), 64);
+        assert_eq!(std::mem::size_of::<DifferenceGpuParams>(), 96);
         assert_eq!(std::mem::align_of::<DifferenceGpuParams>(), 4);
         assert_eq!(std::mem::size_of::<DifferenceGpuParams>() % 16, 0);
     }
