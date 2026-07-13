@@ -177,6 +177,24 @@ impl VisualFieldBrushSelection {
     }
 }
 
+/// Failure returned when a typed brush cannot be applied to a projection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VisualFieldBrushError {
+    InvalidRange,
+    AxisTypeMismatch,
+}
+
+impl fmt::Display for VisualFieldBrushError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::InvalidRange => "visual-field brush range is reversed",
+            Self::AxisTypeMismatch => "visual-field brush axis type does not match projection",
+        })
+    }
+}
+
+impl Error for VisualFieldBrushError {}
+
 #[cfg(test)]
 mod tests {
     use super::{TimeAxisTransform, TimeValueProjectionError};

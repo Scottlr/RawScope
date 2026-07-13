@@ -9,7 +9,8 @@ use rawscope_data::{
 };
 
 use super::{
-    TimeAxisTransform, TimeValueProjectionError, VisualFieldMapping, VisualFieldProjection,
+    TimeAxisTransform, TimeValueProjectionError, VisualAxisSelectionRange, VisualFieldBrushError,
+    VisualFieldBrushSelection, VisualFieldMapping, VisualFieldProjection,
 };
 use crate::inspection::F64Domain;
 
@@ -247,6 +248,68 @@ impl ProjectedVisualFieldGeneration {
             .into()
     }
 
+    /// Selects projected rows using typed, source-domain brush bounds.
+    ///
+    /// Timestamp membership is checked against the retained `i64` values,
+    /// never against the f64 compatibility coordinates used by legacy callers.
+    pub fn row_ids_for_brush(
+        &self,
+        selection: VisualFieldBrushSelection,
+    ) -> Result<Arc<[RowId]>, VisualFieldBrushError> {
+        let timestamp_bounds = match selection.x {
+            VisualAxisSelectionRange::TimestampMicros { min, max } => {
+                if min > max {
+                    return Err(VisualFieldBrushError::InvalidRange);
+                }
+                Some((min, max))
+            }
+            _ => None,
+        };
+        let (x_min, x_max) = exact_bounds(selection.x)?;
+        let (y_min, y_max) = exact_bounds(selection.y)?;
+        let is_time_value = matches!(
+            self.mapping.projection(),
+            VisualFieldProjection::TimeValue { .. }
+        );
+        if is_time_value
+            != matches!(
+                selection.x,
+                VisualAxisSelectionRange::TimestampMicros { .. }
+            )
+            || matches!(
+                selection.y,
+                VisualAxisSelectionRange::TimestampMicros { .. }
+            )
+        {
+            return Err(VisualFieldBrushError::AxisTypeMismatch);
+        }
+
+        let row_ids = match (self.timestamp_micros.as_ref(), timestamp_bounds) {
+            (Some(timestamps), Some((timestamp_min, timestamp_max))) => self
+                .points
+                .iter()
+                .zip(timestamps.iter())
+                .filter(|(point, timestamp)| {
+                    **timestamp >= timestamp_min
+                        && **timestamp <= timestamp_max
+                        && point.y >= y_min
+                        && point.y <= y_max
+                })
+                .map(|(point, _)| point.row_id)
+                .collect::<Vec<_>>(),
+            (None, None) => self
+                .points
+                .iter()
+                .filter(|point| {
+                    point.x >= x_min && point.x <= x_max && point.y >= y_min && point.y <= y_max
+                })
+                .map(|point| point.row_id)
+                .collect::<Vec<_>>(),
+            _ => return Err(VisualFieldBrushError::AxisTypeMismatch),
+        };
+        Ok(row_ids.into())
+    }
+
     pub const fn x_domain(&self) -> VisualAxisDomain {
         self.x_domain
     }
@@ -254,6 +317,13 @@ impl ProjectedVisualFieldGeneration {
     pub const fn y_domain(&self) -> VisualAxisDomain {
         self.y_domain
     }
+}
+
+fn exact_bounds(range: VisualAxisSelectionRange) -> Result<(f64, f64), VisualFieldBrushError> {
+    let (min, max) = range.bounds();
+    (min <= max)
+        .then_some((min, max))
+        .ok_or(VisualFieldBrushError::InvalidRange)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

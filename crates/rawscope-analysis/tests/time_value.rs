@@ -1,5 +1,6 @@
 use rawscope_analysis::visual_field::{
-    ProjectedVisualFieldGeneration, VisualAxisDomain, VisualFieldMapping, VisualFieldProjection,
+    ProjectedVisualFieldGeneration, VisualAxisDomain, VisualAxisSelectionRange,
+    VisualFieldBrushSelection, VisualFieldMapping, VisualFieldProjection,
 };
 use rawscope_core::{ColumnId, RowId};
 use rawscope_data::{
@@ -132,4 +133,26 @@ fn profile_identity_does_not_change_time_value_availability() {
         store.cell(RowId(0), ColumnId::new(0)).unwrap().normalized(),
         CellState::Value(NormalizedValue::TimestampMicros(1))
     ));
+}
+
+#[test]
+fn time_value_brush_uses_exact_timestamp_bounds() {
+    let store = time_value_store(&[9_007_199_254_740_992, 9_007_199_254_740_993], &[1.0, 2.0]);
+    let generation =
+        ProjectedVisualFieldGeneration::from_store(&store, time_value_projection(&store))
+            .expect("time-value projection should build");
+    let selection = VisualFieldBrushSelection::new(
+        VisualAxisSelectionRange::TimestampMicros {
+            min: 9_007_199_254_740_993,
+            max: 9_007_199_254_740_993,
+        },
+        VisualAxisSelectionRange::F64(
+            rawscope_analysis::inspection::F64Domain::try_new(1.5, 2.5).unwrap(),
+        ),
+    );
+
+    assert_eq!(
+        generation.row_ids_for_brush(selection).unwrap().as_ref(),
+        &[RowId(1)]
+    );
 }

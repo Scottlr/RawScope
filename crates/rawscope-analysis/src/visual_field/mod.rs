@@ -41,6 +41,6 @@ pub use ridges::{
     RIDGE_NORMALIZATION_EPSILON,
 };
 pub use time_value::{
-    TimeAxisTransform, TimeValueProjectionError, VisualAxisSelectionRange,
+    TimeAxisTransform, TimeValueProjectionError, VisualAxisSelectionRange, VisualFieldBrushError,
     VisualFieldBrushSelection,
 };
