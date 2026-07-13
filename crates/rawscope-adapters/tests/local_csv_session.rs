@@ -46,6 +46,34 @@ fn local_csv_adapter_prepares_a_profiled_external_session() {
     );
 }
 
+#[test]
+fn local_csv_adapter_prepares_a_timeline_session() {
+    let fixture = Fixture::new();
+    let dataset_path = fixture.root.join("states.csv");
+    fs::write(
+        &dataset_path,
+        "sample_index,comparison_state,evidence_id\n0,outside,s-0\n1,target_only,s-1\n",
+    )
+    .unwrap();
+
+    let prepared = LocalCsvSession::timeline(&dataset_path, "sample_index", "comparison_state")
+        .display_name("Comparison state")
+        .evidence_key("evidence_id")
+        .prepare(fixture.root.join("timeline-session"))
+        .unwrap();
+    let session = load_session_manifest(prepared.manifest_path()).unwrap();
+
+    assert_eq!(
+        session.view,
+        ResolvedSessionView::Timeline {
+            time: "sample_index".to_string(),
+            lane: "comparison_state".to_string(),
+            profile: None,
+        }
+    );
+    assert_eq!(session.dataset.evidence_key.as_deref(), Some("evidence_id"));
+}
+
 struct Fixture {
     root: PathBuf,
 }

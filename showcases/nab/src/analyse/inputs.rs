@@ -13,8 +13,9 @@ const NAB_DATASET_ID: &str = "nab";
 const NAB_SERIES_PATH: &str = "realTraffic/speed_7578.csv";
 
 #[derive(Debug, Deserialize)]
-struct SourceRow {
-    timestamp: String,
+pub(super) struct NabSample {
+    pub(super) timestamp: String,
+    pub(super) value: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,40 +46,39 @@ pub(super) struct SampleRange {
 }
 
 pub(super) struct NabInputs {
+    pub(super) samples: Vec<NabSample>,
     pub(super) ground_truth: Vec<SampleRange>,
     pub(super) detector: Vec<SampleRange>,
 }
 
 pub(super) fn read_inputs(downloads: &Path) -> Result<NabInputs> {
-    let timestamps = read_source_timestamps(&downloads.join(NAB_SOURCE_FILE_NAME))?;
-    let ground_truth = read_ground_truth(&downloads.join(NAB_LABELS_FILE_NAME), &timestamps)?;
+    let samples = read_source_samples(&downloads.join(NAB_SOURCE_FILE_NAME))?;
+    let ground_truth = read_ground_truth(&downloads.join(NAB_LABELS_FILE_NAME), &samples)?;
     let threshold = read_threshold(&downloads.join(NAB_THRESHOLDS_FILE_NAME))?;
-    let detector = read_detector_windows(
-        &downloads.join(NAB_DETECTOR_FILE_NAME),
-        &timestamps,
-        threshold,
-    )?;
+    let detector =
+        read_detector_windows(&downloads.join(NAB_DETECTOR_FILE_NAME), &samples, threshold)?;
     Ok(NabInputs {
+        samples,
         ground_truth,
         detector,
     })
 }
 
-fn read_source_timestamps(path: &Path) -> Result<Vec<String>> {
+fn read_source_samples(path: &Path) -> Result<Vec<NabSample>> {
     let mut reader = csv::Reader::from_path(path).map_err(|source| {
         ShowcaseError::workflow(NAB_DATASET_ID, "open the pinned NAB series", source)
     })?;
     reader
-        .deserialize::<SourceRow>()
+        .deserialize::<NabSample>()
         .map(|row| {
-            row.map(|row| row.timestamp).map_err(|source| {
-                ShowcaseError::workflow(NAB_DATASET_ID, "parse NAB source timestamps", source)
+            row.map_err(|source| {
+                ShowcaseError::workflow(NAB_DATASET_ID, "parse NAB source samples", source)
             })
         })
         .collect()
 }
 
-fn read_ground_truth(path: &Path, timestamps: &[String]) -> Result<Vec<SampleRange>> {
+fn read_ground_truth(path: &Path, samples: &[NabSample]) -> Result<Vec<SampleRange>> {
     let bytes = fs::read(path).map_err(|source| {
         ShowcaseError::workflow(NAB_DATASET_ID, "read NAB combined windows", source)
     })?;
@@ -93,10 +93,10 @@ fn read_ground_truth(path: &Path, timestamps: &[String]) -> Result<Vec<SampleRan
             path: path.to_path_buf(),
             reason: format!("missing label windows for {NAB_SERIES_PATH}"),
         })?;
-    let sample_by_timestamp = timestamps
+    let sample_by_timestamp = samples
         .iter()
         .enumerate()
-        .map(|(index, timestamp)| (timestamp.as_str(), index as i64))
+        .map(|(index, sample)| (sample.timestamp.as_str(), index as i64))
         .collect::<HashMap<_, _>>();
 
     windows
@@ -140,7 +140,7 @@ fn read_threshold(path: &Path) -> Result<f64> {
 
 fn read_detector_windows(
     path: &Path,
-    timestamps: &[String],
+    samples: &[NabSample],
     threshold: f64,
 ) -> Result<Vec<SampleRange>> {
     let mut reader = csv::Reader::from_path(path).map_err(|source| {
@@ -154,11 +154,11 @@ fn read_detector_windows(
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    if rows.len() != timestamps.len()
+    if rows.len() != samples.len()
         || rows
             .iter()
-            .zip(timestamps)
-            .any(|(row, expected)| row.timestamp != *expected)
+            .zip(samples)
+            .any(|(row, expected)| row.timestamp != expected.timestamp)
     {
         return Err(ShowcaseError::InvalidArtifact {
             dataset_id: NAB_DATASET_ID,

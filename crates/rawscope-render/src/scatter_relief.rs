@@ -17,7 +17,11 @@ pub fn relief_normal_from_samples(
 mod tests {
     use rawscope_core::F32Range;
 
-    use crate::{DensityEncoding, ScatterDensityPresentation, ScatterDensityRendererConfig};
+    use crate::{
+        validate_relief_field_config, DensityEncoding, ReliefFieldConfig, ReliefFieldConfigError,
+        ScatterDensityPresentation, ScatterDensityRendererConfig, MAX_RELIEF_HEIGHT_STRENGTH,
+        MIN_RELIEF_NORMAL_RADIUS_BINS,
+    };
 
     use super::*;
 

@@ -18,6 +18,7 @@ wgpu = "29.0.3"
 [dev-dependencies]
 criterion = { workspace = true }
 pollster = "0.4.0"
+serde_json = { workspace = true }
 
 [[bench]]
 name = "density_reference"

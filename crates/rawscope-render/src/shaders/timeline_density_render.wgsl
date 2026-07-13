@@ -1,12 +1,12 @@
 struct RenderParams {
     grid_width: u32,
     grid_height: u32,
+    lane_count: u32,
     max_bin_count: u32,
     transform_id: u32,
     palette_id: u32,
     padding0: u32,
     padding1: u32,
-    padding2: u32,
 };
 
 struct VertexOutput {
@@ -91,9 +91,24 @@ fn density_colour(intensity: f32, palette_id: u32) -> vec3<f32> {
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let clamped_uv = clamp(input.uv, vec2<f32>(0.0), vec2<f32>(0.999999));
     let x_bin = min(u32(clamped_uv.x * f32(params.grid_width)), params.grid_width - 1u);
-    let y_bin = min(u32((1.0 - clamped_uv.y) * f32(params.grid_height)), params.grid_height - 1u);
+    let lane_position = (1.0 - clamped_uv.y) * f32(params.lane_count);
+    let lane = min(u32(lane_position), params.lane_count - 1u);
+    let lane_fraction = fract(lane_position);
+    let y_bin = min((lane * params.grid_height) / params.lane_count, params.grid_height - 1u);
     let bin_index = y_bin * params.grid_width + x_bin;
     let count = counts[bin_index];
     let intensity = density_intensity(count, params.max_bin_count, params.transform_id);
+    let lane_gap = lane_fraction < 0.035 || lane_fraction > 0.965;
+    if lane_gap {
+        return vec4<f32>(0.008, 0.011, 0.022, 1.0);
+    }
+    if count == 0u {
+        let alternating_background = select(
+            vec3<f32>(0.012, 0.015, 0.030),
+            vec3<f32>(0.016, 0.021, 0.040),
+            lane % 2u == 1u,
+        );
+        return vec4<f32>(alternating_background, 1.0);
+    }
     return vec4<f32>(density_colour(intensity, params.palette_id), 1.0);
 }

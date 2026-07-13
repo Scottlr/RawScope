@@ -27,13 +27,13 @@ const NAB_MANIFEST: DatasetManifest = DatasetManifest {
     planned_uses: &[
         "traffic-speed value shape over source order",
         "Numenta standard-threshold windows compared with NAB ground truth through SpanFold",
-        "interval duration aggregation and interval-start family timeline",
+        "interval duration aggregation and sample-level comparison-state timeline",
         "timestamp- and SpanFold-identity-preserving row evidence",
     ],
     caveats: &[
         "This minimal showcase uses one series, not the full NAB benchmark corpus.",
         "It uses NAB's published standard Numenta threshold but does not calculate or claim NAB benchmark scores.",
-        "The timeline plots interval starts; full interval end and duration remain in row evidence.",
+        "The state timeline classifies each source sample from SpanFold overlap, residual, and missing intervals.",
     ],
     implementation_status: "fetch, transform, SpanFold analysis, multi-view visualisation, and run are implemented for the smallest NAB series",
 };
