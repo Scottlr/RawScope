@@ -2,4 +2,6 @@
 
 #[allow(dead_code)]
 mod app_report_bundle;
+#[allow(dead_code)]
+mod app_report_bundle_visual_field;
 pub mod benchmark_support;

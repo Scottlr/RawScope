@@ -20,6 +20,8 @@ mod app_report_bundle;
 mod app_report_bundle_tests;
 mod app_report_bundle_v4;
 mod app_report_bundle_v5;
+#[allow(dead_code)]
+mod app_report_bundle_visual_field;
 mod app_scatter_density;
 mod app_scatter_difference;
 mod app_scatter_filter;

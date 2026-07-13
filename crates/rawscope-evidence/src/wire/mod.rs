@@ -2,3 +2,4 @@
 
 pub mod scatter;
 pub mod timeline;
+pub mod visual_field;

@@ -32,7 +32,7 @@ const BUNDLE_MANIFEST_FILE_NAME: &str = "manifest.json";
 const EVIDENCE_JSON_FILE_NAME: &str = "evidence.json";
 const EVIDENCE_MARKDOWN_FILE_NAME: &str = "evidence.md";
 const VISUAL_CONTEXT_FILE_NAME: &str = "visual-context.txt";
-const EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION: u32 = 1;
+pub(crate) const EVIDENCE_REPORT_BUNDLE_SCHEMA_VERSION: u32 = 1;
 const SCATTER_REPORT_BUNDLE_ARTIFACT_KIND: &str = "scatter-evidence-report-bundle";
 const TIMELINE_REPORT_BUNDLE_ARTIFACT_KIND: &str = "timeline-evidence-report-bundle";
 const VISUAL_CONTEXT_KIND_PLACEHOLDER_TEXT: &str = "text-placeholder";
@@ -300,7 +300,7 @@ impl EvidenceReportBundlePaths {
         Ok(())
     }
 
-    fn write_manifest_record(
+    pub(crate) fn write_manifest_record(
         &self,
         manifest_record: &impl Serialize,
     ) -> Result<(), Box<dyn Error>> {
@@ -309,7 +309,7 @@ impl EvidenceReportBundlePaths {
         Ok(())
     }
 
-    fn transactional(
+    pub(crate) fn transactional(
         &self,
         write: impl FnOnce(&EvidenceReportBundlePaths) -> Result<(), Box<dyn Error>>,
     ) -> Result<(), Box<dyn Error>> {
