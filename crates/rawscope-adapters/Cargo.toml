@@ -1,0 +1,29 @@
+[package]
+name = "rawscope-adapters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Optional source adapters and transform helpers for RawScope"
+
+[features]
+default = []
+spanfold = [
+    "dep:csv",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:spanfold",
+    "dep:thiserror",
+]
+
+[dependencies]
+csv = { version = "1.3.1", optional = true }
+rawscope-session = { version = "0.1.0", path = "../rawscope-session" }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+spanfold = { version = "=0.1.1", optional = true }
+thiserror = { version = "2.0.18", optional = true }
+
+[dev-dependencies]
+rawscope-data = { version = "0.1.0", path = "../rawscope-data" }

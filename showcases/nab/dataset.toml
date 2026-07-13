@@ -1,0 +1,29 @@
+id = "nab"
+name = "Numenta Anomaly Benchmark (NAB)"
+repository_url = "https://github.com/numenta/NAB"
+source_url = "https://github.com/numenta/NAB/tree/master/data"
+license_name = "Expected AGPL-3.0; verify upstream dataset terms"
+license_url = "https://github.com/numenta/NAB/blob/master/LICENSE.txt"
+citation = "Lavin and Ahmad, Evaluating Real-Time Anomaly Detection Algorithms: The Numenta Anomaly Benchmark (2015)"
+
+# Pin an immutable upstream commit and record checksums before enabling fetch.
+# revision = "<commit sha>"
+# checksum = "<documented checksum scheme and value>"
+
+planned_inputs = [
+    "timestamped metric CSV files",
+    "labelled anomaly windows",
+    "detector result files",
+]
+
+planned_uses = [
+    "ground-truth versus detector windows",
+    "overlap",
+    "residual",
+    "missing",
+    "lead/lag",
+    "detector consensus",
+    "corpus-level detector roll-ups",
+]
+
+status = "scaffold only; no downloads performed"

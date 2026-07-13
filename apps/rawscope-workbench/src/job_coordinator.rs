@@ -10,8 +10,8 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use winit::event_loop::EventLoopProxy;
 use tracing::debug;
+use winit::event_loop::EventLoopProxy;
 
 use crate::workbench_event::WorkbenchUserEvent;
 

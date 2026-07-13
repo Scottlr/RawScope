@@ -1,0 +1,13 @@
+[package]
+name = "rawscope-showcase-nasa"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version = "1.95"
+publish = false
+description = "RawScope showcase scaffold for NASA SMAP and MSL telemetry"
+
+[dependencies]
+rawscope = { package = "rawscope-adapters", path = "../../crates/rawscope-adapters" }
+rawscope-showcase-support = { path = "../support" }
+spanfold = "=0.1.1"

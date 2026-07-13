@@ -1,8 +1,13 @@
 //! Versioned local startup manifests shared by RawScope launchers.
 
+mod launcher;
 mod manifest;
 mod resolved_session;
 
+pub use launcher::{
+    WorkbenchLaunchError, WorkbenchLauncher, RAWSCOPE_WORKBENCH_COMMAND,
+    RAWSCOPE_WORKBENCH_ENVIRONMENT_VARIABLE,
+};
 pub use manifest::{
     parse_session_manifest, session_manifest_json, DatasetProfileId, RawScopeSessionManifestV1,
     SessionDataFormat, SessionDatasetV1, SessionManifestError, SessionViewV1,

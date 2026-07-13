@@ -1,0 +1,33 @@
+id = "nasa-smap-msl"
+name = "NASA SMAP/MSL telemetry anomaly dataset"
+repository_url = "https://github.com/khundman/telemanom"
+source_url = "https://github.com/khundman/telemanom/tree/master/data"
+license_name = "Expected Apache-2.0; verify telemetry and attribution terms"
+license_url = "https://github.com/khundman/telemanom/blob/master/LICENSE"
+citation = "Hundman et al., Detecting Spacecraft Anomalies Using LSTMs and Nonparametric Dynamic Thresholding (KDD 2018)"
+
+# Pin an immutable upstream commit and record checksums before enabling fetch.
+# revision = "<commit sha>"
+# checksum = "<documented checksum scheme and value>"
+
+planned_inputs = [
+    "train and test telemetry arrays",
+    "channel metadata",
+    "labelled anomaly sequences",
+    "anomaly classes",
+]
+
+planned_uses = [
+    "channel-level anomaly windows",
+    "detector comparison",
+    "spacecraft roll-ups",
+    "channel-family aggregation",
+    "point versus contextual anomaly summaries",
+]
+
+caveats = [
+    "Cross-channel time alignment must be verified before synchronized incident aggregation is claimed.",
+    "Review upstream licence, NASA attribution, and dataset terms at the pinned revision.",
+]
+
+status = "scaffold only; no downloads performed"

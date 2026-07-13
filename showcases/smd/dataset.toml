@@ -1,0 +1,33 @@
+id = "smd"
+name = "Server Machine Dataset (SMD)"
+repository_url = "https://github.com/NetManAIOps/OmniAnomaly"
+source_url = "https://github.com/NetManAIOps/OmniAnomaly/tree/master/ServerMachineDataset"
+license_name = "Expected MIT; verify upstream dataset terms"
+license_url = "https://github.com/NetManAIOps/OmniAnomaly/blob/master/LICENSE"
+citation = "Su et al., Robust Anomaly Detection for Multivariate Time Series through Stochastic Recurrent Neural Network (KDD 2019)"
+
+# Pin an immutable upstream commit and record checksums before enabling fetch.
+# revision = "<commit sha>"
+# checksum = "<documented checksum scheme and value>"
+
+planned_inputs = [
+    "per-machine training sequences",
+    "per-machine test sequences",
+    "point anomaly labels",
+    "interpretation labels identifying contributing dimensions",
+]
+
+planned_uses = [
+    "dimension-level anomaly windows",
+    "machine incident construction",
+    "affected-dimension concurrency",
+    "contributing-dimension coverage",
+    "machine and group roll-ups",
+]
+
+caveats = [
+    "Fleet-wide wall-clock alignment must be verified before synchronized machine aggregation is claimed.",
+    "Review upstream licence and dataset terms at the pinned revision.",
+]
+
+status = "scaffold only; no downloads performed"

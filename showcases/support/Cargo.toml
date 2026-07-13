@@ -1,0 +1,10 @@
+[package]
+name = "rawscope-showcase-support"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Shared manifest, CLI, and path contracts for RawScope dataset showcases"
+
+[dependencies]

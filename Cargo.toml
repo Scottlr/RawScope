@@ -8,7 +8,12 @@ members = [
     "crates/rawscope-evidence",
     "crates/rawscope-session",
     "crates/rawscope-session-contracts",
+    "crates/rawscope-adapters",
     "apps/rawscope-workbench",
+    "showcases/support",
+    "showcases/nab",
+    "showcases/nasa",
+    "showcases/smd",
 ]
 resolver = "2"
 
