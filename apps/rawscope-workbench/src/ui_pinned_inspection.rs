@@ -78,6 +78,17 @@ fn show_exact_facts(
             difference.active_share * 100.0,
             difference.baseline_share * 100.0
         ));
+        ui.label(format!(
+            "Counts: {} active / {} baseline ({} / {} total)",
+            difference.active_count,
+            difference.baseline_count,
+            difference.active_total,
+            difference.baseline_total
+        ));
+        ui.label(format!(
+            "Support context: {:.3}% (presentation aid, not significance)",
+            difference.support_share * 100.0
+        ));
         let direction = match difference.direction {
             DifferenceDirection::MoreCommonInActive => "More common in active",
             DifferenceDirection::LessCommonInActive => "Less common in active",
