@@ -3,6 +3,8 @@
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::U64Range;
 use rawscope_data::TimelineEventRecord;
+use rawscope_gpu::DeviceGeneration;
+use std::sync::Arc;
 
 use crate::density_render_pipeline::{
     create_density_render_bind_group, create_density_render_bind_group_layout,
@@ -11,7 +13,7 @@ use crate::density_render_pipeline::{
 use crate::gpu_timeline_density::{
     dispatch_timeline_density, GpuTimelineDensityError, TimelineDensityComputeConfig,
 };
-use crate::{DensityEncoding, PlotRectPx};
+use crate::{DensityEncoding, PaletteGpuResources, PlotRectPx};
 
 const RENDER_SHADER_SOURCE: &str = include_str!("shaders/timeline_density_render.wgsl");
 const TIMELINE_DENSITY_RENDER_PARAMS_SIZE_BYTES: u64 =
@@ -67,6 +69,7 @@ pub struct TimelineDensityRenderer {
     bind_group: wgpu::BindGroup,
     params_buffer: wgpu::Buffer,
     stats: TimelineDensityRenderStats,
+    palette: Arc<PaletteGpuResources>,
 }
 
 impl TimelineDensityRenderer {
@@ -80,6 +83,24 @@ impl TimelineDensityRenderer {
         surface_format: wgpu::TextureFormat,
         events: &[TimelineEventRecord],
         config: TimelineDensityRendererConfig,
+    ) -> Result<Self, GpuTimelineDensityError> {
+        Self::new_with_palette(
+            device,
+            queue,
+            surface_format,
+            events,
+            config,
+            Arc::new(PaletteGpuResources::new(device, queue, DeviceGeneration(0))),
+        )
+    }
+
+    pub fn new_with_palette(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        surface_format: wgpu::TextureFormat,
+        events: &[TimelineEventRecord],
+        config: TimelineDensityRendererConfig,
+        palette: Arc<PaletteGpuResources>,
     ) -> Result<Self, GpuTimelineDensityError> {
         let compute_config = TimelineDensityComputeConfig {
             time_range: config.time_range,
@@ -126,6 +147,7 @@ impl TimelineDensityRenderer {
             &bind_group_layout,
             &compute_output.count_buffer,
             &params_buffer,
+            &palette,
         );
         let pipeline = create_density_render_pipeline(
             device,
@@ -149,6 +171,7 @@ impl TimelineDensityRenderer {
                 grid_height: config.grid_height,
                 max_bin_count,
             },
+            palette,
         })
     }
 
@@ -189,6 +212,7 @@ impl TimelineDensityRenderer {
             &self.bind_group_layout,
             &compute_output.count_buffer,
             &self.params_buffer,
+            &self.palette,
         );
         self.stats = TimelineDensityRenderStats {
             event_count: events.len(),

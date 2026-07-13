@@ -2,6 +2,8 @@
 
 use std::{error::Error, fmt};
 
+use crate::visual_field::{ContinuousPalette, ContinuousPaletteLut};
+
 pub use rawscope_analysis::inspection::DifferenceInspection;
 
 pub const DIFFERENCE_FIXED_POINT_SCALE: u32 = 1_000_000_000;
@@ -39,10 +41,13 @@ pub enum DifferencePalette {
 }
 
 impl DifferencePalette {
-    pub const fn legend_rgb(self) -> [[u8; 3]; 3] {
-        match self {
-            Self::TealNeutralCoral => [[24, 144, 153], [36, 42, 48], [232, 112, 96]],
-        }
+    pub fn legend_rgb(self) -> [[u8; 3]; 3] {
+        let lut = match self {
+            Self::TealNeutralCoral => {
+                ContinuousPaletteLut::new(ContinuousPalette::CohortDifference)
+            }
+        };
+        [0.0, 0.5, 1.0].map(|intensity| lut.sample_srgb8(intensity))
     }
 }
 

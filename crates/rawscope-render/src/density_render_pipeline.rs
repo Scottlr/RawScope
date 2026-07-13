@@ -2,6 +2,8 @@
 
 use std::num::NonZeroU64;
 
+use crate::PaletteGpuResources;
+
 const MIN_DENSITY_COUNT_BINDING_BYTES: u64 = 4;
 
 pub(crate) fn create_density_render_bind_group_layout(
@@ -32,6 +34,8 @@ pub(crate) fn create_density_render_bind_group_layout(
                 },
                 count: None,
             },
+            texture_layout_entry(2),
+            sampler_layout_entry(3),
         ],
     })
 }
@@ -42,6 +46,7 @@ pub(crate) fn create_density_render_bind_group(
     layout: &wgpu::BindGroupLayout,
     count_buffer: &wgpu::Buffer,
     params_buffer: &wgpu::Buffer,
+    palette: &PaletteGpuResources,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some(label),
@@ -55,8 +60,38 @@ pub(crate) fn create_density_render_bind_group(
                 binding: 1,
                 resource: params_buffer.as_entire_binding(),
             },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(palette.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::Sampler(palette.sampler()),
+            },
         ],
     })
+}
+
+fn texture_layout_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    }
+}
+
+fn sampler_layout_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        count: None,
+    }
 }
 
 pub(crate) fn create_density_render_pipeline(

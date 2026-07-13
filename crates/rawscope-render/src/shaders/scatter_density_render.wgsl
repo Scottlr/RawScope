@@ -54,6 +54,12 @@ var<storage, read> max_counts: array<u32>;
 @group(0) @binding(3)
 var<storage, read> previous_counts: array<u32>;
 
+@group(0) @binding(4)
+var palette_lut: texture_2d<f32>;
+
+@group(0) @binding(5)
+var palette_sampler: sampler;
+
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var positions = array<vec2<f32>, 3>(
@@ -101,41 +107,13 @@ fn density_intensity_value(count: f32, max_count: u32, transform_id: u32) -> f32
     return clamp(count_scale / max_count_scale, 0.0, 1.0);
 }
 
-fn palette_colour(
-    intensity: f32,
-    background: vec3<f32>,
-    low_density: vec3<f32>,
-    mid_density: vec3<f32>,
-    high_density: vec3<f32>,
-) -> vec3<f32> {
-    if intensity <= 0.0 {
-        return background;
-    }
-
-    let low_to_mid = smoothstep(0.0, 0.65, intensity);
-    let mid_to_high = smoothstep(0.45, 1.0, intensity);
-    let cool_colour = mix(low_density, mid_density, low_to_mid);
-    return mix(cool_colour, high_density, mid_to_high);
-}
-
 fn density_colour(intensity: f32, palette_id: u32) -> vec3<f32> {
-    if palette_id == 1u {
-        return palette_colour(
-            intensity,
-            vec3<f32>(0.012, 0.015, 0.030),
-            vec3<f32>(0.05, 0.16, 0.30),
-            vec3<f32>(0.16, 0.46, 0.78),
-            vec3<f32>(1.0, 0.58, 0.20),
-        );
-    }
-
-    return palette_colour(
-        intensity,
-        vec3<f32>(0.015, 0.025, 0.035),
-        vec3<f32>(0.02, 0.19, 0.28),
-        vec3<f32>(0.08, 0.55, 0.58),
-        vec3<f32>(1.0, 0.74, 0.30),
-    );
+    return textureSampleLevel(
+        palette_lut,
+        palette_sampler,
+        vec2<f32>(clamp(intensity, 0.0, 1.0), (f32(palette_id) + 0.5) / 3.0),
+        0.0,
+    ).rgb;
 }
 
 fn clamped_bin_count(bin: vec2<i32>, previous: bool) -> f32 {

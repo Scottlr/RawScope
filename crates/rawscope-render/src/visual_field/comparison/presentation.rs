@@ -37,6 +37,7 @@ pub(super) fn render(
             .count_buffer(renderer.active.active_count_buffer_index()),
         &renderer.max_abs_buffer,
         &renderer.params_buffer,
+        Some(&renderer.palette),
         "RawScope Difference Render Bind Group",
     );
     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

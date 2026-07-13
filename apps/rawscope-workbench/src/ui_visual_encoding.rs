@@ -3,8 +3,9 @@
 use egui::{Align, Color32, Layout, Rect, RichText, Sense, Ui};
 use rawscope_data::ScatterProjection;
 use rawscope_render::{
-    ComparisonFieldRenderStats, DensityEncoding, DensityPalette, DensityTransform, PointRevealMode,
-    PointRevealStats, ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
+    ComparisonFieldRenderStats, ContinuousPalette, ContinuousPaletteLut, DensityEncoding,
+    DensityPalette, DensityTransform, PointRevealMode, PointRevealStats, ReliefFieldConfig,
+    ScatterDensityMode, ScatterDensityPresentation,
 };
 
 use crate::{
@@ -423,7 +424,7 @@ fn draw_density_legend(ui: &mut Ui, encoding: &DensityEncodingUiState) {
 }
 
 fn density_palette_colors(palette: DensityPalette) -> [Color32; 4] {
-    palette
+    ContinuousPaletteLut::new(ContinuousPalette::from_density_palette(palette))
         .legend_rgb()
         .map(|[red, green, blue]| Color32::from_rgb(red, green, blue))
 }

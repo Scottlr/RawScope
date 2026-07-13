@@ -60,12 +60,13 @@ impl WorkbenchApp {
             let viewport = TimelineViewport::new(dataset.time_range, dataset.lane_count);
             let renderer_config =
                 timeline_renderer_config(viewport, self.timeline.density_encoding);
-            let timeline_density_renderer = TimelineDensityRenderer::new(
+            let timeline_density_renderer = TimelineDensityRenderer::new_with_palette(
                 gpu.device(),
                 gpu.queue(),
                 gpu.surface_format(),
                 &dataset.events,
                 renderer_config,
+                self.palette_gpu_resources(gpu),
             )?;
             let render_stats = timeline_density_renderer.stats();
             info!(
@@ -120,12 +121,13 @@ impl WorkbenchApp {
         ));
         let viewport = TimelineViewport::new(dataset.time_range, dataset.lane_count);
         let renderer_config = timeline_renderer_config(viewport, self.timeline.density_encoding);
-        let timeline_density_renderer = TimelineDensityRenderer::new(
+        let timeline_density_renderer = TimelineDensityRenderer::new_with_palette(
             gpu.device(),
             gpu.queue(),
             gpu.surface_format(),
             &dataset.events,
             renderer_config,
+            self.palette_gpu_resources(gpu),
         )?;
         let render_stats = timeline_density_renderer.stats();
 

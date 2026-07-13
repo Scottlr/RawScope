@@ -52,14 +52,6 @@ impl DensityPalette {
             Self::TimelineSequential => "timeline sequential",
         }
     }
-
-    /// Legend swatches that mirror the current WGSL palette stops.
-    pub fn legend_rgb(self) -> [[u8; 3]; 4] {
-        match self {
-            Self::ScatterSequential => [[4, 6, 9], [5, 48, 71], [20, 140, 148], [255, 189, 77]],
-            Self::TimelineSequential => [[3, 4, 8], [13, 41, 77], [41, 117, 199], [255, 148, 51]],
-        }
-    }
 }
 
 /// Scope used to normalize transformed bin counts.

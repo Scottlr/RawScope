@@ -5,6 +5,8 @@ use std::{error::Error, fmt};
 use rawscope_core::GridSize;
 use rawscope_data::ResourceReservation;
 
+use super::palette::PALETTE_LUT_BYTES;
+
 /// Fixed bind/pipeline bookkeeping included in every visual-field estimate.
 ///
 /// This is deliberately a small policy overhead, not a claim about a specific
@@ -24,6 +26,8 @@ pub struct VisualFieldResourceOptions {
     pub readback: bool,
     /// Fixed bind-group/pipeline bookkeeping overhead.
     pub bind_pipeline_bytes: u64,
+    /// One shared continuous palette LUT for the device generation.
+    pub palette_lut_bytes: u64,
 }
 
 impl Default for VisualFieldResourceOptions {
@@ -34,6 +38,7 @@ impl Default for VisualFieldResourceOptions {
             transition_fields: 1,
             readback: true,
             bind_pipeline_bytes: DEFAULT_BIND_PIPELINE_BYTES,
+            palette_lut_bytes: PALETTE_LUT_BYTES,
         }
     }
 }
@@ -113,6 +118,7 @@ impl VisualFieldResourceEstimate {
         };
         let staging_bytes = readback_bytes
             .checked_add(options.bind_pipeline_bytes)
+            .and_then(|bytes| bytes.checked_add(options.palette_lut_bytes))
             .ok_or(VisualFieldResourceEstimateError::ArithmeticOverflow)?;
 
         Ok(Self {
@@ -203,11 +209,17 @@ pub fn estimate_visual_field_resources(
 pub fn aggregate_visual_field_resources(
     estimates: impl IntoIterator<Item = VisualFieldResourceEstimate>,
 ) -> Result<VisualFieldResourceEstimate, VisualFieldResourceEstimateError> {
-    estimates
-        .into_iter()
-        .try_fold(VisualFieldResourceEstimate::default(), |total, estimate| {
-            total.checked_add(estimate)
-        })
+    let mut total = VisualFieldResourceEstimate::default();
+    let mut palette_counted = false;
+    for mut estimate in estimates {
+        let includes_shared_palette = estimate.staging_bytes >= PALETTE_LUT_BYTES;
+        if palette_counted && includes_shared_palette {
+            estimate.staging_bytes -= PALETTE_LUT_BYTES;
+        }
+        palette_counted |= includes_shared_palette;
+        total = total.checked_add(estimate)?;
+    }
+    Ok(total)
 }
 
 fn checked_mul(left: u64, right: u64) -> Result<u64, VisualFieldResourceEstimateError> {
@@ -235,6 +247,7 @@ mod tests {
                 transition_fields: 2,
                 readback: true,
                 bind_pipeline_bytes: 128,
+                palette_lut_bytes: 0,
             },
         )
         .unwrap();
@@ -249,6 +262,7 @@ mod tests {
             grid,
             VisualFieldResourceOptions {
                 bind_pipeline_bytes: u64::MAX,
+                palette_lut_bytes: 0,
                 ..VisualFieldResourceOptions::default()
             },
         );
@@ -260,5 +274,12 @@ mod tests {
         let aggregate = aggregate_visual_field_resources([estimate, estimate]).unwrap();
         assert_eq!(aggregate.count_field_bytes, 512);
         assert_eq!(aggregate.to_resource_reservation().unwrap().ram_bytes, 0);
+
+        let shared_lut = VisualFieldResourceEstimate::for_grid(GridSize::new(8, 4)).unwrap();
+        let shared_total = aggregate_visual_field_resources([shared_lut, shared_lut]).unwrap();
+        assert_eq!(
+            shared_total.total_bytes().unwrap(),
+            shared_lut.total_bytes().unwrap() * 2 - PALETTE_LUT_BYTES
+        );
     }
 }

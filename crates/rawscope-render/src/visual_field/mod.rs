@@ -4,6 +4,7 @@ mod dataset_resources;
 mod exact_field;
 mod generation;
 mod gpu;
+mod palette;
 mod point_pack;
 mod reprojection;
 mod resolution;
@@ -30,6 +31,10 @@ pub use comparison::{ComparisonFieldRenderStats, ComparisonFieldRenderer};
 pub use density_presentation::relief_normal_from_samples;
 pub use density_presentation::{
     DensityPresentation, DensityPresentationConfig, DensityPresentationRenderStats,
+};
+pub use palette::{
+    CategoricalPalette, CategoryPaletteEntries, ContinuousPalette, ContinuousPaletteLut,
+    PaletteGpuResources, CONTINUOUS_PALETTE_ROW_COUNT, PALETTE_LUT_BYTES, PALETTE_LUT_SIZE,
 };
 pub use point_pack::{
     pack_visual_points, GpuQuantization, GpuQuantizationDisclosure, PackedVisualPoint,
