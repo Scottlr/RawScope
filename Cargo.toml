@@ -11,6 +11,7 @@ members = [
     "crates/rawscope-adapters",
     "apps/rawscope-workbench",
     "showcases/support",
+    "showcases/lichess",
     "showcases/nab",
     "showcases/nasa",
     "showcases/smd",

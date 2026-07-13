@@ -15,7 +15,7 @@ pub struct PreparedAdapterSession {
     bundle_dir: PathBuf,
     dataset_path: PathBuf,
     manifest_path: PathBuf,
-    row_count: usize,
+    row_count: Option<usize>,
 }
 
 impl PreparedAdapterSession {
@@ -25,7 +25,7 @@ impl PreparedAdapterSession {
     /// manifest have been completely materialized.
     pub fn from_manifest(
         manifest_path: impl AsRef<Path>,
-        row_count: usize,
+        row_count: Option<usize>,
     ) -> Result<Self, SessionManifestError> {
         let session = load_session_manifest(manifest_path)?;
         let bundle_dir = session
@@ -60,9 +60,9 @@ impl PreparedAdapterSession {
         &self.manifest_path
     }
 
-    /// Number of source rows materialized by the adapter.
+    /// Number of source rows materialized by the adapter, when the adapter knows it.
     #[must_use]
-    pub const fn row_count(&self) -> usize {
+    pub const fn row_count(&self) -> Option<usize> {
         self.row_count
     }
 

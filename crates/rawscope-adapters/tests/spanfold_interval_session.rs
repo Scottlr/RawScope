@@ -149,7 +149,7 @@ fn spanfold_adapter_prepares_a_session_consumed_by_the_rawscope_loader() {
     )
     .expect("adapter should prepare a complete session");
 
-    assert_eq!(prepared.row_count(), 5);
+    assert_eq!(prepared.row_count(), Some(5));
     let session = load_session_manifest(prepared.manifest_path())
         .expect("prepared manifest should satisfy session v1");
     assert_eq!(

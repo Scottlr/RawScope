@@ -5,18 +5,20 @@ temporal datasets. Each showcase will eventually acquire upstream data,
 transform it into local RawScope sessions, use Spanfold for temporal comparison,
 and launch the native workbench.
 
-The current crates are structure only. They do not download data, parse dataset
-files, run analysis, or render results.
+The Lichess showcase is an executable external-API integration over a prepared
+local CSV. The temporal-dataset crates remain structure only: they do not yet
+download data, parse dataset files, run analysis, or render results.
 
 | Showcase | Dataset | Current state |
 | --- | --- | --- |
+| `rawscope-showcase-lichess` | Prepared Lichess games CSV | Prepares and launches a profiled session through `rawscope-adapters` |
 | `rawscope-showcase-nab` | Numenta Anomaly Benchmark (NAB) | Metadata and CLI scaffold |
 | `rawscope-showcase-nasa` | NASA SMAP/MSL telemetry | Metadata and CLI scaffold |
 | `rawscope-showcase-smd` | Server Machine Dataset (SMD) | Metadata and CLI scaffold |
 
-Every binary exposes `info`, `fetch`, `transform`, `analyse`, `visualise`, and
-`run`. Only `info` is enabled. The other commands fail explicitly until dataset
-acquisition is deliberately implemented.
+The Lichess binary exposes `prepare` and `run`; see its README for the required
+schema. Each temporal scaffold exposes `info`, `fetch`, `transform`, `analyse`,
+`visualise`, and `run`. Only `info` is enabled for those scaffolds.
 
 Each `dataset.toml` is reviewable acquisition metadata, not an active fetch
 configuration. The scaffold deliberately has no TOML parser or network client.

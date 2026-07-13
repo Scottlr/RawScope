@@ -1,0 +1,11 @@
+[package]
+name = "rawscope-showcase-lichess"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "External-API RawScope integration for a prepared Lichess games CSV"
+
+[dependencies]
+rawscope = { package = "rawscope-adapters", path = "../../crates/rawscope-adapters" }

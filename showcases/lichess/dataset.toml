@@ -1,0 +1,17 @@
+id = "lichess"
+name = "Lichess games"
+license_name = "Depends on the user-supplied source; verify before use"
+status = "local prepared CSV required; no downloads performed"
+
+required_columns = [
+    "created_at",
+    "white_rating",
+    "black_rating",
+    "winner",
+    "game_id",
+]
+
+rawscope_profile = "lichess-games"
+scatter_x = "white_rating"
+scatter_y = "black_rating"
+evidence_key = "game_id"

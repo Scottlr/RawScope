@@ -2666,6 +2666,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rawscope-showcase-lichess"
+version = "0.1.0"
+dependencies = [
+ "rawscope-adapters",
+]
+
+[[package]]
 name = "rawscope-showcase-nab"
 version = "0.1.0"
 dependencies = [

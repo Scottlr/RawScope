@@ -121,7 +121,8 @@ fn prepare_session_bundle(
     }
 
     let manifest_path = destination.join(SPANFOLD_SESSION_MANIFEST_FILE_NAME);
-    PreparedAdapterSession::from_manifest(manifest_path, dataset.rows().len()).map_err(Into::into)
+    PreparedAdapterSession::from_manifest(manifest_path, Some(dataset.rows().len()))
+        .map_err(Into::into)
 }
 
 fn write_staged_bundle(

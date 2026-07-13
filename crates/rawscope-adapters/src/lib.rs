@@ -6,8 +6,10 @@
 
 use std::path::Path;
 
+mod local_csv;
 mod prepared_session;
 
+pub use local_csv::{LocalCsvSession, LocalCsvSessionError};
 pub use prepared_session::PreparedAdapterSession;
 pub use rawscope_session::{SessionManifestError, WorkbenchLaunchError, WorkbenchLauncher};
 
