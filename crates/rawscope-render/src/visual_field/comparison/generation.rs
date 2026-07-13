@@ -49,6 +49,13 @@ pub struct ComparisonCompatibility {
 }
 
 impl ComparisonCompatibility {
+    pub fn new(
+        baseline: &VisualFieldGeneration,
+        active: &VisualFieldGeneration,
+    ) -> Result<Self, ComparisonCompatibilityError> {
+        Self::try_new(baseline, active)
+    }
+
     pub fn try_new(
         baseline: &VisualFieldGeneration,
         active: &VisualFieldGeneration,
@@ -182,6 +189,26 @@ pub struct ComparisonFieldGeneration {
 }
 
 impl ComparisonFieldGeneration {
+    pub fn new(
+        baseline: Arc<VisualFieldGeneration>,
+        active: Arc<VisualFieldGeneration>,
+        baseline_total: u64,
+        active_total: u64,
+        shared_density_max_count: u32,
+        max_abs_delta: f64,
+        max_support_share: f64,
+    ) -> Result<Self, ComparisonCompatibilityError> {
+        Self::try_new(
+            baseline,
+            active,
+            baseline_total,
+            active_total,
+            shared_density_max_count,
+            max_abs_delta,
+            max_support_share,
+        )
+    }
+
     pub fn try_new(
         baseline: Arc<VisualFieldGeneration>,
         active: Arc<VisualFieldGeneration>,
