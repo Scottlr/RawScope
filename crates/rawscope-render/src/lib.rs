@@ -192,16 +192,21 @@ pub use visual_field::{
     DEFAULT_MAX_EXACT_BINS, DEFAULT_TARGET_PHYSICAL_PIXELS_PER_BIN,
 };
 pub use visual_field::{
-    pack_visual_points, relief_normal_from_samples, GpuQuantization, GpuQuantizationDisclosure,
-    PackedVisualPoint, VisualFieldPoint, VisualPackingError,
+    comparison_inspection, derive_comparison_marginals, sample_split_fields,
+    shared_density_maximum, transition_decision, ComparisonCompatibility,
+    ComparisonCompatibilityError, ComparisonFieldGeneration, ComparisonFieldRenderStats,
+    ComparisonFieldRenderer, ComparisonFieldSemantics, ComparisonMarginalError,
+    ComparisonMarginals, ComparisonPresentation, ComparisonPresentationError, ComparisonSplit,
+    DensityPresentation, DensityPresentationConfig, DensityPresentationRenderStats,
+    DensityReadbackPolicy, MassContourUniforms, ResidentExactField, ResidentExactFieldUpdate,
+    SupportAwareDifference, TransitionDecision, VisualFieldDatasetGpuResources,
+    VisualFieldGeneration, VisualFieldQuality, VisualFieldReprojection,
+    VisualFieldReprojectionError, VisualFieldTransitionField, VisualFieldViewGeneration,
+    VisualFieldViewGenerationCounter, VisualFieldViewport,
 };
 pub use visual_field::{
-    transition_decision, ComparisonFieldRenderStats, ComparisonFieldRenderer, DensityPresentation,
-    DensityPresentationConfig, DensityPresentationRenderStats, DensityReadbackPolicy,
-    MassContourUniforms, ResidentExactField, ResidentExactFieldUpdate, TransitionDecision,
-    VisualFieldDatasetGpuResources, VisualFieldGeneration, VisualFieldQuality,
-    VisualFieldReprojection, VisualFieldReprojectionError, VisualFieldTransitionField,
-    VisualFieldViewGeneration, VisualFieldViewGenerationCounter, VisualFieldViewport,
+    pack_visual_points, relief_normal_from_samples, GpuQuantization, GpuQuantizationDisclosure,
+    PackedVisualPoint, VisualFieldPoint, VisualPackingError,
 };
 pub use visual_field::{
     visual_field_density, visual_field_density_masked, visual_field_density_on_device,
