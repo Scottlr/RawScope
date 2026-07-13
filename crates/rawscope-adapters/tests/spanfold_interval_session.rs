@@ -10,11 +10,12 @@ use rawscope_adapters::{
     spanfold::{
         SpanfoldAdapterError, SpanfoldIntervalFamily, SpanfoldIntervalTransform,
         RAWSCOPE_SCATTER_DURATION_COLUMN, RAWSCOPE_SCATTER_START_COLUMN,
+        RAWSCOPE_TIMELINE_FAMILY_COLUMN, RAWSCOPE_TIMELINE_START_COLUMN,
         SPANFOLD_EVIDENCE_KEY_COLUMN,
     },
     SessionAdapter,
 };
-use rawscope_data::load_scatter_dataset;
+use rawscope_data::{load_scatter_dataset, load_timeline_dataset};
 use rawscope_session::{load_session_manifest, ResolvedSessionView};
 use spanfold::{
     ComparisonFinality, ComparisonResult, TemporalAxis, TemporalPoint, WindowHistoryFixture,
@@ -185,6 +186,39 @@ fn spanfold_adapter_prepares_a_session_consumed_by_the_rawscope_loader() {
         .source_rows
         .column_names()
         .any(|name| name == "target_record_ids"));
+}
+
+#[test]
+fn spanfold_adapter_prepares_a_family_timeline_with_interval_evidence() {
+    let fixture = Fixture::new();
+    let bundle_dir = fixture.root.join("timeline-session");
+    let prepared = SpanfoldIntervalTransform::default()
+        .prepare_timeline_session(&comparison_result(), &bundle_dir)
+        .expect("adapter should prepare a timeline session");
+
+    let session = load_session_manifest(prepared.manifest_path())
+        .expect("prepared timeline manifest should satisfy session v1");
+    assert!(matches!(
+        session.view,
+        ResolvedSessionView::Timeline { time, lane, profile: None }
+            if time == RAWSCOPE_TIMELINE_START_COLUMN
+                && lane == RAWSCOPE_TIMELINE_FAMILY_COLUMN
+    ));
+
+    let loaded = load_timeline_dataset(
+        prepared.dataset_path(),
+        RAWSCOPE_TIMELINE_START_COLUMN,
+        RAWSCOPE_TIMELINE_FAMILY_COLUMN,
+        None,
+    )
+    .expect("RawScope's real timeline loader should consume the prepared dataset");
+    assert_eq!(loaded.events.len(), 5);
+    assert_eq!(loaded.source_rows.rows.len(), 5);
+    assert!(loaded.source_rows.column_names().any(|name| name == "end"));
+    assert!(loaded
+        .source_rows
+        .column_names()
+        .any(|name| name == "duration"));
 }
 
 #[test]

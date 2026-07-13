@@ -35,6 +35,12 @@ pub const RAWSCOPE_SCATTER_START_COLUMN: &str = "start_offset";
 /// Default scatter y column containing exact interval duration magnitudes.
 pub const RAWSCOPE_SCATTER_DURATION_COLUMN: &str = "duration";
 
+/// Timeline event-time column containing the exact interval start.
+pub const RAWSCOPE_TIMELINE_START_COLUMN: &str = "start";
+
+/// Timeline lane column grouping starts by SpanFold comparison family.
+pub const RAWSCOPE_TIMELINE_FAMILY_COLUMN: &str = "row_family";
+
 static NEXT_STAGING_ID: AtomicUsize = AtomicUsize::new(0);
 
 impl SessionAdapter for SpanfoldIntervalTransform {
@@ -59,6 +65,16 @@ impl SpanfoldIntervalTransform {
     ) -> Result<PreparedAdapterSession, SpanfoldAdapterError> {
         <Self as SessionAdapter>::prepare_session(self, result, destination.as_ref())
     }
+
+    /// Transforms a comparison into an interval-start timeline grouped by row family.
+    pub fn prepare_timeline_session(
+        &self,
+        result: &ComparisonResult,
+        destination: impl AsRef<Path>,
+    ) -> Result<PreparedAdapterSession, SpanfoldAdapterError> {
+        self.transform(result)?
+            .prepare_timeline_session(destination)
+    }
 }
 
 impl SpanfoldIntervalDataset {
@@ -67,13 +83,40 @@ impl SpanfoldIntervalDataset {
         self,
         destination: impl AsRef<Path>,
     ) -> Result<PreparedAdapterSession, SpanfoldAdapterError> {
-        prepare_session_bundle(&self, destination.as_ref())
+        prepare_session_bundle(
+            &self,
+            destination.as_ref(),
+            SpanfoldSessionView::DurationScatter,
+        )
     }
+
+    /// Atomically materializes this table as an interval-start timeline.
+    ///
+    /// Each interval remains one evidence-preserving source row. RawScope plots
+    /// its start as an event and groups events by comparison family; `end` and
+    /// `duration` remain available in the retained row evidence.
+    pub fn prepare_timeline_session(
+        self,
+        destination: impl AsRef<Path>,
+    ) -> Result<PreparedAdapterSession, SpanfoldAdapterError> {
+        prepare_session_bundle(
+            &self,
+            destination.as_ref(),
+            SpanfoldSessionView::StartTimeline,
+        )
+    }
+}
+
+#[derive(Clone, Copy)]
+enum SpanfoldSessionView {
+    DurationScatter,
+    StartTimeline,
 }
 
 fn prepare_session_bundle(
     dataset: &SpanfoldIntervalDataset,
     destination: &Path,
+    view: SpanfoldSessionView,
 ) -> Result<PreparedAdapterSession, SpanfoldAdapterError> {
     if destination.exists() {
         return Err(SpanfoldAdapterError::DestinationExists {
@@ -107,7 +150,7 @@ fn prepare_session_bundle(
         source,
     })?;
 
-    let preparation = write_staged_bundle(dataset, &staging_dir)
+    let preparation = write_staged_bundle(dataset, &staging_dir, view)
         .and_then(|_| publish_staged_bundle(&staging_dir, destination));
     if let Err(error) = preparation {
         return match fs::remove_dir_all(&staging_dir) {
@@ -128,6 +171,7 @@ fn prepare_session_bundle(
 fn write_staged_bundle(
     dataset: &SpanfoldIntervalDataset,
     staging_dir: &Path,
+    view: SpanfoldSessionView,
 ) -> Result<(), SpanfoldAdapterError> {
     let dataset_path = staging_dir.join(SPANFOLD_DATASET_FILE_NAME);
     let mut writer = csv::WriterBuilder::new()
@@ -161,10 +205,17 @@ fn write_staged_bundle(
             limit: None,
             evidence_key: Some(SPANFOLD_EVIDENCE_KEY_COLUMN.to_string()),
         },
-        view: SessionViewV1::Scatter {
-            x: RAWSCOPE_SCATTER_START_COLUMN.to_string(),
-            y: RAWSCOPE_SCATTER_DURATION_COLUMN.to_string(),
-            profile: None,
+        view: match view {
+            SpanfoldSessionView::DurationScatter => SessionViewV1::Scatter {
+                x: RAWSCOPE_SCATTER_START_COLUMN.to_string(),
+                y: RAWSCOPE_SCATTER_DURATION_COLUMN.to_string(),
+                profile: None,
+            },
+            SpanfoldSessionView::StartTimeline => SessionViewV1::Timeline {
+                time: RAWSCOPE_TIMELINE_START_COLUMN.to_string(),
+                lane: RAWSCOPE_TIMELINE_FAMILY_COLUMN.to_string(),
+                profile: None,
+            },
         },
     };
     let manifest_json = session_manifest_json(&manifest)?;

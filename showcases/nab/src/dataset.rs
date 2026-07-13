@@ -18,17 +18,24 @@ const NAB_MANIFEST: DatasetManifest = DatasetManifest {
     ),
     revision: Some("ea702d75cc2258d9d7dd35ca8e5e2539d71f3140"),
     checksum: Some("sha256:15ba994384730cb5a2e6818f17ded1430b40d92eb7a08e5b1a48a445c8c350f6"),
-    planned_inputs: &["realTraffic/speed_7578.csv (1,127 traffic-speed observations)"],
+    planned_inputs: &[
+        "realTraffic/speed_7578.csv (1,127 traffic-speed observations)",
+        "labels/combined_windows.json (four ground-truth windows for this series)",
+        "results/numenta/realTraffic/numenta_speed_7578.csv",
+        "config/thresholds.json (published Numenta standard threshold)",
+    ],
     planned_uses: &[
         "traffic-speed value shape over source order",
-        "timestamp-preserving row evidence",
-        "small external-API integration example",
+        "Numenta standard-threshold windows compared with NAB ground truth through SpanFold",
+        "interval duration aggregation and interval-start family timeline",
+        "timestamp- and SpanFold-identity-preserving row evidence",
     ],
     caveats: &[
         "This minimal showcase uses one series, not the full NAB benchmark corpus.",
-        "It visualises source values and does not calculate NAB detector scores.",
+        "It uses NAB's published standard Numenta threshold but does not calculate or claim NAB benchmark scores.",
+        "The timeline plots interval starts; full interval end and duration remain in row evidence.",
     ],
-    implementation_status: "fetch, transform, visualise, and run are implemented for the smallest NAB series",
+    implementation_status: "fetch, transform, SpanFold analysis, multi-view visualisation, and run are implemented for the smallest NAB series",
 };
 
 pub struct NabShowcase;
@@ -57,6 +64,7 @@ impl DatasetShowcase for NabShowcase {
     fn run(&self, context: &ShowcaseContext) -> Result<()> {
         fetch::fetch(context)?;
         transform::transform(context)?;
+        analyse::analyse(context)?;
         visualise::visualise(context)
     }
 }

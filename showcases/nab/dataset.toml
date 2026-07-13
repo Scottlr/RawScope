@@ -11,17 +11,22 @@ checksum = "sha256:15ba994384730cb5a2e6818f17ded1430b40d92eb7a08e5b1a48a445c8c35
 
 planned_inputs = [
     "realTraffic/speed_7578.csv (25,928 bytes; 1,127 observations)",
+    "labels/combined_windows.json (four ground-truth windows for this series)",
+    "results/numenta/realTraffic/numenta_speed_7578.csv",
+    "config/thresholds.json (published Numenta standard threshold)",
 ]
 
 planned_uses = [
     "traffic-speed value shape over source order",
-    "timestamp-preserving row evidence",
-    "small external-API integration example",
+    "SpanFold comparison of published detector windows and ground truth",
+    "interval-duration scatter and interval-start family timeline",
+    "timestamp- and SpanFold-identity-preserving row evidence",
 ]
 
 caveats = [
     "This minimal showcase uses one series, not the full NAB benchmark corpus.",
-    "It visualises source values and does not calculate NAB detector scores.",
+    "It uses NAB's published standard Numenta threshold but does not calculate or claim NAB benchmark scores.",
+    "The timeline plots interval starts; full interval end and duration remain in row evidence.",
 ]
 
-status = "fetch, transform, visualise, and run implemented"
+status = "fetch, transform, SpanFold analysis, multi-view visualise, and run implemented"

@@ -9,9 +9,10 @@ description = "Minimal pinned Numenta Anomaly Benchmark integration for RawScope
 
 [dependencies]
 csv = "1.4.0"
-rawscope = { package = "rawscope-adapters", path = "../../crates/rawscope-adapters" }
+rawscope = { package = "rawscope-adapters", path = "../../crates/rawscope-adapters", features = ["spanfold"] }
 rawscope-showcase-support = { path = "../support" }
 serde = { workspace = true }
+serde_json = { workspace = true }
 sha2 = "0.10.9"
 spanfold = "=0.1.1"
 ureq = { version = "3.3.0", default-features = false, features = ["rustls"] }
