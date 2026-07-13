@@ -71,6 +71,7 @@ RawScope currently supports:
 - Optional `--limit <rows>` for local CSV and Parquet loading.
 - A production-oriented egui workbench shell with explicit interaction modes, profile-aware filters, visual encoding controls, concise dataset identity, comparison context, and selected-row drilldown.
 - A local Python bridge for file paths plus pandas, Polars, and PyArrow inputs; dataframe inputs are materialized into temporary or persistent Parquet session bundles.
+- A feature-gated Rust adapter boundary, with SpanFold interval comparisons transformed into evidence-preserving CSV session bundles.
 - A CPU-backed missingness heatmap slice for local datasets with retained source rows, including cell selection and row-id summaries for missing values.
 
 These features are still correctness-first and visual-proof oriented. RawScope does not currently claim benchmarked performance, full GPU row-id preservation, in-app screenshot capture, or production report workflows.
@@ -172,11 +173,66 @@ dataset into the artifact.
 
 Screenshot capture note: in-app screenshot capture is intentionally deferred because native surface readback and image encoding would add a dedicated capture path or extra dependencies. For Milestone 3D, OS-level screenshots are the recommended path.
 
+## Rust Adapters
+
+`rawscope-adapters` is the Rust boundary for preparing source-specific data and
+opening it in the native workbench. Integrations are feature-gated sibling
+modules, so consumers only compile the source SDKs they select. SpanFold is the
+first integration:
+
+```powershell
+cargo install --git https://github.com/Scottlr/RawScope rawscope-workbench --locked
+```
+
+```toml
+[dependencies]
+rawscope-adapters = { git = "https://github.com/Scottlr/RawScope", branch = "main", features = ["spanfold"] }
+spanfold = "=0.1.1"
+```
+
+```rust,no_run
+use rawscope_adapters::spanfold::SpanfoldIntervalTransform;
+use spanfold::ComparisonResult;
+
+fn inspect(result: &ComparisonResult) -> Result<(), Box<dyn std::error::Error>> {
+    let prepared = SpanfoldIntervalTransform::default()
+        .prepare_session(result, "provider-qa.rawscope")?;
+    let mut workbench = prepared.launch()?;
+    workbench.wait()?;
+    Ok(())
+}
+```
+
+The default transform materializes SpanFold overlap, residual, missing, and
+coverage ranges into one CSV-backed session. `all_intervals()` additionally
+includes gap, symmetric-difference, and containment ranges. Exact `start`,
+`end`, and source record ids stay in the retained rows; the default scatter
+uses `start_offset` relative to the earliest range and `duration` so large
+timestamp magnitudes do not unnecessarily consume visual-coordinate precision.
+Point-oriented lead/lag and as-of results are not coerced into intervals.
+Every materialized row preserves SpanFold's authoritative row id, finality,
+finality reason, metadata version, and superseded-row id. Coverage rows expose
+their row-level ratio as `segment_coverage_ratio`; aggregate coverage remains
+owned by SpanFold's `coverage_summaries`.
+
+Prepared sessions use the same session-v1 contract as the Python bridge. The
+shared `PreparedAdapterSession` can launch `rawscope-workbench` from `PATH`, or
+from the `RAWSCOPE_WORKBENCH` environment variable. The adapter crate is still
+workspace-private (`publish = false`) but can be consumed as a Git dependency;
+downstream applications should pin a commit instead of tracking `main`. Its
+public boundary is separated now so additional integrations can be added and the
+crate can be published deliberately later. Enabling the SpanFold feature
+currently requires Rust 1.95 because SpanFold 0.1.1 declares that toolchain
+baseline.
+
 ## Current Crate Responsibilities
 
 - `docs/`: project intent, architecture, goals, MVP milestones, and agent guidance
 - `crates/rawscope-core`: shared foundational types, row ids, ranges, grid sizes, row-count density grids, and count-only density grids
 - `crates/rawscope-data`: deterministic synthetic point/event data, local CSV and Parquet loading, dataset metadata, schema summaries, retained source rows, and chunk metadata for current views
+- `crates/rawscope-session-contracts`: versioned session manifest wire types and bounded schema constants
+- `crates/rawscope-session`: local session validation/resolution plus native workbench launching
+- `crates/rawscope-adapters`: feature-gated source transforms that prepare normal RawScope sessions; currently SpanFold interval comparisons
 - `crates/rawscope-gpu`: WGPU surface context, headless compute context, adapter metadata, resize handling, and clear-frame status
 - `crates/rawscope-render`: CPU density references, GPU scatter/timeline density compute, simple density renderers, viewport math, brush geometry, selection summaries/evidence, and evidence artifact formatting
 - `apps/rawscope-workbench`: native `winit` workbench that coordinates startup args, WGPU context, active view state, input handling, brushing, title-bar summaries, and evidence export

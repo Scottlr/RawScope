@@ -2570,6 +2570,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rawscope-adapters"
+version = "0.1.0"
+dependencies = [
+ "csv",
+ "rawscope-data",
+ "rawscope-session",
+ "serde",
+ "serde_json",
+ "spanfold",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "rawscope-analysis"
 version = "0.1.0"
 dependencies = [
@@ -2651,6 +2664,37 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "rawscope-showcase-nab"
+version = "0.1.0"
+dependencies = [
+ "rawscope-adapters",
+ "rawscope-showcase-support",
+ "spanfold",
+]
+
+[[package]]
+name = "rawscope-showcase-nasa"
+version = "0.1.0"
+dependencies = [
+ "rawscope-adapters",
+ "rawscope-showcase-support",
+ "spanfold",
+]
+
+[[package]]
+name = "rawscope-showcase-smd"
+version = "0.1.0"
+dependencies = [
+ "rawscope-adapters",
+ "rawscope-showcase-support",
+ "spanfold",
+]
+
+[[package]]
+name = "rawscope-showcase-support"
+version = "0.1.0"
 
 [[package]]
 name = "rawscope-workbench"
@@ -3079,6 +3123,17 @@ name = "snap"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b6b67fb9a61334225b5b790716f609cd58395f895b3fe8b328786812a40bc3b"
+
+[[package]]
+name = "spanfold"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f7a392b3665c37bb3c56553158f500271329ffae25d7aece7bd460c5a7fe44a"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "spirv"
