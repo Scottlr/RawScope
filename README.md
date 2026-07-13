@@ -98,11 +98,16 @@ Run a local scatter-density view with explicit numeric columns from `.csv` or `.
 cargo run -p rawscope-workbench -- --demo scatter --input data.parquet --x latency_ms --y payload_size
 ```
 
-Run a profile-aware Lichess view when the compatible dataset is available locally:
+The executable Lichess showcase demonstrates how an external Rust crate uses
+RawScope's consumer API to prepare and launch a profile-aware session:
 
 ```powershell
-cargo run --release -p rawscope-workbench -- --demo scatter --input games_profile.csv --profile lichess-games
+cargo install --path apps/rawscope-workbench
+cargo run --release -p rawscope-showcase-lichess -- run C:\data\games_profile.csv
 ```
+
+See [`showcases/lichess`](showcases/lichess) for the input schema, preparation-only
+command, and integration code.
 
 Run a local timeline-density view with an integer timestamp and string or integer lane column from `.csv` or `.parquet` input:
 

@@ -14,7 +14,6 @@ spanfold = [
     "dep:serde",
     "dep:serde_json",
     "dep:spanfold",
-    "dep:thiserror",
 ]
 
 [dependencies]
@@ -23,7 +22,7 @@ rawscope-session = { version = "0.1.0", path = "../rawscope-session" }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 spanfold = { version = "=0.1.1", optional = true }
-thiserror = { version = "2.0.18", optional = true }
+thiserror = "2.0.18"
 
 [dev-dependencies]
 rawscope-data = { version = "0.1.0", path = "../rawscope-data" }
