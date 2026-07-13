@@ -198,7 +198,7 @@ and never recreate a temporary compatibility implementation.
 | T015 | [ ] | Add Session V2 And Python Generic Field Bindings | Add additive numeric-pair/time-value/category bindings to Rust session contracts and the dependency-free Python bridge while preserving v1 output for legacy views. |  | T001, T014 | [`tasks/T015.md`](tasks/T015.md) |
 | T016 | [ ] | Add Visual Field Evidence V1 And Report Integration | Add a generic evidence artifact for projection and mode semantics, preserve every legacy artifact, and route report bundles through canonical evidence ownership. |  | T005, T006, T009, T010, T011, T013, T014, T015 | [`tasks/T016.md`](tasks/T016.md) |
 | T017 | [ ] | Benchmark And Curate The Generic Visual Field Workbench | Exercise the complete generic workflow on neutral deterministic schemas, extend real product-path benchmarks/resource reports, and remove remaining duplicate or oversized owners. |  | T003, T005, T006, T009, T010, T011, T013, T014, T015, T016 | [`tasks/T017.md`](tasks/T017.md) |
-| T018 | [ ] | Add A Rounded Professional Analytical Workbench Shell | Rework the existing egui shell into a simpler Blender/modern-Visual-Studio-inspired workspace with responsive tool/property regions while preserving one authoritative GPU plot rectangle. |  | T003 | [`tasks/T018.md`](tasks/T018.md) |
+| T018 | [x] | Add A Rounded Professional Analytical Workbench Shell | Rework the existing egui shell into a simpler Blender/modern-Visual-Studio-inspired workspace with responsive tool/property regions while preserving one authoritative GPU plot rectangle. |  | T003 | [`tasks/T018.md`](tasks/T018.md) |
 
 Task details live in separate files under `tasks/`, named by task ID.
 

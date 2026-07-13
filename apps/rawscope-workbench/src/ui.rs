@@ -327,6 +327,10 @@ impl WorkbenchApp {
             self.shell.toggle_inspector();
             self.request_redraw();
         }
+        if actions.toggle_activity_rail {
+            self.shell.toggle_activity_rail();
+            self.request_redraw();
+        }
         if actions.copy_dataset_path {
             if let Some(path) =
                 self.workbench_state

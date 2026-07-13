@@ -1,42 +1,30 @@
 //! Workbench chrome, panel layout, and inspector visibility.
 
-use egui::{Align, Layout, Panel, RichText, ScrollArea, Ui};
+use egui::{Align, Layout, Panel, RichText, Ui};
 
 use crate::{
     app_interaction_mode::WorkbenchInteractionMode,
     ui::{ActiveView, ExportStatus, WorkbenchSurface, WorkbenchUiState},
-    ui_comparison::show_selection_comparison,
     ui_controls::UiActions,
-    ui_dataset_diff::{show_dataset_diff_summary, show_dataset_diff_view},
+    ui_dataset_diff::show_dataset_diff_view,
     ui_dataset_identity::format_row_count,
-    ui_drilldown::show_selection_drilldown,
-    ui_filters::show_filters,
     ui_inspection_tooltip::show_inspection_tooltip,
-    ui_missingness::{show_missingness_summary, show_missingness_view},
-    ui_pinned_inspection::show_pinned_scatter_inspection,
+    ui_missingness::show_missingness_view,
     ui_plot_axes::{show_plot_axes, show_scatter_marginals_in_gutters},
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
+    ui_shell_layout::{project_responsive_shell, ShellRegionState},
     ui_theme::{
-        export_status_color, icon_command_button, icon_segment_button, navigation_button,
-        right_rail_frame, status_badge, status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
+        export_status_color, icon_command_button, icon_segment_button, status_badge,
+        status_bar_frame, toolbar_frame, ACCENT, TEXT_MUTED,
     },
-    ui_view_context::show_view_context,
-    ui_visual_encoding::show_density_encoding,
+    ui_workspace_inspector::show_workspace_inspector,
 };
 
-const INSPECTOR_EXPANDED_WIDTH: f32 = 380.0;
-const INSPECTOR_MINIMUM_WIDTH: f32 = 340.0;
-const INSPECTOR_COLLAPSED_WIDTH: f32 = 60.0;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum InspectorState {
-    Collapsed,
-    #[default]
-    Expanded,
-}
+pub(crate) use crate::ui_shell_layout::ShellRegionState as InspectorState;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct WorkbenchShellState {
+    pub(crate) activity_rail: ShellRegionState,
     pub(crate) inspector: InspectorState,
 }
 
@@ -45,6 +33,13 @@ impl WorkbenchShellState {
         self.inspector = match self.inspector {
             InspectorState::Collapsed => InspectorState::Expanded,
             InspectorState::Expanded => InspectorState::Collapsed,
+        };
+    }
+
+    pub(crate) fn toggle_activity_rail(&mut self) {
+        self.activity_rail = match self.activity_rail {
+            ShellRegionState::Collapsed => ShellRegionState::Expanded,
+            ShellRegionState::Expanded => ShellRegionState::Collapsed,
         };
     }
 }
@@ -63,16 +58,28 @@ pub(crate) fn show_workbench_ui(
     surface_height_px: u32,
 ) -> WorkbenchUiOutput {
     let mut actions = UiActions::default();
+    let available_size = ui.available_rect_before_wrap().size();
+    let responsive = project_responsive_shell(
+        available_size.x,
+        available_size.y,
+        state.shell.activity_rail,
+        state.shell.inspector,
+    );
 
     Panel::top("workbench_toolbar")
         .frame(toolbar_frame())
         .show(ui, |ui| {
             show_primary_toolbar(ui, state, &mut actions);
             ui.add_space(4.0);
-            show_session_context(ui, state, &mut actions);
+            if responsive.show_secondary_text {
+                show_session_context(ui, state, &mut actions);
+            } else {
+                show_compact_session_context(ui, state, &mut actions);
+            }
         });
 
-    show_inspector_panel(ui, state, &mut actions);
+    crate::ui_activity_rail::show_activity_rail(ui, state, &mut actions, responsive);
+    show_workspace_inspector(ui, state, &mut actions, responsive);
 
     Panel::bottom("workbench_status_bar")
         .frame(status_bar_frame())
@@ -110,6 +117,12 @@ pub(crate) fn show_workbench_ui(
                         state.density_is_refining,
                     );
                 }
+            } else {
+                ui.centered_and_justified(|ui| {
+                    ui.label(
+                        RichText::new("Viewport unavailable at this window size").color(TEXT_MUTED),
+                    );
+                });
             }
             plot_surface
         }
@@ -130,50 +143,18 @@ fn show_primary_toolbar(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiA
     ui.horizontal(|ui| {
         ui.label(RichText::new("RawScope").size(19.0).strong().color(ACCENT));
         ui.add_space(10.0);
-
-        if ui
-            .add_enabled(
-                state.can_switch_to_scatter,
-                navigation_button("Scatter", state.active_view == ActiveView::Scatter),
-            )
-            .clicked()
-        {
-            actions.activate_view = Some(ActiveView::Scatter);
-            actions.activate_surface = Some(WorkbenchSurface::Primary);
-        }
-        if ui
-            .add_enabled(
-                state.can_switch_to_timeline,
-                navigation_button("Timeline", state.active_view == ActiveView::Timeline),
-            )
-            .clicked()
-        {
-            actions.activate_view = Some(ActiveView::Timeline);
-            actions.activate_surface = Some(WorkbenchSurface::Primary);
-        }
-        if ui
-            .add_enabled(
-                state.can_show_missingness,
-                navigation_button(
-                    "Missingness",
-                    state.visible_surface == WorkbenchSurface::Missingness,
-                ),
-            )
-            .clicked()
-        {
-            actions.activate_surface = Some(WorkbenchSurface::Missingness);
-        }
-        if state.can_show_dataset_diff
-            && ui
-                .add(navigation_button(
-                    "Dataset Diff",
-                    state.visible_surface == WorkbenchSurface::DatasetDiff,
-                ))
-                .clicked()
-        {
-            actions.activate_surface = Some(WorkbenchSurface::DatasetDiff);
-        }
-
+        ui.label(
+            RichText::new(match state.visible_surface {
+                WorkbenchSurface::Primary => match state.active_view {
+                    ActiveView::Scatter => "Scatter workspace",
+                    ActiveView::Timeline => "Timeline workspace",
+                },
+                WorkbenchSurface::Missingness => "Missingness workspace",
+                WorkbenchSurface::DatasetDiff => "Dataset diff workspace",
+            })
+            .small()
+            .color(TEXT_MUTED),
+        );
         ui.separator();
         show_interaction_modes(ui, state, actions);
 
@@ -242,87 +223,21 @@ fn show_session_context(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiA
     });
 }
 
-fn show_inspector_panel(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiActions) {
-    let (default_width, minimum_width) = match state.shell.inspector {
-        InspectorState::Expanded => (INSPECTOR_EXPANDED_WIDTH, INSPECTOR_MINIMUM_WIDTH),
-        InspectorState::Collapsed => (INSPECTOR_COLLAPSED_WIDTH, INSPECTOR_COLLAPSED_WIDTH),
-    };
-    let panel_id = match state.shell.inspector {
-        InspectorState::Expanded => "selection_drilldown_panel_expanded",
-        InspectorState::Collapsed => "selection_drilldown_panel_collapsed",
-    };
-    Panel::right(panel_id)
-        .default_size(default_width)
-        .min_size(minimum_width)
-        .max_size(if state.shell.inspector == InspectorState::Collapsed {
-            INSPECTOR_COLLAPSED_WIDTH
-        } else {
-            f32::INFINITY
-        })
-        .resizable(state.shell.inspector == InspectorState::Expanded)
-        .frame(right_rail_frame())
-        .show(ui, |ui| {
-            let (icon, tooltip) = match state.shell.inspector {
-                InspectorState::Expanded => ("panel-right-close", "Collapse inspector"),
-                InspectorState::Collapsed => ("panel-right-open", "Expand inspector"),
-            };
-            if icon_command_button(ui, icon, tooltip, true).clicked() {
-                actions.toggle_inspector = true;
-            }
-            if state.shell.inspector == InspectorState::Expanded {
-                ui.separator();
-                ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| show_right_rail(ui, state, actions));
-            }
-        });
-}
-
-fn show_right_rail(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiActions) {
-    match state.visible_surface {
-        WorkbenchSurface::Missingness => {
-            if show_selection_comparison(ui, state.comparison.as_ref()) {
-                ui.separator();
-            }
-            show_missingness_summary(ui, state.missingness.as_ref());
+fn show_compact_session_context(ui: &mut Ui, state: &WorkbenchUiState, actions: &mut UiActions) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new(state.dataset_identity.visible_label())
+                .small()
+                .strong()
+                .color(TEXT_MUTED),
+        )
+        .on_hover_text(state.dataset_identity.details_label());
+        if state.dataset_identity.full_path.is_some()
+            && icon_command_button(ui, "copy", "Copy dataset path", true).clicked()
+        {
+            actions.copy_dataset_path = true;
         }
-        WorkbenchSurface::DatasetDiff => show_dataset_diff_summary(ui, state.dataset_diff.as_ref()),
-        WorkbenchSurface::Primary => {
-            let density_response = show_density_encoding(ui, state.density_encoding.as_ref());
-            actions.set_density_transform = density_response.set_transform;
-            actions.set_scatter_density_presentation = density_response.set_scatter_presentation;
-            actions.set_point_reveal_mode = density_response.set_point_reveal_mode;
-            actions.set_scatter_projection = density_response.set_scatter_projection;
-            actions.set_scatter_density_mode = density_response.set_scatter_density_mode;
-            actions.set_relief_config = density_response.set_relief_config;
-            if density_response.shown {
-                ui.separator();
-            }
-            actions.filter_action = show_filters(ui, state.scatter_filters.as_ref());
-            if state.scatter_filters.is_some() {
-                ui.separator();
-            }
-            actions.scatter_inspection_action =
-                show_pinned_scatter_inspection(ui, state.scatter_inspection.as_ref());
-            if state
-                .scatter_inspection
-                .as_ref()
-                .is_some_and(|inspection| inspection.pinned.is_some())
-            {
-                ui.separator();
-            }
-            if show_view_context(ui, state.view_context.as_ref()) {
-                ui.separator();
-            }
-            if show_selection_comparison(ui, state.comparison.as_ref()) {
-                ui.separator();
-            }
-            ui.heading("Selected Rows");
-            ui.label(RichText::new(&state.view_label).small().color(TEXT_MUTED));
-            ui.separator();
-            show_selection_drilldown(ui, state.drilldown.as_ref());
-        }
-    }
+    });
 }
 
 fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
@@ -377,10 +292,11 @@ fn show_status_bar(ui: &mut Ui, state: &WorkbenchUiState) {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        InspectorState, WorkbenchShellState, INSPECTOR_COLLAPSED_WIDTH, INSPECTOR_EXPANDED_WIDTH,
-    };
+    use super::{InspectorState, WorkbenchShellState};
+    use crate::app_interaction_mode::WorkbenchInteractionMode;
+    use crate::ui::{ActiveView, WorkbenchSurface};
     use crate::ui_controls::UiActions;
+    use crate::ui_theme::CHROME_METRICS;
 
     #[test]
     fn toggle_inspector_action_preserves_other_ui_actions() {
@@ -403,9 +319,40 @@ mod tests {
     fn collapsed_inspector_returns_wider_plot_surface() {
         let available_width = 1_280.0;
 
-        let expanded_plot_width = available_width - INSPECTOR_EXPANDED_WIDTH;
-        let collapsed_plot_width = available_width - INSPECTOR_COLLAPSED_WIDTH;
+        let expanded_plot_width = available_width - CHROME_METRICS.inspector_width_points;
+        let collapsed_plot_width =
+            available_width - CHROME_METRICS.activity_rail_collapsed_width_points;
 
         assert!(collapsed_plot_width > expanded_plot_width);
+    }
+
+    #[test]
+    fn toggle_activity_rail_action_preserves_user_preference() {
+        let mut shell = WorkbenchShellState::default();
+        assert_eq!(shell.activity_rail, InspectorState::Expanded);
+
+        shell.toggle_activity_rail();
+
+        assert_eq!(shell.activity_rail, InspectorState::Collapsed);
+        assert_eq!(shell.inspector, InspectorState::Expanded);
+    }
+
+    #[test]
+    fn shell_actions_project_to_existing_typed_commands() {
+        let actions = UiActions {
+            activate_view: Some(ActiveView::Timeline),
+            activate_surface: Some(WorkbenchSurface::Primary),
+            set_interaction_mode: Some(WorkbenchInteractionMode::Inspect),
+            toggle_activity_rail: true,
+            ..UiActions::default()
+        };
+
+        assert_eq!(actions.activate_view, Some(ActiveView::Timeline));
+        assert_eq!(actions.activate_surface, Some(WorkbenchSurface::Primary));
+        assert_eq!(
+            actions.set_interaction_mode,
+            Some(WorkbenchInteractionMode::Inspect)
+        );
+        assert!(actions.toggle_activity_rail);
     }
 }
