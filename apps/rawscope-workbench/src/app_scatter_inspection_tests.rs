@@ -70,6 +70,7 @@ fn pinned_evidence_keys_use_only_bounded_source_rows() {
     let mut app = WorkbenchApp::default();
     app.workbench_state.active_session = Some(ActiveSessionContext {
         manifest_path: PathBuf::from("analysis.rawscope.json"),
+        schema_version: rawscope_session::RAWSCOPE_SESSION_SCHEMA_VERSION,
         display_name: None,
         data_format: rawscope_session::SessionDataFormat::Csv,
         evidence_key: Some(DatasetEvidenceKey {

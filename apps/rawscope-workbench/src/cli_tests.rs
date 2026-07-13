@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use rawscope_data::DatasetProfileId;
 
-use super::{WorkbenchArgs, WorkbenchInput};
+use super::{VisualFieldProjectionKind, WorkbenchArgs, WorkbenchInput};
 use crate::demo::DemoMode;
 
 #[test]
@@ -37,6 +37,8 @@ fn parses_scatter_input_binding() {
             path: PathBuf::from("data.csv"),
             x_column: Some("latency_ms".to_string()),
             y_column: Some("payload_size".to_string()),
+            category_column: None,
+            projection: VisualFieldProjectionKind::NumericPair,
             limit: Some(100),
             profile: None,
         })
@@ -140,6 +142,8 @@ fn parses_profile_without_explicit_scatter_columns() {
             path: PathBuf::from("games.csv"),
             x_column: None,
             y_column: None,
+            category_column: None,
+            projection: VisualFieldProjectionKind::NumericPair,
             limit: None,
             profile: Some(DatasetProfileId::LichessGames),
         })

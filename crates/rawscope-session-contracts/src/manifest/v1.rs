@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub const RAWSCOPE_SESSION_ARTIFACT_KIND: &str = "rawscope.session";
 pub const RAWSCOPE_SESSION_SCHEMA_VERSION: u32 = 1;
+pub const RAWSCOPE_SESSION_SCHEMA_VERSION_V2: u32 = 2;
 pub const MAX_SESSION_MANIFEST_BYTES: u64 = 1_048_576;
 pub const MAX_SESSION_ROW_LIMIT: u64 = 10_000_000_000;
 
@@ -22,6 +23,10 @@ pub enum SessionManifestError {
     UnsupportedSchemaVersion {
         expected: u32,
         actual: u32,
+    },
+    UnsupportedSchemaVersions {
+        actual: u32,
+        supported: &'static [u32],
     },
     InvalidField {
         field: &'static str,
@@ -64,6 +69,10 @@ impl fmt::Display for SessionManifestError {
             Self::UnsupportedSchemaVersion { expected, actual } => write!(
                 f,
                 "unsupported RawScope session schema version {actual}; expected {expected}"
+            ),
+            Self::UnsupportedSchemaVersions { actual, supported } => write!(
+                f,
+                "unsupported RawScope session schema version {actual}; supported versions: {supported:?}"
             ),
             Self::InvalidField { field, reason } => {
                 write!(f, "invalid session field '{field}': {reason}")
@@ -265,7 +274,7 @@ fn validate_view(
     Ok(())
 }
 
-fn invalid(field: &'static str, reason: &str) -> SessionManifestError {
+pub(crate) fn invalid(field: &'static str, reason: &str) -> SessionManifestError {
     SessionManifestError::InvalidField {
         field,
         reason: reason.to_string(),
@@ -280,6 +289,7 @@ pub fn parse_session_manifest(
     manifest.validate_shape()?;
     Ok(manifest)
 }
+
 pub fn session_manifest_json(
     manifest: &RawScopeSessionManifestV1,
 ) -> Result<String, SessionManifestError> {

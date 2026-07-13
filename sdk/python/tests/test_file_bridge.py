@@ -84,6 +84,72 @@ class FileBridgeTests(unittest.TestCase):
             )
             self.assertNotIn("profile", payload["view"])
 
+    def test_scatter_category_emits_session_v2_source_and_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dataset = root / "events.csv"
+            dataset.write_text("x,y,segment\n1,2,a\n", encoding="utf-8")
+
+            session = rawscope.prepare(
+                dataset,
+                view=rawscope.ScatterView("x", "y", category="segment"),
+                destination=root / "session",
+            )
+            payload = json.loads(session.manifest_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(payload["schema_version"], 2)
+            self.assertEqual(payload["source"]["path"], str(dataset.resolve()))
+            self.assertEqual(
+                payload["view"],
+                {"kind": "numeric_pair", "x": "x", "y": "y", "category": "segment"},
+            )
+            self.assertNotIn("dataset", payload)
+
+    def test_time_value_manifest_emits_v2_and_explicit_legacy_request_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dataset = root / "events.csv"
+            dataset.write_text("observed_at,value\n1,2.5\n", encoding="utf-8")
+
+            session = rawscope.prepare(
+                dataset,
+                view=rawscope.TimeValueView("observed_at", "value"),
+                destination=root / "session",
+            )
+            payload = json.loads(session.manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["schema_version"], 2)
+            self.assertEqual(
+                payload["view"],
+                {"kind": "time_value", "time": "observed_at", "value": "value"},
+            )
+
+            with self.assertRaisesRegex(rawscope.InvalidSession, "requires session schema v2"):
+                rawscope.prepare(
+                    dataset,
+                    view=rawscope.TimeValueView("observed_at", "value"),
+                    destination=root / "legacy",
+                    schema_version=1,
+                )
+
+    def test_explicit_v2_timeline_keeps_legacy_constructor(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dataset = root / "events.csv"
+            dataset.write_text("created_at,winner\n1,white\n", encoding="utf-8")
+
+            session = rawscope.prepare(
+                dataset,
+                view=rawscope.TimelineView("created_at", "winner"),
+                destination=root / "session",
+                schema_version=2,
+            )
+            payload = json.loads(session.manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["schema_version"], 2)
+            self.assertEqual(
+                payload["view"],
+                {"kind": "timeline_lane", "time": "created_at", "lane": "winner"},
+            )
+
     def test_prepare_references_existing_file_without_copying(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

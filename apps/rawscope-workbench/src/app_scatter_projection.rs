@@ -2,15 +2,19 @@
 
 use std::error::Error;
 
-use rawscope_analysis::visual_field::{VisualFieldMapping, VisualFieldProjection};
+use rawscope_analysis::visual_field::VisualFieldMapping;
 use rawscope_data::{
     dataset_profile, project_scatter_points, DatasetSchema, LoadedColumnKind, ProjectedScatterData,
     ScatterPointRecord, ScatterProjection, ScatterProjectionLabels, ScatterProjectionSpec,
     StoreColumnKind, VisualFieldCatalog,
 };
 use rawscope_render::ScatterViewport;
+use rawscope_session::ResolvedSessionView;
 
-use crate::{app::WorkbenchApp, controllers::visual_field::VisualFieldController};
+use crate::{
+    app::WorkbenchApp, app_session::resolve_visual_field_mapping, cli::VisualFieldProjectionKind,
+    controllers::visual_field::VisualFieldController,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ScatterProjectionState {
@@ -45,7 +49,13 @@ impl Default for ScatterProjectionState {
 }
 
 impl WorkbenchApp {
-    pub(crate) fn initialize_scatter_projection(&mut self, x_column: &str, y_column: &str) {
+    pub(crate) fn initialize_scatter_projection(
+        &mut self,
+        x_column: &str,
+        y_column: &str,
+        requested_category: Option<&str>,
+        projection_kind: VisualFieldProjectionKind,
+    ) {
         let available = self
             .scatter_filters
             .catalog
@@ -81,7 +91,15 @@ impl WorkbenchApp {
             .scatter_filters
             .catalog
             .as_ref()
-            .and_then(|catalog| visual_mapping_from_catalog(catalog, x_column, y_column))
+            .and_then(|catalog| {
+                visual_mapping_from_catalog(
+                    catalog,
+                    x_column,
+                    y_column,
+                    requested_category,
+                    projection_kind,
+                )
+            })
             .map(VisualFieldController::new);
     }
 
@@ -190,34 +208,56 @@ fn visual_mapping_from_catalog(
     catalog: &VisualFieldCatalog,
     x_column: &str,
     y_column: &str,
+    requested_category: Option<&str>,
+    projection_kind: VisualFieldProjectionKind,
 ) -> Option<VisualFieldMapping> {
     let schema = DatasetSchema::try_new(catalog.fields.iter().filter_map(|field| {
-        loaded_kind_to_store_kind(field.source_kind).map(|kind| (field.column_name.clone(), kind))
+        loaded_kind_to_store_kind(field.source_kind).map(|kind| {
+            let kind = if projection_kind == VisualFieldProjectionKind::TimeValue
+                && field.column_name == x_column
+            {
+                StoreColumnKind::TimestampMicros
+            } else {
+                kind
+            };
+            (field.column_name.clone(), kind)
+        })
     }))
     .ok()?;
-    let projection = VisualFieldProjection::NumericPair {
-        x: schema.column_id(x_column)?,
-        y: schema.column_id(y_column)?,
-    };
-    let category = catalog
-        .fields
-        .iter()
-        .filter(|field| field.column_name != x_column && field.column_name != y_column)
-        .filter_map(|field| {
-            loaded_kind_to_store_kind(field.source_kind).and_then(|kind| {
-                matches!(
-                    kind,
-                    StoreColumnKind::Utf8
-                        | StoreColumnKind::Bool
-                        | StoreColumnKind::I64
-                        | StoreColumnKind::U64
-                )
-                .then(|| schema.column_id(&field.column_name))
-                .flatten()
+    let category = requested_category.map(str::to_owned).or_else(|| {
+        catalog
+            .fields
+            .iter()
+            .filter(|field| field.column_name != x_column && field.column_name != y_column)
+            .filter_map(|field| {
+                loaded_kind_to_store_kind(field.source_kind).and_then(|kind| {
+                    matches!(
+                        kind,
+                        StoreColumnKind::Utf8
+                            | StoreColumnKind::Bool
+                            | StoreColumnKind::I64
+                            | StoreColumnKind::U64
+                    )
+                    .then(|| field.column_name.clone())
+                })
             })
-        })
-        .next();
-    VisualFieldMapping::try_new(&schema, projection, category).ok()
+            .next()
+    });
+    let view = match projection_kind {
+        VisualFieldProjectionKind::NumericPair => ResolvedSessionView::NumericPair {
+            x: x_column.to_string(),
+            y: y_column.to_string(),
+            category,
+            profile: None,
+        },
+        VisualFieldProjectionKind::TimeValue => ResolvedSessionView::TimeValue {
+            time: x_column.to_string(),
+            value: y_column.to_string(),
+            category,
+            profile: None,
+        },
+    };
+    resolve_visual_field_mapping(&view, &schema).ok()
 }
 
 fn loaded_kind_to_store_kind(kind: LoadedColumnKind) -> Option<StoreColumnKind> {
@@ -261,7 +301,12 @@ mod tests {
             included_count: 2,
             excluded_count: 0,
         });
-        app.initialize_scatter_projection("white_rating", "black_rating");
+        app.initialize_scatter_projection(
+            "white_rating",
+            "black_rating",
+            None,
+            VisualFieldProjectionKind::NumericPair,
+        );
 
         app.set_scatter_projection(ScatterProjection::MeanDifference)
             .unwrap();

@@ -26,11 +26,26 @@ file. It does not upload or copy the source. Set `RAWSCOPE_WORKBENCH` or pass
 
 `process.wait()` waits for the native application. The bridge uses an argument
 list rather than a shell command string and accepts only local CSV/Parquet paths
-in session schema v1.
+in session schema v1 or the additive generic session schema v2.
+
+Generic bindings opt into v2 without renderer-specific classes:
+
+```python
+process = rawscope.view(
+    "events.parquet",
+    view=rawscope.TimeValueView("observed_at", "value", category="segment"),
+    destination="rawscope-session",
+)
+```
+
+`ScatterView(..., category="segment")` also emits v2. Use
+`schema_version=2` to explicitly write a v2 lane manifest; legacy
+representable calls continue to emit the original v1 bytes by default.
 
 Set `RAWSCOPE_WORKBENCH` to the native executable path when
 `rawscope-workbench` is not on `PATH`. The session manifest contract is
-[`session-v1.md`](../../docs/schemas/session-v1.md); new scatter selection
+[`session-v1.md`](../../docs/schemas/session-v1.md) and
+[`session-v2.md`](../../docs/schemas/session-v2.md); new scatter selection
 reports use the additive
 [`scatter-selection-evidence-v5.md`](../../docs/schemas/scatter-selection-evidence-v5.md)
 contract while v1-v4 exports remain available for compatibility.

@@ -13,7 +13,7 @@ class RawScopeError(Exception):
 
 
 class InvalidSession(RawScopeError):
-    """Raised when a session value cannot be represented by schema v1."""
+    """Raised when a session value cannot be represented by a session schema."""
 
 
 class UnsupportedDataSource(RawScopeError):
@@ -57,6 +57,7 @@ class ScatterView:
     x: str
     y: str
     profile: str | None = None
+    category: str | None = None
 
     def __post_init__(self) -> None:
         require_text(self.x, "view.x")
@@ -65,6 +66,10 @@ class ScatterView:
             raise InvalidSession("view.x and view.y must name different columns")
         if self.profile is not None:
             require_text(self.profile, "view.profile")
+        if self.category is not None:
+            require_text(self.category, "view.category")
+            if self.category in {self.x, self.y}:
+                raise InvalidSession("view.category must differ from both axes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +87,28 @@ class TimelineView:
             raise InvalidSession("view.time and view.lane must name different columns")
         if self.profile is not None:
             require_text(self.profile, "view.profile")
+
+
+@dataclass(frozen=True, slots=True)
+class TimeValueView:
+    """Generic time/value binding using a timestamp and numeric value column."""
+
+    time: str
+    value: str
+    profile: str | None = None
+    category: str | None = None
+
+    def __post_init__(self) -> None:
+        require_text(self.time, "view.time")
+        require_text(self.value, "view.value")
+        if self.time == self.value:
+            raise InvalidSession("view.time and view.value must name different columns")
+        if self.profile is not None:
+            require_text(self.profile, "view.profile")
+        if self.category is not None:
+            require_text(self.category, "view.category")
+            if self.category in {self.time, self.value}:
+                raise InvalidSession("view.category must differ from time and value")
 
 
 @dataclass(frozen=True, slots=True)

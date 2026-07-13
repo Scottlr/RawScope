@@ -20,7 +20,7 @@ impl WorkbenchApp {
                 .as_ref()
                 .map(|session| SessionEvidenceContextV5 {
                     session_artifact_kind: rawscope_session::RAWSCOPE_SESSION_ARTIFACT_KIND,
-                    session_schema_version: rawscope_session::RAWSCOPE_SESSION_SCHEMA_VERSION,
+                    session_schema_version: session.schema_version,
                     display_name: session.display_name.clone(),
                     data_format: match session.data_format {
                         rawscope_session::SessionDataFormat::Csv => {
