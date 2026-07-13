@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+pub(crate) use rawscope_render::VisualFieldIntent;
+
 pub(crate) const MAX_LIVE_GPU_TICKETS: usize = 4;
 pub(crate) const MAX_PREVIEW_GPU_TICKETS: usize = MAX_LIVE_GPU_TICKETS - 1;
 
@@ -13,6 +15,7 @@ pub(crate) struct ViewportIntent {
     pub(crate) dataset_generation: u64,
     pub(crate) cohort_generation: u64,
     pub(crate) viewport_generation: u64,
+    pub(crate) visual_field: Option<VisualFieldIntent>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,12 +174,48 @@ impl RenderCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rawscope_analysis::visual_field::{
+        VisualFieldMapping, VisualFieldMode, VisualFieldProjection,
+    };
+    use rawscope_core::{ColumnId, GridSize};
+    use rawscope_data::{DatasetGenerationCounter, DatasetSchema, StoreColumnKind};
+    use rawscope_render::{ResolutionDecisionReason, VisualResolutionDecision};
 
     fn viewport(generation: u64) -> ViewportIntent {
         ViewportIntent {
             dataset_generation: 1,
             cohort_generation: 2,
             viewport_generation: generation,
+            visual_field: None,
+        }
+    }
+
+    fn visual_intent(mode: VisualFieldMode) -> VisualFieldIntent {
+        let schema =
+            DatasetSchema::try_new([("x", StoreColumnKind::F64), ("y", StoreColumnKind::F64)])
+                .unwrap();
+        let mapping = VisualFieldMapping::try_new(
+            &schema,
+            VisualFieldProjection::NumericPair {
+                x: ColumnId::new(0),
+                y: ColumnId::new(1),
+            },
+            None,
+        )
+        .unwrap();
+        let mut datasets = DatasetGenerationCounter::default();
+        let mut cohorts = rawscope_analysis::cohort::CohortGenerationCounter::default();
+        VisualFieldIntent {
+            dataset_generation: datasets.mint(),
+            cohort_generation: cohorts.mint(),
+            view_generation: rawscope_render::VisualFieldViewGenerationCounter::default().mint(),
+            mapping,
+            mode,
+            resolution: VisualResolutionDecision {
+                grid: GridSize::new(32, 16),
+                quality: rawscope_render::VisualFieldQuality::Exact,
+                reason: ResolutionDecisionReason::PlotMatched,
+            },
         }
     }
 
@@ -289,5 +328,54 @@ mod tests {
             coordinator.complete(ticket_id, Err(())),
             Completion::Unknown
         );
+    }
+
+    #[test]
+    fn stale_mode_completion_cannot_publish() {
+        let mut coordinator = RenderCoordinator::default();
+        let mut requested_viewport = viewport(1);
+        requested_viewport.visual_field = Some(visual_intent(VisualFieldMode::Density));
+        let ticket_id = match coordinator.request_exact(ExactSettleIntent {
+            viewport: requested_viewport,
+            request_generation: 1,
+        }) {
+            SubmitDecision::Accepted(ticket_id) => ticket_id,
+            _ => panic!("exact request should be accepted"),
+        };
+
+        let mut stale_viewport = requested_viewport;
+        stale_viewport.visual_field = Some(visual_intent(VisualFieldMode::CohortComparison));
+        assert_eq!(
+            coordinator.complete(
+                ticket_id,
+                Ok(SettledRenderGeneration {
+                    viewport: stale_viewport,
+                    request_generation: 1,
+                }),
+            ),
+            Completion::IgnoredStale
+        );
+        assert_eq!(coordinator.active(), None);
+    }
+
+    #[test]
+    fn pointer_intents_coalesce_without_resource_growth() {
+        let mut coordinator = RenderCoordinator::default();
+        for generation in 0..MAX_PREVIEW_GPU_TICKETS as u64 {
+            let mut request = viewport(generation);
+            request.visual_field = Some(visual_intent(VisualFieldMode::Density));
+            assert!(matches!(
+                coordinator.request_preview(request),
+                SubmitDecision::Accepted(_)
+            ));
+        }
+        let mut latest = viewport(99);
+        latest.visual_field = Some(visual_intent(VisualFieldMode::DensityRidges));
+        assert_eq!(
+            coordinator.request_preview(latest),
+            SubmitDecision::Coalesced
+        );
+        assert_eq!(coordinator.live_count(), MAX_PREVIEW_GPU_TICKETS);
+        assert_eq!(coordinator.take_latest_preview(), Some(latest));
     }
 }

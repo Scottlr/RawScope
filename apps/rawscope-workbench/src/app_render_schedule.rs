@@ -7,10 +7,8 @@ use rawscope_render::{
     VisualFieldViewport,
 };
 
-use crate::app::{WorkbenchApp, DEMO_GRID_HEIGHT, DEMO_GRID_WIDTH};
+use crate::app::{default_scatter_grid, WorkbenchApp};
 
-const PREVIEW_GRID_WIDTH: u32 = 128;
-const PREVIEW_GRID_HEIGHT: u32 = 128;
 const PREVIEW_REBIN_INTERVAL_MS: u64 = 50;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,16 +22,12 @@ pub(crate) enum InteractiveDensityPhase {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct InteractiveDensityConfig {
-    pub(crate) preview_grid_width: u32,
-    pub(crate) preview_grid_height: u32,
     pub(crate) preview_rebin_interval_ms: u64,
 }
 
 impl Default for InteractiveDensityConfig {
     fn default() -> Self {
         Self {
-            preview_grid_width: PREVIEW_GRID_WIDTH,
-            preview_grid_height: PREVIEW_GRID_HEIGHT,
             preview_rebin_interval_ms: PREVIEW_REBIN_INTERVAL_MS,
         }
     }
@@ -97,9 +91,6 @@ impl RenderSchedule {
     }
     pub(crate) fn is_refining(&self) -> bool {
         self.phase != InteractiveDensityPhase::SettledExact
-    }
-    pub(crate) fn config(&self) -> InteractiveDensityConfig {
-        self.config
     }
     pub(crate) fn elapsed_ms(&self) -> u64 {
         self.started_at
@@ -272,23 +263,22 @@ impl WorkbenchApp {
             return Ok(());
         };
         let viewport = self.scatter.viewport.expect("viewport checked above");
-        let schedule_config = self.render_schedule.config();
-        let (grid_width, grid_height, quality, readback, revision) = match work {
+        let (quality, readback, revision) = match work {
             ScheduledDensityWork::Preview { revision } => (
-                schedule_config.preview_grid_width,
-                schedule_config.preview_grid_height,
                 VisualFieldQuality::Preview,
                 DensityReadbackPolicy::None,
                 revision,
             ),
             ScheduledDensityWork::Exact { revision } => (
-                DEMO_GRID_WIDTH,
-                DEMO_GRID_HEIGHT,
                 VisualFieldQuality::Exact,
                 DensityReadbackPolicy::None,
                 revision,
             ),
         };
+        let gpu = self.gpu.as_ref().expect("GPU checked above");
+        let grid = default_scatter_grid(gpu, quality)?;
+        let grid_width = grid.width();
+        let grid_height = grid.height();
         let config = DensityPresentationConfig::new(
             viewport.x_range(),
             viewport.y_range(),

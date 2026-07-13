@@ -290,6 +290,7 @@ mod tests {
                 dataset_generation: dataset.get(),
                 cohort_generation: cohort_generation.get(),
                 viewport_generation: 1,
+                visual_field: None,
             },
             request_generation: 1,
         };

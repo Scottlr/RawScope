@@ -165,6 +165,15 @@ pub use view_summaries::{
     TimelineOverviewSummary, TimelineOverviewWindow,
 };
 pub use visual_field::{
+    aggregate_visual_field_resources, choose_visual_resolution,
+    choose_visual_resolution_for_quality, estimate_visual_field_resources,
+    ResolutionDecisionReason, VisualFieldBudget, VisualFieldIntent, VisualFieldResourceEstimate,
+    VisualFieldResourceEstimateError, VisualFieldResourceOptions, VisualPlotSizePx,
+    VisualResolutionDecision, VisualResolutionError, VisualResolutionPolicy,
+    VisualResolutionPolicyError, VisualResolutionTier, DEFAULT_BIND_PIPELINE_BYTES,
+    DEFAULT_MAX_EXACT_BINS, DEFAULT_TARGET_PHYSICAL_PIXELS_PER_BIN,
+};
+pub use visual_field::{
     pack_visual_points, relief_normal_from_samples, GpuQuantization, GpuQuantizationDisclosure,
     PackedVisualPoint, VisualFieldPoint, VisualPackingError,
 };

@@ -6,6 +6,8 @@ mod generation;
 mod gpu;
 mod point_pack;
 mod reprojection;
+mod resolution;
+mod resource_estimate;
 
 pub mod comparison;
 pub mod density_presentation;
@@ -32,4 +34,14 @@ pub use density_presentation::{
 pub use point_pack::{
     pack_visual_points, GpuQuantization, GpuQuantizationDisclosure, PackedVisualPoint,
     VisualFieldPoint, VisualPackingError,
+};
+pub use resolution::{
+    choose_visual_resolution, choose_visual_resolution_for_quality, ResolutionDecisionReason,
+    VisualFieldBudget, VisualFieldIntent, VisualPlotSizePx, VisualResolutionDecision,
+    VisualResolutionError, VisualResolutionPolicy, VisualResolutionPolicyError,
+    VisualResolutionTier, DEFAULT_MAX_EXACT_BINS, DEFAULT_TARGET_PHYSICAL_PIXELS_PER_BIN,
+};
+pub use resource_estimate::{
+    aggregate_visual_field_resources, estimate_visual_field_resources, VisualFieldResourceEstimate,
+    VisualFieldResourceEstimateError, VisualFieldResourceOptions, DEFAULT_BIND_PIPELINE_BYTES,
 };

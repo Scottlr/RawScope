@@ -5,11 +5,11 @@ use std::error::Error;
 use rawscope_data::{generate_synthetic_points, SyntheticPointConfig};
 use rawscope_render::{
     scatter_marginal_summary, scatter_marginal_summary_masked, DensityPresentationConfig,
-    DensityReadbackPolicy, ResidentExactFieldUpdate, ScatterViewport,
+    DensityReadbackPolicy, ResidentExactFieldUpdate, ScatterViewport, VisualFieldQuality,
 };
 use tracing::error;
 
-use crate::app::{WorkbenchApp, DEMO_GRID_HEIGHT, DEMO_GRID_WIDTH, DEMO_SEED, MARGINAL_BIN_COUNT};
+use crate::app::{default_scatter_grid, WorkbenchApp, DEMO_SEED, MARGINAL_BIN_COUNT};
 use crate::{
     app_scatter_filter::ScatterFilterState, app_scatter_inspection::ScatterInspectionState,
     app_scatter_projection::ScatterProjectionState, demo::PointCountPreset,
@@ -91,12 +91,13 @@ impl WorkbenchApp {
         let Some(scatter_density_renderer) = self.scatter.density_renderer.as_mut() else {
             return Ok(());
         };
+        let exact_grid = default_scatter_grid(gpu, VisualFieldQuality::Exact)?;
 
         let renderer_config = DensityPresentationConfig::new(
             viewport.x_range(),
             viewport.y_range(),
-            DEMO_GRID_WIDTH,
-            DEMO_GRID_HEIGHT,
+            exact_grid.width(),
+            exact_grid.height(),
         )
         .with_encoding(self.scatter.density_encoding)
         .with_presentation(self.scatter.density_presentation)
