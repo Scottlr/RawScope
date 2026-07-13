@@ -1,6 +1,6 @@
 //! Dataset-specific lifecycle boundary shared by showcase binaries.
 
-use crate::{DatasetManifest, Result, ShowcaseContext};
+use crate::{not_implemented, DatasetManifest, Result, ShowcaseContext};
 
 /// Operations implemented independently by each dataset showcase.
 pub trait DatasetShowcase {
@@ -13,4 +13,8 @@ pub trait DatasetShowcase {
     fn analyse(&self, context: &ShowcaseContext) -> Result<()>;
 
     fn visualise(&self, context: &ShowcaseContext) -> Result<()>;
+
+    fn run(&self, _context: &ShowcaseContext) -> Result<()> {
+        Err(not_implemented(self.manifest().id, "run"))
+    }
 }

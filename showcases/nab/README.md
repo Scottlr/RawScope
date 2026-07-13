@@ -1,12 +1,15 @@
 # NAB showcase
 
 The Numenta Anomaly Benchmark contains timestamped real-world and synthetic
-metric series, labelled anomaly windows, and detector result files.
+metric series, labelled anomaly windows, and detector result files. This
+minimal showcase uses `realTraffic/speed_7578.csv`, the smallest data series in
+the pinned NAB tree: 25,928 bytes and 1,127 observations.
 
-RawScope will visualise metric shape, labelled windows, detector windows, and
-row-level evidence. Spanfold will calculate ground-truth/detector overlap,
-residual and missing ranges, lead/lag, detector consensus, and corpus-level
-roll-ups.
+The workflow downloads that source from pinned NAB commit
+`ea702d75cc2258d9d7dd35ca8e5e2539d71f3140`, verifies its SHA-256 digest,
+adds a stable sample index while retaining timestamps as evidence, prepares a
+RawScope session through the external `rawscope` API, and launches the native
+workbench.
 
 Planned workflow:
 
@@ -14,12 +17,25 @@ Planned workflow:
 cargo run -p rawscope-showcase-nab -- info
 cargo run -p rawscope-showcase-nab -- fetch
 cargo run -p rawscope-showcase-nab -- transform
-cargo run -p rawscope-showcase-nab -- analyse
 cargo run -p rawscope-showcase-nab -- visualise
 cargo run -p rawscope-showcase-nab -- run
 ```
 
-Source and attribution are recorded in `dataset.toml`. The current crate is a
-scaffold only: no downloads, transformations, analysis, or rendering have been
-performed. Users must review the upstream repository and dataset licence terms
-at the pinned revision before acquiring or redistributing any data.
+For the complete one-command path on PowerShell, use the included script. It
+builds the local native workbench, sets the launcher path for this process, and
+runs fetch, transform, session preparation, and visualisation:
+
+```powershell
+.\showcases\nab\run.ps1
+```
+
+Alternatively, install or otherwise expose `rawscope-workbench` on `PATH`, then
+run `cargo run --release -p rawscope-showcase-nab -- run` directly.
+
+Downloaded and generated files remain beneath the ignored `.showcase-data/`
+directory. Re-running `fetch` verifies the existing file rather than replacing
+it. `analyse` remains reserved for the future labelled-window/SpanFold workflow;
+this small example visualises source values and does not claim NAB scoring.
+
+Source, licence, attribution, revision, checksum, and scope caveats are recorded
+in `dataset.toml`.
