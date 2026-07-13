@@ -159,6 +159,13 @@ impl WorkbenchApp {
             }
         }
 
+        if self.scatter.pending_settled_context_readback {
+            if let Some(renderer) = self.scatter.density_renderer.as_mut() {
+                renderer.cancel_full_readback();
+            }
+            self.scatter.pending_settled_context_readback = false;
+        }
+
         let upload_result = self
             .gpu
             .as_ref()

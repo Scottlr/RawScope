@@ -1,15 +1,17 @@
 //! Scatter density recomputation and marginal refresh coordination.
 
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use rawscope_data::{generate_synthetic_points, SyntheticPointConfig};
+use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, scatter_marginal_summary_masked, DensityPresentationConfig,
-    DensityReadbackPolicy, ResidentExactFieldUpdate, ScatterViewport, VisualFieldQuality,
+    DensityPresentationConfig, DensityReadbackPolicy, MassContourUniforms,
+    ResidentExactFieldUpdate, ScatterMarginalSummary, ScatterViewport, SettledDensityContext,
+    SummaryBin, VisualFieldCountGrid, VisualFieldGpuError, VisualFieldQuality,
 };
 use tracing::error;
 
-use crate::app::{default_scatter_grid, WorkbenchApp, DEMO_SEED, MARGINAL_BIN_COUNT};
+use crate::app::{default_scatter_grid, WorkbenchApp, DEMO_SEED};
 use crate::{
     app_scatter_filter::ScatterFilterState, app_scatter_inspection::ScatterInspectionState,
     app_scatter_projection::ScatterProjectionState, demo::PointCountPreset,
@@ -81,7 +83,6 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn recompute_density(&mut self) -> Result<(), Box<dyn Error>> {
-        self.refresh_scatter_marginal_summary();
         let Some(gpu) = self.gpu.as_ref() else {
             return Ok(());
         };
@@ -102,14 +103,21 @@ impl WorkbenchApp {
         .with_encoding(self.scatter.density_encoding)
         .with_presentation(self.scatter.density_presentation)
         .with_relief(self.scatter.relief_config);
-        let stats = scatter_density_renderer.update_density(
-            gpu.device(),
-            gpu.queue(),
-            ResidentExactFieldUpdate {
-                config: renderer_config,
-                readback: DensityReadbackPolicy::None,
-            },
-        )?;
+        self.scatter.pending_settled_context_readback = false;
+        let stats = {
+            scatter_density_renderer.cancel_full_readback();
+            let stats = scatter_density_renderer.update_density(
+                gpu.device(),
+                gpu.queue(),
+                ResidentExactFieldUpdate {
+                    config: renderer_config,
+                    readback: DensityReadbackPolicy::None,
+                },
+            )?;
+            scatter_density_renderer.begin_full_readback(gpu.device(), gpu.queue())?;
+            stats
+        };
+        self.scatter.pending_settled_context_readback = true;
         self.scatter.render_stats = Some(stats);
         self.refresh_scatter_difference_density(renderer_config, true)?;
         self.render_schedule.exact_field_settled();
@@ -121,50 +129,77 @@ impl WorkbenchApp {
     }
 
     pub(crate) fn refresh_scatter_marginal_summary(&mut self) {
-        let Some(viewport) = self.scatter.viewport else {
-            self.scatter.marginal_summary = None;
-            return;
-        };
-
-        if let Some(snapshot) = self.scatter_filters.cohort_snapshot.as_ref() {
-            let mask = snapshot.filter_mask();
-            self.scatter.marginal_summary = Some(
-                scatter_marginal_summary_masked(
-                    &self.scatter.points,
-                    &mask,
-                    viewport.x_range(),
-                    viewport.y_range(),
-                    MARGINAL_BIN_COUNT,
-                    MARGINAL_BIN_COUNT,
-                )
-                .expect("cohort snapshot remains aligned with scatter points"),
-            );
-            return;
-        }
-
         self.scatter.marginal_summary = self
-            .scatter_filters
-            .evaluation
+            .scatter
+            .settled_density_context
             .as_ref()
-            .map(|evaluation| {
-                scatter_marginal_summary_masked(
-                    &self.scatter.points,
-                    &evaluation.mask,
-                    viewport.x_range(),
-                    viewport.y_range(),
-                    MARGINAL_BIN_COUNT,
-                    MARGINAL_BIN_COUNT,
-                )
-                .expect("filter evaluation remains aligned with scatter points")
-            })
-            .or_else(|| {
-                Some(scatter_marginal_summary(
-                    &self.scatter.points,
-                    viewport.x_range(),
-                    viewport.y_range(),
-                    MARGINAL_BIN_COUNT,
-                    MARGINAL_BIN_COUNT,
-                ))
-            });
+            .map(|context| scatter_marginal_summary_from_context(context));
     }
+
+    pub(crate) fn queue_scatter_context_readback(
+        &mut self,
+        gpu: &GpuContext,
+    ) -> Result<(), VisualFieldGpuError> {
+        let Some(renderer) = self.scatter.density_renderer.as_mut() else {
+            return Ok(());
+        };
+        renderer.begin_full_readback(gpu.device(), gpu.queue())?;
+        self.scatter.pending_settled_context_readback = true;
+        Ok(())
+    }
+
+    pub(crate) fn publish_scatter_density_context(
+        &mut self,
+        count_grid: VisualFieldCountGrid,
+    ) -> Result<(), Box<dyn Error>> {
+        let generation = self
+            .scatter
+            .density_renderer
+            .as_ref()
+            .ok_or("scatter density renderer disappeared before readback publication")?
+            .view_generation();
+        let counts = Arc::new(count_grid.into_density_count_grid());
+        let context = Arc::new(SettledDensityContext::try_new_with_default_fractions(
+            generation, counts,
+        )?);
+        if let Some(gpu) = self.gpu.as_ref() {
+            if let Some(renderer) = self.scatter.density_renderer.as_mut() {
+                renderer.set_settled_mass_contours(
+                    gpu.queue(),
+                    MassContourUniforms::from_settled_context(&context),
+                );
+            }
+        }
+        self.scatter.marginal_summary = Some(scatter_marginal_summary_from_context(&context));
+        self.scatter.settled_density_context = Some(Arc::clone(&context));
+        self.scatter_inspection.settled_context = Some(context);
+        Ok(())
+    }
+}
+
+fn scatter_marginal_summary_from_context(
+    context: &SettledDensityContext,
+) -> ScatterMarginalSummary {
+    ScatterMarginalSummary {
+        x_bins: summary_bins(&context.marginals.x_counts),
+        y_bins: summary_bins(&context.marginals.y_counts),
+        max_x_count: saturating_u32(context.marginals.max_x_count),
+        max_y_count: saturating_u32(context.marginals.max_y_count),
+    }
+}
+
+fn summary_bins(counts: &[u64]) -> Vec<SummaryBin> {
+    counts
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, count)| SummaryBin {
+            index: index as u32,
+            count: saturating_u32(count),
+        })
+        .collect()
+}
+
+fn saturating_u32(value: u64) -> u32 {
+    value.min(u64::from(u32::MAX)) as u32
 }

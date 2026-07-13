@@ -163,7 +163,13 @@ pub(crate) fn show_view_context(
     ui.heading("View Context");
 
     match context.active_view {
-        ActiveView::Scatter => show_scatter_marginals(ui, context.scatter_marginals.as_ref()),
+        ActiveView::Scatter => {
+            if context.scatter_marginals.is_some() {
+                ui.label(RichText::new("Scatter marginals are shown in the plot gutters.").small());
+            } else {
+                ui.label("Scatter marginals unavailable.");
+            }
+        }
         ActiveView::Timeline => {
             show_timeline_marginals(ui, context.timeline_marginals.as_ref());
             ui.add_space(4.0);
@@ -172,29 +178,6 @@ pub(crate) fn show_view_context(
     }
 
     true
-}
-
-pub(crate) fn show_scatter_marginals(ui: &mut Ui, summary: Option<&ScatterMarginalSummary>) {
-    let Some(summary) = summary else {
-        ui.label("Scatter marginals unavailable.");
-        return;
-    };
-
-    ui.label(RichText::new("Scatter marginals").strong());
-    draw_summary_strip(
-        ui,
-        "x",
-        &summary.x_bins,
-        summary.max_x_count,
-        Color32::from_rgb(88, 148, 214),
-    );
-    draw_summary_strip(
-        ui,
-        "y",
-        &summary.y_bins,
-        summary.max_y_count,
-        Color32::from_rgb(98, 171, 126),
-    );
 }
 
 fn show_timeline_marginals(ui: &mut Ui, summary: Option<&TimelineMarginalSummary>) {

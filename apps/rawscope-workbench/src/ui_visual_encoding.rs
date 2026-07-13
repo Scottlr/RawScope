@@ -136,7 +136,7 @@ impl DensityEncodingUiState {
         scatter_projection: Option<ScatterProjection>,
         scatter_density_mode: Option<ScatterDensityMode>,
         difference_available: bool,
-        difference_stats: Option<ScatterDifferenceRenderStats>,
+        difference_stats: Option<ComparisonFieldRenderStats>,
         relief_config: Option<ReliefFieldConfig>,
     ) -> Self {
         Self {

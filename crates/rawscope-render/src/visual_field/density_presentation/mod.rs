@@ -6,7 +6,9 @@ use rawscope_gpu::DeviceGeneration;
 use std::sync::Arc;
 
 use super::exact_field::{DensityReadbackPolicy, ResidentExactField, ResidentExactFieldUpdate};
-use super::generation::VisualFieldQuality;
+use super::generation::{
+    VisualFieldQuality, VisualFieldViewGeneration, VisualFieldViewGenerationCounter,
+};
 use super::gpu::{VisualFieldCountGrid, VisualFieldGpuError};
 use super::point_pack::VisualFieldPoint;
 use super::reprojection::VisualFieldViewport;
@@ -109,6 +111,8 @@ pub struct DensityPresentation {
     pub(super) previous_stats: DensityPresentationRenderStats,
     pub(super) previous_field: VisualFieldViewport,
     pub(super) transition_progress: f32,
+    pub(super) view_generation_counter: VisualFieldViewGenerationCounter,
+    pub(super) completed_view_generation: VisualFieldViewGeneration,
     pub(super) contours: MassContourUniforms,
     pub(super) previous_contours: MassContourUniforms,
     pub(super) palette: Arc<crate::PaletteGpuResources>,
@@ -158,6 +162,8 @@ impl DensityPresentation {
             },
         )?;
         let max_bin_count = output.stats.max_bin_count;
+        let mut view_generation_counter = VisualFieldViewGenerationCounter::default();
+        let completed_view_generation = view_generation_counter.mint();
 
         let completed_field = VisualFieldViewport {
             x_range: config.x_range,
@@ -229,6 +235,8 @@ impl DensityPresentation {
             previous_stats: output.stats,
             previous_field: completed_field,
             transition_progress: 1.0,
+            view_generation_counter,
+            completed_view_generation,
             contours: MassContourUniforms::empty(),
             previous_contours: MassContourUniforms::empty(),
             palette,
@@ -303,6 +311,7 @@ impl DensityPresentation {
         self.previous_stats = previous_stats;
         self.previous_field = previous_field;
         self.transition_progress = 0.0;
+        self.completed_view_generation = self.view_generation_counter.mint();
 
         Ok(self.stats)
     }
@@ -410,6 +419,11 @@ impl DensityPresentation {
 
     pub fn completed_field(&self) -> VisualFieldViewport {
         self.completed_field
+    }
+
+    /// Returns the owner-minted identity for the current settled field.
+    pub const fn view_generation(&self) -> VisualFieldViewGeneration {
+        self.completed_view_generation
     }
 
     pub fn replace_dataset<T: VisualFieldPoint>(

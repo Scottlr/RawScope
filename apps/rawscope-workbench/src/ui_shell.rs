@@ -14,7 +14,7 @@ use crate::{
     ui_inspection_tooltip::show_inspection_tooltip,
     ui_missingness::{show_missingness_summary, show_missingness_view},
     ui_pinned_inspection::show_pinned_scatter_inspection,
-    ui_plot_axes::show_plot_axes,
+    ui_plot_axes::{show_plot_axes, show_scatter_marginals_in_gutters},
     ui_plot_surface::{allocate_plot_surface, PlotSurfaceLayout},
     ui_theme::{
         export_status_color, icon_command_button, icon_segment_button, navigation_button,
@@ -98,6 +98,18 @@ pub(crate) fn show_workbench_ui(
                 allocate_plot_surface(ui, pixels_per_point, surface_width_px, surface_height_px);
             if let Some(plot_surface) = plot_surface {
                 show_plot_axes(ui, plot_surface.axis_layout, state.view_axes.as_ref());
+                if state.active_view == crate::ui::ActiveView::Scatter {
+                    let summary = state
+                        .view_context
+                        .as_ref()
+                        .and_then(|context| context.scatter_marginals.as_ref());
+                    show_scatter_marginals_in_gutters(
+                        ui,
+                        plot_surface.axis_layout,
+                        summary,
+                        state.density_is_refining,
+                    );
+                }
             }
             plot_surface
         }

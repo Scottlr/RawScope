@@ -290,7 +290,8 @@ impl WorkbenchApp {
             can_reset,
             can_export,
             can_clear_selection,
-            density_is_refining: self.render_schedule.is_refining(),
+            density_is_refining: self.render_schedule.is_refining()
+                || self.scatter.pending_settled_context_readback,
             reduced_motion: self.visual_transition.config.reduced_motion,
             scatter_filters,
             active_cohort_row_count,

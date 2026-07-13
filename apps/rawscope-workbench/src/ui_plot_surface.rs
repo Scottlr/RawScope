@@ -157,4 +157,15 @@ mod tests {
             PlotRectPx::try_new(0, 15, 1_000, 685, 1_000, 700).unwrap()
         );
     }
+
+    #[test]
+    fn marginal_gutters_do_not_change_plot_hit_rect() {
+        let outer_rect = Rect::from_min_max(pos2(0.0, 0.0), pos2(700.0, 500.0));
+        let layout = PlotAxisLayout::from_outer_rect(outer_rect).unwrap();
+
+        assert_eq!(layout.plot_rect.left(), PLOT_LEFT_GUTTER_POINTS);
+        assert_eq!(layout.plot_rect.top(), PLOT_TOP_GUTTER_POINTS);
+        assert!(layout.plot_rect.right() < layout.outer_rect.right());
+        assert!(layout.plot_rect.bottom() < layout.outer_rect.bottom());
+    }
 }

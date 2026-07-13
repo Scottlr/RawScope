@@ -1,6 +1,6 @@
 //! Settled scatter inspection cache and hover/pin coordination.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use rawscope_data::{
     available_profile_filter_hints, dataset_profile, DatasetProfileFilterKind, FilterMask,
@@ -10,6 +10,7 @@ use rawscope_render::{
     build_difference_inspection_distribution, build_scatter_inspection_grid,
     DifferenceInspectionDistribution, DifferenceInspectionSummary, ScatterDensityMode,
     ScatterInspectionConfig, ScatterInspectionGrid, ScatterInspectionHit, ScatterInspectionSummary,
+    SettledDensityContext,
 };
 
 use crate::{
@@ -31,6 +32,7 @@ pub(crate) struct ScatterInspectionState {
     pub(crate) pinned: Option<PinnedScatterInspection>,
     pub(crate) cache_viewport_revision: u64,
     pub(crate) cache_filter_revision: FilterRevision,
+    pub(crate) settled_context: Option<Arc<SettledDensityContext>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -139,13 +141,22 @@ impl WorkbenchApp {
                 self.scatter_inspection.hovered_summary = None;
                 self.scatter_inspection.cache_viewport_revision = viewport_revision;
                 self.scatter_inspection.cache_filter_revision = active_revision;
+                self.scatter_inspection.settled_context = self
+                    .scatter
+                    .settled_density_context
+                    .as_ref()
+                    .map(Arc::clone);
             }
             Err(_) => self.scatter_inspection = ScatterInspectionState::default(),
         }
     }
 
     pub(crate) fn invalidate_scatter_inspection(&mut self) {
-        self.scatter_inspection = ScatterInspectionState::default();
+        let settled_context = self.scatter_inspection.settled_context.clone();
+        self.scatter_inspection = ScatterInspectionState {
+            settled_context,
+            ..ScatterInspectionState::default()
+        };
         self.clear_inspection_presentation();
     }
 
