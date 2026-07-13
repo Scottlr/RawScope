@@ -13,6 +13,9 @@ use super::palette::PALETTE_LUT_BYTES;
 /// backend allocation. Backend owners can replace it with a measured value in
 /// a later, human-reviewed policy revision.
 pub const DEFAULT_BIND_PIPELINE_BYTES: u64 = 4 * 1024;
+const RIDGE_CELL_BYTES_PER_BIN: u64 = 16;
+const RIDGE_SCRATCH_BYTES_PER_BIN: u64 = 40;
+const RIDGE_REDUCTION_BYTES: u64 = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VisualFieldResourceOptions {
@@ -21,7 +24,9 @@ pub struct VisualFieldResourceOptions {
     /// Each layer is counted twice because composition keeps active and
     /// pending layer-major fields live during publication.
     pub category_layers: u8,
-    /// Number of derived ridge fields retained for this field.
+    /// Number of derived ridge fields retained for this field. Each field
+    /// includes its 16-byte cell output, smoothing/candidate scratch, and one
+    /// reduction scalar block.
     pub ridge_fields: u8,
     /// Number of previous-transition fields retained alongside the current field.
     pub transition_fields: u8,
@@ -109,10 +114,17 @@ impl VisualFieldResourceEstimate {
         let channel_bytes = checked_mul(bins, 4)?;
         let count_field_bytes = checked_mul(checked_mul(bins, 4)?, 2)?;
         let category_field_count = checked_mul(u64::from(options.category_layers), 2)?;
-        let derived_fields = category_field_count
-            .checked_add(u64::from(options.ridge_fields))
+        let category_field_bytes = checked_mul(checked_mul(bins, 4)?, category_field_count)?;
+        let ridge_field_bytes = checked_mul(
+            u64::from(options.ridge_fields),
+            checked_mul(bins, RIDGE_CELL_BYTES_PER_BIN)?
+                .checked_add(checked_mul(bins, RIDGE_SCRATCH_BYTES_PER_BIN)?)
+                .and_then(|bytes| bytes.checked_add(RIDGE_REDUCTION_BYTES))
+                .ok_or(VisualFieldResourceEstimateError::ArithmeticOverflow)?,
+        )?;
+        let derived_field_bytes = category_field_bytes
+            .checked_add(ridge_field_bytes)
             .ok_or(VisualFieldResourceEstimateError::ArithmeticOverflow)?;
-        let derived_field_bytes = checked_mul(checked_mul(bins, 4)?, derived_fields)?;
         let transition_bytes =
             checked_mul(checked_mul(bins, 4)?, u64::from(options.transition_fields))?;
         let exact_readback_bytes = if options.readback {
@@ -264,7 +276,7 @@ mod tests {
         assert_eq!(estimate.coordinate_bytes, 256);
         assert_eq!(estimate.channel_bytes, 128);
         assert_eq!(estimate.count_field_bytes, 256);
-        assert_eq!(estimate.derived_field_bytes, 896);
+        assert_eq!(estimate.derived_field_bytes, 5_936);
         assert_eq!(estimate.transition_bytes, 256);
         assert_eq!(estimate.staging_bytes, 512);
 
