@@ -90,6 +90,18 @@ impl WorkbenchApp {
                     let density_mode = self.scatter.density_mode;
                     let semantic_modes = transition_frame.semantic_modes;
                     let transition_alpha = transition_frame.alpha;
+                    let point_frame = rawscope_render::PointRevealPresentationFrame::from(
+                        self.scatter.point_reveal_frame,
+                    );
+                    let transition_point_frame =
+                        rawscope_render::PointRevealPresentationFrame::from_alphas(
+                            point_frame.density_alpha,
+                            if transition_frame.running {
+                                point_frame.point_alpha * transition_alpha
+                            } else {
+                                point_frame.point_alpha
+                            },
+                        );
                     let brush_screen_rect = self
                         .scatter
                         .active_brush_drag
@@ -120,7 +132,7 @@ impl WorkbenchApp {
                                         target_view,
                                         plot_rect,
                                         true,
-                                        1.0,
+                                        point_frame.apply_density(1.0),
                                     );
                                 }
                                 rawscope_render::ScatterDensityMode::FilteredDifference => {
@@ -144,7 +156,7 @@ impl WorkbenchApp {
                                         target_view,
                                         plot_rect,
                                         false,
-                                        transition_alpha,
+                                        point_frame.apply_density(transition_alpha),
                                     );
                                 }
                                 rawscope_render::ScatterDensityMode::FilteredDifference => {
@@ -168,20 +180,22 @@ impl WorkbenchApp {
                                 renderer.render(device, queue, encoder, target_view, plot_rect);
                             }
                         } else {
-                            scatter_density_renderer.render(encoder, target_view, plot_rect);
+                            scatter_density_renderer.render_blended(
+                                encoder,
+                                target_view,
+                                plot_rect,
+                                true,
+                                point_frame.apply_density(1.0),
+                            );
                         }
                         if density_mode == rawscope_render::ScatterDensityMode::AbsoluteDensity {
                             if let Some(point_reveal_renderer) = point_reveal_renderer {
-                                point_reveal_renderer.render_with_transition_alpha(
+                                point_reveal_renderer.render_with_frame(
                                     queue,
                                     encoder,
                                     target_view,
                                     plot_rect,
-                                    if transition_frame.running {
-                                        transition_alpha
-                                    } else {
-                                        1.0
-                                    },
+                                    transition_point_frame,
                                 );
                             }
                         }

@@ -1,11 +1,15 @@
 //! Instanced screen-space glyph rendering for settled point-reveal selections.
 
 use bytemuck::{Pod, Zeroable};
+use rawscope_analysis::visual_field::PointRevealPlan;
 use rawscope_core::{F32Range, RowId};
 use rawscope_data::ScatterPointRecord;
 use std::num::NonZeroU64;
 
-use crate::{PlotRectPx, PointRevealConfig, PointRevealSelection, PointRevealStats};
+use crate::{
+    PlotRectPx, PointRevealConfig, PointRevealPresentationFrame, PointRevealSelection,
+    PointRevealStats,
+};
 
 const SHADER_SOURCE: &str = include_str!("shaders/scatter_point_reveal.wgsl");
 const MIN_RADIUS_PX: f32 = 1.0;
@@ -25,6 +29,30 @@ pub struct ScatterPointRenderer {
     radius_px: f32,
     emphasized_row_id: Option<RowId>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointRevealPlanRenderError {
+    RowIdNotResident { row_id: RowId },
+    CountOverflow,
+}
+
+impl std::fmt::Display for PointRevealPlanRenderError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::RowIdNotResident { row_id } => {
+                write!(
+                    formatter,
+                    "point reveal row {row_id:?} is not resident in the projected buffer"
+                )
+            }
+            Self::CountOverflow => {
+                formatter.write_str("point reveal disclosure count overflowed usize")
+            }
+        }
+    }
+}
+
+impl std::error::Error for PointRevealPlanRenderError {}
 
 impl ScatterPointRenderer {
     pub fn new(device: &wgpu::Device, surface_format: wgpu::TextureFormat) -> Self {
@@ -130,8 +158,64 @@ impl ScatterPointRenderer {
         self.radius_px = config.radius_px.clamp(MIN_RADIUS_PX, MAX_RADIUS_PX);
     }
 
+    /// Upload one already-settled row plan.  Resolution is by the existing
+    /// row-id keyed point buffer; stale or invalid identities are rejected
+    /// instead of being silently dropped.
+    pub fn update_plan<G: Copy>(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        points: &[ScatterPointRecord],
+        plan: &PointRevealPlan<G>,
+        x_range: F32Range,
+        y_range: F32Range,
+        config: PointRevealConfig,
+    ) -> Result<(), PointRevealPlanRenderError> {
+        let mut packed = Vec::with_capacity(plan.row_ids().len());
+        for row_id in plan.row_ids().iter().copied() {
+            let point = points
+                .binary_search_by_key(&row_id, |point| point.row_id)
+                .ok()
+                .and_then(|index| points.get(index))
+                .ok_or(PointRevealPlanRenderError::RowIdNotResident { row_id })?;
+            packed.push(GpuRevealPoint::from(point));
+        }
+        if packed.len() > self.point_capacity {
+            self.point_capacity = packed.len().next_power_of_two();
+            self.point_buffer = create_point_buffer(device, self.point_capacity);
+            self.bind_group = create_bind_group(
+                device,
+                &self.bind_group_layout,
+                &self.point_buffer,
+                &self.params_buffer,
+            );
+        }
+        if !packed.is_empty() {
+            queue.write_buffer(&self.point_buffer, 0, bytemuck::cast_slice(&packed));
+        }
+        self.rendered_count = packed.len() as u32;
+        self.stats = PointRevealStats {
+            eligible_count: usize::try_from(plan.eligible_count())
+                .map_err(|_| PointRevealPlanRenderError::CountOverflow)?,
+            rendered_count: packed.len(),
+            sampled: plan.sampled(),
+            blend: 1.0,
+        };
+        self.x_range = x_range;
+        self.y_range = y_range;
+        self.radius_px = config.radius_px.clamp(MIN_RADIUS_PX, MAX_RADIUS_PX);
+        Ok(())
+    }
+
     pub fn set_emphasized_row(&mut self, row_id: Option<RowId>) {
         self.emphasized_row_id = row_id;
+    }
+
+    /// Reproject the resident point plan into a new viewport without touching
+    /// row membership or rebuilding the plan.
+    pub fn set_viewport(&mut self, x_range: F32Range, y_range: F32Range) {
+        self.x_range = x_range;
+        self.y_range = y_range;
     }
 
     pub fn hide(&mut self) {
@@ -151,7 +235,13 @@ impl ScatterPointRenderer {
         target_view: &wgpu::TextureView,
         plot_rect: PlotRectPx,
     ) {
-        self.render_with_transition_alpha(queue, encoder, target_view, plot_rect, 1.0);
+        self.render_with_frame(
+            queue,
+            encoder,
+            target_view,
+            plot_rect,
+            PointRevealPresentationFrame::point_only(1.0),
+        );
     }
 
     pub fn render_with_transition_alpha(
@@ -162,7 +252,28 @@ impl ScatterPointRenderer {
         plot_rect: PlotRectPx,
         transition_alpha: f32,
     ) {
-        if self.rendered_count == 0 || self.stats.blend <= 0.0 {
+        self.render_with_frame(
+            queue,
+            encoder,
+            target_view,
+            plot_rect,
+            PointRevealPresentationFrame::point_only(transition_alpha),
+        );
+    }
+
+    /// Render the resident point plan with an already-resolved semantic zoom
+    /// frame.  This path only writes a small uniform and submits the resident
+    /// point buffer; it never scans rows or rebuilds the selection.
+    pub fn render_with_frame(
+        &self,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+        frame: PointRevealPresentationFrame,
+    ) {
+        let point_alpha = frame.apply_points(self.stats.blend);
+        if self.rendered_count == 0 || point_alpha <= 0.0 {
             return;
         }
         let params = PointRevealParams::new(
@@ -170,7 +281,7 @@ impl ScatterPointRenderer {
             self.y_range,
             plot_rect,
             self.radius_px,
-            self.stats.blend * transition_alpha.clamp(0.0, 1.0),
+            point_alpha,
             self.emphasized_row_id,
         );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
@@ -237,7 +348,7 @@ struct PointRevealParams {
     plot_width_px: f32,
     plot_height_px: f32,
     radius_px: f32,
-    blend: f32,
+    point_alpha: f32,
     emphasized_low: u32,
     emphasized_high: u32,
     has_emphasis: u32,
@@ -264,7 +375,7 @@ impl PointRevealParams {
             plot_width_px: plot_rect.width as f32,
             plot_height_px: plot_rect.height as f32,
             radius_px,
-            blend,
+            point_alpha: blend,
             emphasized_low: emphasized_value as u32,
             emphasized_high: (emphasized_value >> 32) as u32,
             has_emphasis: u32::from(emphasized.is_some()),

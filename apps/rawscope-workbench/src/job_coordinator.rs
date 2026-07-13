@@ -28,6 +28,7 @@ pub(crate) enum WorkbenchJobKind {
     Generic,
     StartupResolution,
     GpuInitialization,
+    PointReveal,
     Export,
 }
 

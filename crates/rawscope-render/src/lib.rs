@@ -130,7 +130,7 @@ pub use scatter_inspection_overlay::{
     project_scatter_inspection_overlay, InspectionFocusKind, ScatterInspectionOverlay,
     ScatterInspectionOverlayRenderer,
 };
-pub use scatter_point_renderer::ScatterPointRenderer;
+pub use scatter_point_renderer::{PointRevealPlanRenderError, ScatterPointRenderer};
 pub use scatter_point_reveal::{
     project_point_to_plot_fraction, select_points_for_reveal, PointRevealConfig, PointRevealError,
     PointRevealSelection, PointRevealStats,
@@ -172,6 +172,7 @@ pub use view_summaries::{
     timeline_overview_summary, ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineOverviewWindow,
 };
+pub use visual_field::PointRevealPresentationFrame;
 pub use visual_field::{
     aggregate_visual_field_resources, choose_visual_resolution,
     choose_visual_resolution_for_quality, estimate_visual_field_resources,
