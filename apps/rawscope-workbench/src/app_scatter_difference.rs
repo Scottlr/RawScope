@@ -4,7 +4,10 @@ use std::error::Error;
 
 use rawscope_data::ScatterPointRecord;
 use rawscope_gpu::GpuContext;
-use rawscope_render::{ComparisonFieldRenderer, DensityPresentationConfig};
+use rawscope_render::{
+    ComparisonFieldRenderer, ComparisonPresentation, ComparisonPresentationError, ComparisonSplit,
+    DensityPresentationConfig,
+};
 
 use crate::app::WorkbenchApp;
 
@@ -72,5 +75,36 @@ impl WorkbenchApp {
         )?);
         self.scatter.difference_baseline_dirty = false;
         Ok(())
+    }
+
+    /// Publishes a comparison presentation without rebuilding either cohort field.
+    pub(crate) fn set_scatter_comparison_presentation(
+        &mut self,
+        presentation: ComparisonPresentation,
+    ) {
+        let Some(renderer) = self.scatter.difference_renderer.as_mut() else {
+            return;
+        };
+        if renderer.presentation() == presentation {
+            return;
+        }
+        renderer.set_presentation(presentation);
+        self.request_redraw();
+    }
+
+    /// Moves the split lens by changing its bounded uniform state only.
+    pub(crate) fn set_scatter_comparison_split(
+        &mut self,
+        fraction: f32,
+    ) -> Result<bool, ComparisonPresentationError> {
+        let split = ComparisonSplit::new(fraction)?;
+        let Some(renderer) = self.scatter.difference_renderer.as_mut() else {
+            return Ok(false);
+        };
+        let changed = renderer.set_split(split);
+        if changed {
+            self.request_redraw();
+        }
+        Ok(changed)
     }
 }

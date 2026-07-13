@@ -15,6 +15,14 @@ struct Params {
     display_x_max: f32,
     display_y_min: f32,
     display_y_max: f32,
+    split_fraction: f32,
+    presentation: u32,
+    shared_density_max_count: u32,
+    density_transform: u32,
+    max_support_share: f32,
+    padding4: u32,
+    padding5: u32,
+    padding6: u32,
 };
 
 @group(0) @binding(0) var<storage, read> baseline_counts: array<u32>;

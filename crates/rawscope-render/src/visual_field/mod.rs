@@ -31,7 +31,13 @@ pub use reprojection::{
     VisualFieldReprojection, VisualFieldReprojectionError, VisualFieldViewport,
 };
 
-pub use comparison::{ComparisonFieldRenderStats, ComparisonFieldRenderer};
+pub use comparison::{
+    comparison_inspection, derive_comparison_marginals, sample_split_fields,
+    shared_density_maximum, ComparisonCompatibility, ComparisonCompatibilityError,
+    ComparisonFieldGeneration, ComparisonFieldRenderStats, ComparisonFieldRenderer,
+    ComparisonFieldSemantics, ComparisonMarginalError, ComparisonMarginals, ComparisonPresentation,
+    ComparisonPresentationError, ComparisonSplit, SupportAwareDifference,
+};
 pub use density_presentation::relief_normal_from_samples;
 pub use density_presentation::{
     DensityPresentation, DensityPresentationConfig, DensityPresentationRenderStats,

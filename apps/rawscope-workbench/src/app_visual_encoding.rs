@@ -1,8 +1,8 @@
 //! Workbench coordination for density encoding and scatter presentation controls.
 
 use rawscope_render::{
-    validate_relief_field_config, DensityTransform, ReliefFieldConfig, ScatterDensityMode,
-    ScatterDensityPresentation,
+    validate_relief_field_config, ComparisonPresentation, ComparisonSplit, DensityTransform,
+    ReliefFieldConfig, ScatterDensityMode, ScatterDensityPresentation,
 };
 use tracing::error;
 
@@ -46,6 +46,8 @@ impl WorkbenchApp {
         let previous_mode = self.scatter.density_mode;
         self.scatter.density_mode = mode;
         if mode == ScatterDensityMode::FilteredDifference {
+            self.set_scatter_comparison_presentation(ComparisonPresentation::SignedDifference);
+            let _ = self.set_scatter_comparison_split(ComparisonSplit::default().fraction());
             self.invalidate_scatter_point_reveal();
         }
         self.begin_density_mode_transition(previous_mode, mode);

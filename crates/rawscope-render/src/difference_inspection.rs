@@ -17,9 +17,12 @@ pub enum DifferenceDirection {
 pub struct DifferenceInspectionSummary {
     pub baseline_count: u32,
     pub active_count: u32,
+    pub baseline_total: u64,
+    pub active_total: u64,
     pub baseline_share: f64,
     pub active_share: f64,
     pub share_delta: f64,
+    pub support_share: f64,
     pub direction: DifferenceDirection,
     pub absolute_delta_percentile: Option<f64>,
 }
@@ -55,9 +58,12 @@ impl DifferenceInspectionDistribution {
         Some(DifferenceInspectionSummary {
             baseline_count,
             active_count,
+            baseline_total: self.baseline_total,
+            active_total: self.active_total,
             baseline_share: inspection.baseline_share,
             active_share: inspection.active_share,
             share_delta: inspection.delta,
+            support_share: (inspection.baseline_share + inspection.active_share) * 0.5,
             direction,
             absolute_delta_percentile: self.absolute_delta_percentile(inspection),
         })
@@ -126,6 +132,9 @@ mod tests {
         assert_eq!(summary.baseline_share, 0.4);
         assert_eq!(summary.active_share, 0.8);
         assert_eq!(summary.share_delta, 0.4);
+        assert_eq!(summary.baseline_total, 100);
+        assert_eq!(summary.active_total, 50);
+        assert!((summary.support_share - 0.6).abs() < 1.0e-12);
         assert_eq!(summary.direction, DifferenceDirection::MoreCommonInActive);
     }
 

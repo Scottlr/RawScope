@@ -1,6 +1,7 @@
 //! Generic, profile-independent visual-field mapping and projection contracts.
 
 pub mod category_layers;
+pub mod comparison;
 pub mod encoding;
 mod mapping;
 pub mod mass_context;
@@ -12,6 +13,7 @@ pub use category_layers::{
     CategoryLayer, CategoryLayerId, CategoryLayerKind, CategoryLayerLookup, CategoryLayerPlan,
     CategoryLayerPlanError, CategoryLayerPlanGeneration, CategoryLayerPlanGenerationCounter,
 };
+pub use comparison::{summarize_difference_cell, ComparisonError, DifferenceCellContext};
 pub use encoding::{DensityEncoding, DensityNormalization, DensityTransform};
 pub use mapping::{
     VisualAxisKind, VisualFieldMapping, VisualFieldMappingError, VisualFieldMode,

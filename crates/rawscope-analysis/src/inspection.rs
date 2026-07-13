@@ -164,14 +164,27 @@ pub fn inspect_difference(
     baseline_total: u64,
     active_total: u64,
 ) -> Result<DifferenceInspection, DifferenceNormalizationError> {
-    let baseline_share = normalize_difference(f64::from(baseline_count), baseline_total as f64)?;
-    let active_share = normalize_difference(f64::from(active_count), active_total as f64)?;
-    Ok(DifferenceInspection {
+    let summary = crate::visual_field::summarize_difference_cell(
         baseline_count,
+        baseline_total,
         active_count,
-        baseline_share,
-        active_share,
-        delta: active_share - baseline_share,
+        active_total,
+    )
+    .map_err(|error| match error {
+        crate::visual_field::ComparisonError::ZeroBaselineTotal
+        | crate::visual_field::ComparisonError::ZeroActiveTotal => {
+            DifferenceNormalizationError::ZeroDenominator
+        }
+        crate::visual_field::ComparisonError::NonFiniteInput => {
+            DifferenceNormalizationError::NonFinite
+        }
+    })?;
+    Ok(DifferenceInspection {
+        baseline_count: summary.baseline_count,
+        active_count: summary.active_count,
+        baseline_share: summary.baseline_share,
+        active_share: summary.active_share,
+        delta: summary.signed_delta,
     })
 }
 
