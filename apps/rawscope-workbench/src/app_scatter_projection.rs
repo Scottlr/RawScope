@@ -2,13 +2,15 @@
 
 use std::error::Error;
 
+use rawscope_analysis::visual_field::{VisualFieldMapping, VisualFieldProjection};
 use rawscope_data::{
-    dataset_profile, project_scatter_points, LoadedColumnKind, ProjectedScatterData,
+    dataset_profile, project_scatter_points, DatasetSchema, LoadedColumnKind, ProjectedScatterData,
     ScatterPointRecord, ScatterProjection, ScatterProjectionLabels, ScatterProjectionSpec,
+    StoreColumnKind, VisualFieldCatalog,
 };
 use rawscope_render::ScatterViewport;
 
-use crate::app::WorkbenchApp;
+use crate::{app::WorkbenchApp, controllers::visual_field::VisualFieldController};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ScatterProjectionState {
@@ -17,6 +19,7 @@ pub(crate) struct ScatterProjectionState {
     pub(crate) labels: ScatterProjectionLabels,
     pub(crate) raw_points: Vec<ScatterPointRecord>,
     pub(crate) available: bool,
+    pub(crate) show_equality_guide: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -36,36 +39,33 @@ impl Default for ScatterProjectionState {
             },
             raw_points: Vec::new(),
             available: false,
+            show_equality_guide: false,
         }
     }
 }
 
 impl WorkbenchApp {
     pub(crate) fn initialize_scatter_projection(&mut self, x_column: &str, y_column: &str) {
-        let profile_recommends_projection =
-            self.workbench_state
-                .active_dataset_profile
-                .is_none_or(|profile_id| {
-                    dataset_profile(profile_id)
-                        .scatter_defaults
-                        .suggest_mean_difference
-                });
-        let available = profile_recommends_projection
-            && self
-                .scatter_filters
-                .catalog
-                .as_ref()
-                .is_some_and(|catalog| {
-                    [x_column, y_column].into_iter().all(|column_name| {
-                        catalog.fields.iter().any(|field| {
-                            field.column_name == column_name
-                                && matches!(
-                                    field.source_kind,
-                                    LoadedColumnKind::Integer | LoadedColumnKind::Float
-                                )
-                        })
+        let available = self
+            .scatter_filters
+            .catalog
+            .as_ref()
+            .is_some_and(|catalog| {
+                [x_column, y_column].into_iter().all(|column_name| {
+                    catalog.fields.iter().any(|field| {
+                        field.column_name == column_name
+                            && matches!(
+                                field.source_kind,
+                                LoadedColumnKind::Integer | LoadedColumnKind::Float
+                            )
                     })
-                });
+                })
+            });
+        let show_equality_guide = self
+            .workbench_state
+            .active_dataset_profile
+            .map(dataset_profile)
+            .is_some_and(|profile| profile.scatter_defaults.show_equality_guide);
         self.scatter_projection = ScatterProjectionState {
             active: ScatterProjection::RawXY,
             spec: Some(ScatterProjectionSpec::new(x_column, y_column)),
@@ -75,7 +75,14 @@ impl WorkbenchApp {
             },
             raw_points: self.scatter.points.clone(),
             available,
+            show_equality_guide,
         };
+        self.visual_field_controller = self
+            .scatter_filters
+            .catalog
+            .as_ref()
+            .and_then(|catalog| visual_mapping_from_catalog(catalog, x_column, y_column))
+            .map(VisualFieldController::new);
     }
 
     pub(crate) fn set_scatter_projection(
@@ -176,6 +183,49 @@ impl WorkbenchApp {
         self.recompute_density()?;
         self.begin_visual_transition(rawscope_render::TransitionKind::ProjectionChange);
         Ok(())
+    }
+}
+
+fn visual_mapping_from_catalog(
+    catalog: &VisualFieldCatalog,
+    x_column: &str,
+    y_column: &str,
+) -> Option<VisualFieldMapping> {
+    let schema = DatasetSchema::try_new(catalog.fields.iter().filter_map(|field| {
+        loaded_kind_to_store_kind(field.source_kind).map(|kind| (field.column_name.clone(), kind))
+    }))
+    .ok()?;
+    let projection = VisualFieldProjection::NumericPair {
+        x: schema.column_id(x_column)?,
+        y: schema.column_id(y_column)?,
+    };
+    let category = catalog
+        .fields
+        .iter()
+        .filter(|field| field.column_name != x_column && field.column_name != y_column)
+        .filter_map(|field| {
+            loaded_kind_to_store_kind(field.source_kind).and_then(|kind| {
+                matches!(
+                    kind,
+                    StoreColumnKind::Utf8
+                        | StoreColumnKind::Bool
+                        | StoreColumnKind::I64
+                        | StoreColumnKind::U64
+                )
+                .then(|| schema.column_id(&field.column_name))
+                .flatten()
+            })
+        })
+        .next();
+    VisualFieldMapping::try_new(&schema, projection, category).ok()
+}
+
+fn loaded_kind_to_store_kind(kind: LoadedColumnKind) -> Option<StoreColumnKind> {
+    match kind {
+        LoadedColumnKind::Integer => Some(StoreColumnKind::I64),
+        LoadedColumnKind::Float => Some(StoreColumnKind::F64),
+        LoadedColumnKind::String => Some(StoreColumnKind::Utf8),
+        LoadedColumnKind::Empty | LoadedColumnKind::Unsupported => None,
     }
 }
 

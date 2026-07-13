@@ -1,4 +1,5 @@
 use rawscope_core::{F32Range, U64Range};
+use rawscope_data::{LoadedColumnKind, VisualFieldDescriptor, VisualFieldSummary};
 use rawscope_render::{
     ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary, TimelineOverviewSummary,
 };
@@ -93,7 +94,7 @@ fn hidden_surface_does_not_project_view_context() {
 }
 
 #[test]
-fn lichess_axes_use_integer_ticks_and_equality_guide() {
+fn typed_integer_axes_use_integer_ticks_and_optional_equality_guide() {
     let mut app = WorkbenchApp {
         demo_mode: DemoMode::Scatter,
         scatter: crate::app::ScatterWorkbenchState {
@@ -102,6 +103,34 @@ fn lichess_axes_use_integer_ticks_and_equality_guide() {
                 F32Range::new(1_000.0, 2_000.0),
             )),
             ..crate::app::ScatterWorkbenchState::default()
+        },
+        scatter_filters: crate::app_scatter_filter::ScatterFilterState {
+            catalog: Some(rawscope_data::VisualFieldCatalog {
+                row_count: 0,
+                fields: vec![
+                    VisualFieldDescriptor {
+                        column_name: "white_rating".into(),
+                        column_index: 0,
+                        source_kind: LoadedColumnKind::Integer,
+                        summary: VisualFieldSummary::Empty { missing_count: 0 },
+                    },
+                    VisualFieldDescriptor {
+                        column_name: "black_rating".into(),
+                        column_index: 1,
+                        source_kind: LoadedColumnKind::Integer,
+                        summary: VisualFieldSummary::Empty { missing_count: 0 },
+                    },
+                ],
+            }),
+            ..crate::app_scatter_filter::ScatterFilterState::default()
+        },
+        scatter_projection: crate::app_scatter_projection::ScatterProjectionState {
+            labels: rawscope_data::ScatterProjectionLabels {
+                x_label: "white_rating".into(),
+                y_label: "black_rating".into(),
+            },
+            show_equality_guide: true,
+            ..Default::default()
         },
         ..WorkbenchApp::default()
     };

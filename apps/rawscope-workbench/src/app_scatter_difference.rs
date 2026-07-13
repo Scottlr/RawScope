@@ -9,7 +9,7 @@ use rawscope_render::{
     DensityPresentationConfig,
 };
 
-use crate::app::WorkbenchApp;
+use crate::{app::WorkbenchApp, controllers::visual_field::VisualFieldCommand};
 
 impl WorkbenchApp {
     pub(crate) fn initialize_scatter_difference(
@@ -88,6 +88,9 @@ impl WorkbenchApp {
         if renderer.presentation() == presentation {
             return;
         }
+        if let Some(controller) = self.visual_field_controller.as_mut() {
+            let _ = controller.handle(VisualFieldCommand::SetComparisonPresentation(presentation));
+        }
         renderer.set_presentation(presentation);
         self.request_redraw();
     }
@@ -103,6 +106,9 @@ impl WorkbenchApp {
         };
         let changed = renderer.set_split(split);
         if changed {
+            if let Some(controller) = self.visual_field_controller.as_mut() {
+                let _ = controller.handle(VisualFieldCommand::SetComparisonSplit(split));
+            }
             self.request_redraw();
         }
         Ok(changed)
