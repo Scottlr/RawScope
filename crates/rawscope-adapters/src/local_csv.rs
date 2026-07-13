@@ -14,19 +14,24 @@ use crate::PreparedAdapterSession;
 /// File name used for sessions prepared over existing local datasets.
 pub const LOCAL_SESSION_MANIFEST_FILE_NAME: &str = "analysis.rawscope.json";
 
-/// Builder for a scatter session backed by an existing local CSV file.
+/// Builder for a scatter or timeline session backed by an existing local CSV file.
 ///
 /// The prepared bundle contains only a versioned RawScope manifest. The source
 /// CSV remains in place and is referenced by its canonical path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalCsvSession {
     dataset_path: PathBuf,
-    x_column: String,
-    y_column: String,
+    view: LocalCsvView,
     profile: Option<String>,
     display_name: Option<String>,
     evidence_key: Option<String>,
     limit: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum LocalCsvView {
+    Scatter { x: String, y: String },
+    Timeline { time: String, lane: String },
 }
 
 impl LocalCsvSession {
@@ -39,8 +44,30 @@ impl LocalCsvSession {
     ) -> Self {
         Self {
             dataset_path: dataset_path.into(),
-            x_column: x_column.into(),
-            y_column: y_column.into(),
+            view: LocalCsvView::Scatter {
+                x: x_column.into(),
+                y: y_column.into(),
+            },
+            profile: None,
+            display_name: None,
+            evidence_key: None,
+            limit: None,
+        }
+    }
+
+    /// Starts a local CSV timeline-session definition.
+    #[must_use]
+    pub fn timeline(
+        dataset_path: impl Into<PathBuf>,
+        time_column: impl Into<String>,
+        lane_column: impl Into<String>,
+    ) -> Self {
+        Self {
+            dataset_path: dataset_path.into(),
+            view: LocalCsvView::Timeline {
+                time: time_column.into(),
+                lane: lane_column.into(),
+            },
             profile: None,
             display_name: None,
             evidence_key: None,
@@ -135,10 +162,17 @@ fn write_manifest(
             limit: session.limit,
             evidence_key: session.evidence_key,
         },
-        view: SessionViewV1::Scatter {
-            x: session.x_column,
-            y: session.y_column,
-            profile: session.profile,
+        view: match session.view {
+            LocalCsvView::Scatter { x, y } => SessionViewV1::Scatter {
+                x,
+                y,
+                profile: session.profile,
+            },
+            LocalCsvView::Timeline { time, lane } => SessionViewV1::Timeline {
+                time,
+                lane,
+                profile: session.profile,
+            },
         },
     };
     let json = session_manifest_json(&manifest)?;

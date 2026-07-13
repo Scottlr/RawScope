@@ -1,4 +1,4 @@
-//! Raw signal, SpanFold duration, and interval-start timeline launch orchestration.
+//! Raw signal, SpanFold duration, and sample-state timeline launch orchestration.
 
 use std::{fs, io, process::Child};
 
@@ -8,7 +8,7 @@ use rawscope::{
 use rawscope_showcase_support::{Result, ShowcaseContext, ShowcaseError};
 
 use crate::{
-    analyse::{DURATION_SESSION_DIRECTORY_NAME, TIMELINE_SESSION_DIRECTORY_NAME},
+    analyse::{DURATION_SESSION_DIRECTORY_NAME, STATE_TIMELINE_SESSION_DIRECTORY_NAME},
     transform::NAB_TRANSFORMED_FILE_NAME,
 };
 
@@ -40,7 +40,7 @@ pub fn visualise(context: &ShowcaseContext) -> Result<()> {
             ShowcaseError::workflow(NAB_DATASET_ID, "prepare the raw-value session", source)
         })?;
     let duration = prepared_spanfold_session(context, DURATION_SESSION_DIRECTORY_NAME)?;
-    let timeline = prepared_spanfold_session(context, TIMELINE_SESSION_DIRECTORY_NAME)?;
+    let timeline = prepared_spanfold_session(context, STATE_TIMELINE_SESSION_DIRECTORY_NAME)?;
 
     let mut children = Vec::with_capacity(3);
     launch(&raw, "raw traffic-speed scatter", &mut children)?;
@@ -49,7 +49,7 @@ pub fn visualise(context: &ShowcaseContext) -> Result<()> {
         "SpanFold interval-duration scatter",
         &mut children,
     )?;
-    launch(&timeline, "SpanFold interval-start timeline", &mut children)?;
+    launch(&timeline, "SpanFold sample-state timeline", &mut children)?;
     wait_for_all(children)
 }
 

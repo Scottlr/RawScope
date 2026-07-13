@@ -14,12 +14,16 @@ SpanFold 0.1.1, then prepares three views through the external `rawscope` API:
 
 - raw traffic speed by sample index;
 - SpanFold interval start offset by duration;
-- SpanFold interval starts grouped into overlap, residual, missing, and coverage lanes.
+- all 1,127 source samples grouped into missed anomaly, detected anomaly,
+  false-positive, and outside-anomaly lanes derived from SpanFold interval rows.
 
-The timeline is intentionally an interval-start view. Exact end, duration,
-coverage, finality, and source record identifiers remain attached as row
-evidence. The analysis also writes `spanfold-aggregations.csv` with interval
-counts, total and mean durations by family, plus overall coverage totals.
+The state timeline does not manufacture detector events. It projects each real
+source sample through the mutually exclusive SpanFold overlap, residual, and
+missing ranges, retaining the original timestamp/value and contributing
+SpanFold row identifiers as evidence. The separate interval dataset retains
+exact end, duration, coverage, finality, and source record identifiers. The
+analysis also writes `spanfold-aggregations.csv` with interval counts, total and
+mean durations by family, plus overall coverage totals.
 
 Planned workflow:
 

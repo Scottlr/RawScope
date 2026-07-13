@@ -2,6 +2,7 @@
 
 mod inputs;
 mod report;
+mod state_timeline;
 
 use std::{fs, path::Path};
 
@@ -13,6 +14,8 @@ use self::inputs::{read_inputs, SampleRange};
 
 pub const DURATION_SESSION_DIRECTORY_NAME: &str = "spanfold-duration-session";
 pub const TIMELINE_SESSION_DIRECTORY_NAME: &str = "spanfold-timeline-session";
+pub const STATE_TIMELINE_SESSION_DIRECTORY_NAME: &str =
+    state_timeline::STATE_TIMELINE_SESSION_DIRECTORY_NAME;
 pub const AGGREGATIONS_FILE_NAME: &str = "spanfold-aggregations.csv";
 
 const NAB_DATASET_ID: &str = "nab";
@@ -65,6 +68,7 @@ pub fn analyse(context: &ShowcaseContext) -> Result<()> {
                 source,
             )
         })?;
+    state_timeline::prepare_state_timeline(&context.paths.analysis, &inputs.samples, &transformed)?;
     report::write_aggregations(
         &context.paths.analysis.join(AGGREGATIONS_FILE_NAME),
         &transformed,

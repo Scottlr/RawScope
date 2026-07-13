@@ -97,10 +97,11 @@ impl TimelineDensityRenderer {
         let render_params = TimelineDensityRenderParams {
             grid_width: config.grid_width,
             grid_height: config.grid_height,
+            lane_count: config.lane_count,
             max_bin_count,
             transform_id: config.encoding.transform.shader_id(),
             palette_id: config.encoding.palette.shader_id(),
-            _padding: [0; 3],
+            _padding: [0; 2],
         };
         let params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("RawScope Timeline Density Render Params Buffer"),
@@ -175,10 +176,11 @@ impl TimelineDensityRenderer {
         let render_params = TimelineDensityRenderParams {
             grid_width: config.grid_width,
             grid_height: config.grid_height,
+            lane_count: config.lane_count,
             max_bin_count,
             transform_id: config.encoding.transform.shader_id(),
             palette_id: config.encoding.palette.shader_id(),
-            _padding: [0; 3],
+            _padding: [0; 2],
         };
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&render_params));
         self.bind_group = create_density_render_bind_group(
@@ -253,10 +255,11 @@ impl TimelineDensityRenderer {
 struct TimelineDensityRenderParams {
     grid_width: u32,
     grid_height: u32,
+    lane_count: u32,
     max_bin_count: u32,
     transform_id: u32,
     palette_id: u32,
-    _padding: [u32; 3],
+    _padding: [u32; 2],
 }
 
 #[cfg(test)]
@@ -269,4 +272,34 @@ mod abi_tests {
         assert_eq!(std::mem::align_of::<TimelineDensityRenderParams>(), 4);
         assert_eq!(std::mem::size_of::<TimelineDensityRenderParams>() % 16, 0);
     }
+
+    #[test]
+    fn discrete_lanes_expand_to_their_gpu_density_anchor_bins() {
+        let lane_count = 4;
+        let grid_height = 256;
+
+        assert_eq!(
+            super::timeline_lane_source_bin(0.99, lane_count, grid_height),
+            0
+        );
+        assert_eq!(
+            super::timeline_lane_source_bin(0.74, lane_count, grid_height),
+            64
+        );
+        assert_eq!(
+            super::timeline_lane_source_bin(0.49, lane_count, grid_height),
+            128
+        );
+        assert_eq!(
+            super::timeline_lane_source_bin(0.01, lane_count, grid_height),
+            192
+        );
+    }
+}
+
+#[cfg(test)]
+fn timeline_lane_source_bin(y_fraction: f32, lane_count: u32, grid_height: u32) -> u32 {
+    let lane =
+        (((1.0 - y_fraction.clamp(0.0, 0.999_999)) * lane_count as f32) as u32).min(lane_count - 1);
+    ((lane * grid_height) / lane_count).min(grid_height - 1)
 }
