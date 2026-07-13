@@ -31,6 +31,7 @@ pub enum NormalizedValue {
     I64(i64),
     U64(u64),
     F64(f64),
+    TimestampMicros(i64),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

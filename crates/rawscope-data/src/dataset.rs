@@ -74,6 +74,8 @@ pub enum DatasetFieldRole {
     Y,
     Time,
     Lane,
+    Value,
+    Category,
 }
 
 /// A user-visible dataset field bound into a current visual workflow.

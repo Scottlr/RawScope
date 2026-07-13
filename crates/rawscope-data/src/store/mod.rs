@@ -89,11 +89,11 @@ impl DatasetStore {
         self.chunks.iter()
     }
 
-    pub fn source_value(
+    pub fn cell(
         &self,
         row: RowId,
         column: rawscope_core::ColumnId,
-    ) -> Result<CellRef<'_>, DatasetAccessError> {
+    ) -> Result<&StoredCell, DatasetAccessError> {
         let column_position = column.get() as usize;
         if self.schema.column(column).is_none() {
             return Err(DatasetAccessError::UnknownColumn { column });
@@ -113,11 +113,18 @@ impl DatasetStore {
             .columns()
             .get(column_position)
             .ok_or(DatasetAccessError::UnknownColumn { column })?;
-        Ok(column_chunk
+        column_chunk
             .cells()
             .get(offset)
-            .ok_or(DatasetAccessError::UnknownRow { row })?
-            .as_cell_ref())
+            .ok_or(DatasetAccessError::UnknownRow { row })
+    }
+
+    pub fn source_value(
+        &self,
+        row: RowId,
+        column: rawscope_core::ColumnId,
+    ) -> Result<CellRef<'_>, DatasetAccessError> {
+        Ok(self.cell(row, column)?.as_cell_ref())
     }
 }
 
