@@ -8,7 +8,9 @@ use rawscope_data::{
     StoreColumnKind,
 };
 
-use super::{VisualFieldMapping, VisualFieldProjection};
+use super::{
+    TimeAxisTransform, TimeValueProjectionError, VisualFieldMapping, VisualFieldProjection,
+};
 use crate::inspection::F64Domain;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -31,6 +33,14 @@ pub struct ProjectedVisualFieldGeneration {
     dataset_generation: DatasetGeneration,
     mapping: VisualFieldMapping,
     points: Arc<[ProjectedVisualPoint]>,
+    /// Exact timestamps aligned with `points` for a time-value projection.
+    ///
+    /// `ProjectedVisualPoint::x` remains the source-domain f64 compatibility
+    /// coordinate.  GPU consumers must use `gpu_points`, which derives the
+    /// bounded coordinate from these exact integers instead of an epoch-scale
+    /// f32 cast.
+    timestamp_micros: Option<Arc<[i64]>>,
+    time_axis_transform: Option<TimeAxisTransform>,
     x_domain: VisualAxisDomain,
     y_domain: VisualAxisDomain,
 }
@@ -53,6 +63,7 @@ pub enum VisualFieldProjectionError {
     NonFinite {
         row_id: RowId,
     },
+    TimeValue(TimeValueProjectionError),
     NoValidPoints,
     NonIncreasingDomain,
 }
@@ -85,6 +96,7 @@ impl ProjectedVisualFieldGeneration {
             .map_err(VisualFieldProjectionError::Mapping)?;
 
         let mut points = Vec::new();
+        let mut timestamp_micros = Vec::new();
         let mut x_values = Vec::new();
         let mut y_values = Vec::new();
         let row_count = store.row_count();
@@ -150,6 +162,15 @@ impl ProjectedVisualFieldGeneration {
                 x: x_f64,
                 y: y_f64,
             });
+            if matches!(
+                mapping.projection(),
+                VisualFieldProjection::TimeValue { .. }
+            ) {
+                let AxisValue::TimestampMicros(timestamp) = x else {
+                    return Err(VisualFieldProjectionError::UnexpectedValueKind { row_id });
+                };
+                timestamp_micros.push(timestamp);
+            }
             x_values.push(x);
             y_values.push(y);
         }
@@ -160,10 +181,20 @@ impl ProjectedVisualFieldGeneration {
 
         let x_domain = domain_for_values(x_values)?;
         let y_domain = domain_for_values(y_values)?;
+        let (timestamp_micros, time_axis_transform) = match x_domain {
+            VisualAxisDomain::TimestampMicros { min, max } => {
+                let transform = TimeAxisTransform::from_domain(min, max)
+                    .map_err(VisualFieldProjectionError::TimeValue)?;
+                (Some(timestamp_micros.into()), Some(transform))
+            }
+            _ => (None, None),
+        };
         Ok(Self {
             dataset_generation: store.generation(),
             mapping,
             points: points.into(),
+            timestamp_micros,
+            time_axis_transform,
             x_domain,
             y_domain,
         })
@@ -179,6 +210,41 @@ impl ProjectedVisualFieldGeneration {
 
     pub fn points(&self) -> Arc<[ProjectedVisualPoint]> {
         Arc::clone(&self.points)
+    }
+
+    /// Returns exact timestamps aligned with the projected points, if this is
+    /// a time-value field.
+    pub fn timestamp_micros(&self) -> Option<Arc<[i64]>> {
+        self.timestamp_micros.as_ref().map(Arc::clone)
+    }
+
+    /// Returns the checked timestamp transform for a time-value field.
+    pub const fn time_axis_transform(&self) -> Option<TimeAxisTransform> {
+        self.time_axis_transform
+    }
+
+    /// Produces bounded coordinates suitable for f32 GPU upload.
+    ///
+    /// The analytical `points` accessor remains source-domain compatible for
+    /// numeric-pair callers.  Time-value coordinates are derived from the
+    /// exact aligned timestamp storage here, so epoch-scale values never pass
+    /// through an intermediate f32 representation.
+    pub fn gpu_points(&self) -> Arc<[ProjectedVisualPoint]> {
+        let (Some(transform), Some(timestamps)) =
+            (self.time_axis_transform, self.timestamp_micros.as_ref())
+        else {
+            return Arc::clone(&self.points);
+        };
+        self.points
+            .iter()
+            .zip(timestamps.iter())
+            .map(|(point, timestamp)| ProjectedVisualPoint {
+                row_id: point.row_id,
+                x: transform.normalized(*timestamp),
+                y: point.y,
+            })
+            .collect::<Vec<_>>()
+            .into()
     }
 
     pub const fn x_domain(&self) -> VisualAxisDomain {
@@ -365,6 +431,7 @@ impl fmt::Display for VisualFieldProjectionError {
             Self::InvalidValue { .. } => "visual-field row has an invalid axis value",
             Self::UnexpectedValueKind { .. } => "visual-field axis value has an unexpected kind",
             Self::NonFinite { .. } => "visual-field axis value is not finite",
+            Self::TimeValue(_) => "time-value timestamp transform is invalid",
             Self::NoValidPoints => "visual-field projection has no valid points",
             Self::NonIncreasingDomain => "visual-field projection domain is not increasing",
         })
