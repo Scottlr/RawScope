@@ -586,6 +586,8 @@ fn format_dataset_field_role(role: DatasetFieldRole) -> String {
         DatasetFieldRole::Y => "y".to_string(),
         DatasetFieldRole::Time => "time".to_string(),
         DatasetFieldRole::Lane => "lane".to_string(),
+        DatasetFieldRole::Value => "value".to_string(),
+        DatasetFieldRole::Category => "category".to_string(),
     }
 }
 

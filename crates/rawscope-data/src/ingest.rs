@@ -314,7 +314,19 @@ fn decoded_cell(
                         InvalidCellReason::ParseFailure,
                     ))
                 }),
-            StoreColumnKind::Utf8 | StoreColumnKind::Bool | StoreColumnKind::TimestampMicros => {
+            StoreColumnKind::TimestampMicros => raw
+                .trim()
+                .parse::<i64>()
+                .map(NormalizedValue::TimestampMicros)
+                .map(CellState::Value)
+                .unwrap_or_else(|_| {
+                    CellState::Invalid(InvalidCell::new(
+                        row_id,
+                        column_id,
+                        InvalidCellReason::ParseFailure,
+                    ))
+                }),
+            StoreColumnKind::Utf8 | StoreColumnKind::Bool => {
                 CellState::Value(NormalizedValue::Text(raw.trim().into()))
             }
         }
@@ -349,5 +361,27 @@ mod tests {
         assert!(matches!(invalid.normalized(), CellState::Invalid(_)));
         assert_eq!(missing.raw_text(), Some("  "));
         assert_eq!(missing.normalized(), &CellState::Missing);
+    }
+
+    #[test]
+    fn timestamp_cells_keep_exact_micros_in_normalized_state() {
+        let timestamp = decoded_cell(
+            RowId(7),
+            ColumnId::new(2),
+            StoreColumnKind::TimestampMicros,
+            "-9007199254740992",
+        );
+        assert_eq!(
+            timestamp.analytical(),
+            &CellState::Value(NormalizedValue::TimestampMicros(-9_007_199_254_740_992))
+        );
+
+        let invalid = decoded_cell(
+            RowId(8),
+            ColumnId::new(2),
+            StoreColumnKind::TimestampMicros,
+            "not-a-timestamp",
+        );
+        assert!(matches!(invalid.analytical(), CellState::Invalid(_)));
     }
 }

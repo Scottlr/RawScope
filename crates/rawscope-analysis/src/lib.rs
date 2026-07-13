@@ -11,3 +11,4 @@ pub mod profile;
 pub mod projection;
 pub mod selection;
 pub mod summary;
+pub mod visual_field;
