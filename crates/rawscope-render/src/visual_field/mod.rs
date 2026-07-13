@@ -7,6 +7,7 @@ mod gpu;
 mod mass_contour;
 mod palette;
 mod point_pack;
+mod point_presentation;
 mod reprojection;
 mod resolution;
 mod resource_estimate;
@@ -42,6 +43,7 @@ pub use point_pack::{
     pack_visual_points, GpuQuantization, GpuQuantizationDisclosure, PackedVisualPoint,
     VisualFieldPoint, VisualPackingError,
 };
+pub use point_presentation::PointRevealPresentationFrame;
 pub use resolution::{
     choose_visual_resolution, choose_visual_resolution_for_quality, ResolutionDecisionReason,
     VisualFieldBudget, VisualFieldIntent, VisualPlotSizePx, VisualResolutionDecision,

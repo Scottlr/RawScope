@@ -172,6 +172,7 @@ pub use view_summaries::{
     timeline_overview_summary, ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineOverviewWindow,
 };
+pub use visual_field::PointRevealPresentationFrame;
 pub use visual_field::{
     aggregate_visual_field_resources, choose_visual_resolution,
     choose_visual_resolution_for_quality, estimate_visual_field_resources,

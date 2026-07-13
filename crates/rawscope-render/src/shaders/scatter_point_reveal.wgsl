@@ -13,7 +13,7 @@ struct Params {
     plot_width_px: f32,
     plot_height_px: f32,
     radius_px: f32,
-    blend: f32,
+    point_alpha: f32,
     emphasized_low: u32,
     emphasized_high: u32,
     has_emphasis: u32,
@@ -74,6 +74,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let neutral = vec3<f32>(0.78, 0.92, 0.96);
     let accent = vec3<f32>(1.0, 0.72, 0.24);
     let colour = mix(neutral, accent, input.emphasized);
-    let alpha = mix(0.28, 0.82, edge) * params.blend;
+    let alpha = mix(0.28, 0.82, edge) * params.point_alpha;
     return vec4<f32>(colour, alpha);
 }

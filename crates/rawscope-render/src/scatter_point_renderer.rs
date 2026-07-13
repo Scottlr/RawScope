@@ -5,7 +5,10 @@ use rawscope_core::{F32Range, RowId};
 use rawscope_data::ScatterPointRecord;
 use std::num::NonZeroU64;
 
-use crate::{PlotRectPx, PointRevealConfig, PointRevealSelection, PointRevealStats};
+use crate::{
+    PlotRectPx, PointRevealConfig, PointRevealPresentationFrame, PointRevealSelection,
+    PointRevealStats,
+};
 
 const SHADER_SOURCE: &str = include_str!("shaders/scatter_point_reveal.wgsl");
 const MIN_RADIUS_PX: f32 = 1.0;
@@ -151,7 +154,13 @@ impl ScatterPointRenderer {
         target_view: &wgpu::TextureView,
         plot_rect: PlotRectPx,
     ) {
-        self.render_with_transition_alpha(queue, encoder, target_view, plot_rect, 1.0);
+        self.render_with_frame(
+            queue,
+            encoder,
+            target_view,
+            plot_rect,
+            PointRevealPresentationFrame::point_only(1.0),
+        );
     }
 
     pub fn render_with_transition_alpha(
@@ -162,7 +171,28 @@ impl ScatterPointRenderer {
         plot_rect: PlotRectPx,
         transition_alpha: f32,
     ) {
-        if self.rendered_count == 0 || self.stats.blend <= 0.0 {
+        self.render_with_frame(
+            queue,
+            encoder,
+            target_view,
+            plot_rect,
+            PointRevealPresentationFrame::point_only(transition_alpha),
+        );
+    }
+
+    /// Render the resident point plan with an already-resolved semantic zoom
+    /// frame.  This path only writes a small uniform and submits the resident
+    /// point buffer; it never scans rows or rebuilds the selection.
+    pub fn render_with_frame(
+        &self,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+        plot_rect: PlotRectPx,
+        frame: PointRevealPresentationFrame,
+    ) {
+        let point_alpha = frame.apply_points(self.stats.blend);
+        if self.rendered_count == 0 || point_alpha <= 0.0 {
             return;
         }
         let params = PointRevealParams::new(
@@ -170,7 +200,7 @@ impl ScatterPointRenderer {
             self.y_range,
             plot_rect,
             self.radius_px,
-            self.stats.blend * transition_alpha.clamp(0.0, 1.0),
+            point_alpha,
             self.emphasized_row_id,
         );
         queue.write_buffer(&self.params_buffer, 0, bytemuck::bytes_of(&params));
@@ -237,7 +267,7 @@ struct PointRevealParams {
     plot_width_px: f32,
     plot_height_px: f32,
     radius_px: f32,
-    blend: f32,
+    point_alpha: f32,
     emphasized_low: u32,
     emphasized_high: u32,
     has_emphasis: u32,
@@ -264,7 +294,7 @@ impl PointRevealParams {
             plot_width_px: plot_rect.width as f32,
             plot_height_px: plot_rect.height as f32,
             radius_px,
-            blend,
+            point_alpha: blend,
             emphasized_low: emphasized_value as u32,
             emphasized_high: (emphasized_value >> 32) as u32,
             has_emphasis: u32::from(emphasized.is_some()),
