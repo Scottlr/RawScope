@@ -4,6 +4,7 @@ mod dataset_resources;
 mod exact_field;
 mod generation;
 mod gpu;
+mod mass_contour;
 mod palette;
 mod point_pack;
 mod reprojection;
@@ -23,6 +24,7 @@ pub use gpu::{
     visual_field_density, visual_field_density_masked, visual_field_density_on_device,
     VisualFieldCountGrid, VisualFieldGpuError,
 };
+pub use mass_contour::{MassContourUniforms, MAX_MASS_CONTOUR_LEVELS};
 pub use reprojection::{
     VisualFieldReprojection, VisualFieldReprojectionError, VisualFieldViewport,
 };

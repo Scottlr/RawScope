@@ -1,6 +1,7 @@
 //! Non-interactive axis, grid, and reference-guide painting for the plot.
 
-use egui::{Align2, Color32, FontId, Id, LayerId, Order, Painter, Pos2, Stroke, Ui};
+use egui::{Align2, Color32, FontId, Id, LayerId, Order, Painter, Pos2, Rect, Stroke, Ui};
+use rawscope_render::ScatterMarginalSummary;
 
 use crate::{ui::WorkbenchViewAxes, ui_plot_surface::PlotAxisLayout};
 
@@ -10,6 +11,9 @@ const TICK_TEXT_GAP_POINTS: f32 = 5.0;
 const AXIS_LABEL_GAP_POINTS: f32 = 22.0;
 const GUIDE_LABEL_INSET_POINTS: f32 = 8.0;
 const GUIDE_LABEL_VERTICAL_OFFSET_POINTS: f32 = 6.0;
+
+const MARGINAL_MIN_ALPHA: f32 = 0.28;
+const MARGINAL_MAX_ALPHA: f32 = 0.74;
 
 pub(crate) fn show_plot_axes(
     ui: &mut Ui,
@@ -93,6 +97,133 @@ pub(crate) fn show_plot_axes(
                 );
             }
         }
+    }
+}
+
+/// Paints exact count marginals into the already allocated bottom/left gutters.
+///
+/// The function only paints; it does not allocate UI space or register pointer
+/// senses. The authoritative hit rectangle therefore remains `plot_rect`.
+pub(crate) fn show_scatter_marginals_in_gutters(
+    ui: &Ui,
+    layout: PlotAxisLayout,
+    summary: Option<&ScatterMarginalSummary>,
+    stale: bool,
+) {
+    let Some(summary) = summary else { return };
+    let painter = ui.ctx().layer_painter(LayerId::new(
+        Order::Foreground,
+        Id::new("rawscope_plot_marginals"),
+    ));
+    let alpha = if stale {
+        MARGINAL_MIN_ALPHA
+    } else {
+        MARGINAL_MAX_ALPHA
+    };
+    let x_colour = Color32::from_rgb(88, 148, 214).linear_multiply(alpha);
+    let y_colour = Color32::from_rgb(98, 171, 126).linear_multiply(alpha);
+    draw_x_marginal(&painter, layout, summary, x_colour);
+    draw_y_marginal(&painter, layout, summary, y_colour);
+}
+
+fn draw_x_marginal(
+    painter: &Painter,
+    layout: PlotAxisLayout,
+    summary: &ScatterMarginalSummary,
+    fill_colour: Color32,
+) {
+    let gutter = Rect::from_min_max(
+        layout.plot_rect.left_bottom(),
+        egui::pos2(layout.plot_rect.right(), layout.outer_rect.bottom()),
+    );
+    let clipped = painter.with_clip_rect(gutter);
+    draw_marginal_columns(
+        &clipped,
+        gutter,
+        &summary.x_bins,
+        summary.max_x_count,
+        fill_colour,
+    );
+}
+
+fn draw_y_marginal(
+    painter: &Painter,
+    layout: PlotAxisLayout,
+    summary: &ScatterMarginalSummary,
+    fill_colour: Color32,
+) {
+    let gutter = Rect::from_min_max(layout.outer_rect.left_bottom(), layout.plot_rect.left_top());
+    let clipped = painter.with_clip_rect(gutter);
+    draw_marginal_rows(
+        &clipped,
+        gutter,
+        &summary.y_bins,
+        summary.max_y_count,
+        fill_colour,
+    );
+}
+
+fn draw_marginal_columns(
+    painter: &Painter,
+    gutter: Rect,
+    bins: &[rawscope_render::SummaryBin],
+    max_count: u32,
+    fill_colour: Color32,
+) {
+    if bins.is_empty() || gutter.width() <= 0.0 || gutter.height() <= 0.0 {
+        return;
+    }
+    let bin_width = gutter.width() / bins.len() as f32;
+    for (index, bin) in bins.iter().enumerate() {
+        let fraction = normalized_marginal_count(bin.count, max_count);
+        let left = gutter.left() + index as f32 * bin_width;
+        let right = if index + 1 == bins.len() {
+            gutter.right()
+        } else {
+            left + bin_width
+        };
+        let top = gutter.bottom() - gutter.height() * fraction;
+        painter.rect_filled(
+            Rect::from_min_max(egui::pos2(left, top), egui::pos2(right, gutter.bottom())),
+            0.0,
+            fill_colour,
+        );
+    }
+}
+
+fn draw_marginal_rows(
+    painter: &Painter,
+    gutter: Rect,
+    bins: &[rawscope_render::SummaryBin],
+    max_count: u32,
+    fill_colour: Color32,
+) {
+    if bins.is_empty() || gutter.width() <= 0.0 || gutter.height() <= 0.0 {
+        return;
+    }
+    let bin_height = gutter.height() / bins.len() as f32;
+    for (index, bin) in bins.iter().enumerate() {
+        let fraction = normalized_marginal_count(bin.count, max_count);
+        let top = gutter.top() + index as f32 * bin_height;
+        let bottom = if index + 1 == bins.len() {
+            gutter.bottom()
+        } else {
+            top + bin_height
+        };
+        let right = gutter.left() + gutter.width() * fraction;
+        painter.rect_filled(
+            Rect::from_min_max(egui::pos2(gutter.left(), top), egui::pos2(right, bottom)),
+            0.0,
+            fill_colour,
+        );
+    }
+}
+
+fn normalized_marginal_count(count: u32, max_count: u32) -> f32 {
+    if max_count == 0 {
+        0.0
+    } else {
+        count as f32 / max_count as f32
     }
 }
 

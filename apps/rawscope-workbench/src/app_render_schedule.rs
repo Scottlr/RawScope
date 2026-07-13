@@ -186,6 +186,7 @@ impl WorkbenchApp {
         if let Some(renderer) = self.scatter.density_renderer.as_mut() {
             renderer.cancel_full_readback();
         }
+        self.scatter.pending_settled_context_readback = false;
         self.invalidate_scatter_inspection();
         self.invalidate_scatter_point_reveal();
         self.scatter.difference_baseline_dirty = true;
@@ -214,6 +215,45 @@ impl WorkbenchApp {
             return Ok(());
         }
 
+        if self.scatter.pending_settled_context_readback {
+            let poll_result = {
+                let gpu = self.gpu.as_ref().expect("GPU checked above");
+                let renderer = self
+                    .scatter
+                    .density_renderer
+                    .as_mut()
+                    .expect("density renderer checked above");
+                renderer.poll_full_readback(gpu.device())
+            };
+            match poll_result {
+                Ok(None) => {
+                    let still_pending = self
+                        .scatter
+                        .density_renderer
+                        .as_ref()
+                        .is_some_and(|renderer| renderer.has_pending_full_readback());
+                    if !still_pending {
+                        self.scatter.pending_settled_context_readback = false;
+                    } else {
+                        self.request_redraw();
+                    }
+                    return Ok(());
+                }
+                Ok(Some(count_grid)) => {
+                    self.scatter.pending_settled_context_readback = false;
+                    self.publish_scatter_density_context(count_grid)?;
+                    self.rebuild_scatter_inspection_cache();
+                    self.update_window_title();
+                    self.request_redraw();
+                    return Ok(());
+                }
+                Err(err) => {
+                    self.scatter.pending_settled_context_readback = false;
+                    return Err(err.into());
+                }
+            }
+        }
+
         if let Some(pending) = self.scatter.pending_exact_readback {
             let poll_result = {
                 let gpu = self.gpu.as_ref().expect("GPU checked above");
@@ -239,10 +279,10 @@ impl WorkbenchApp {
                     self.request_redraw();
                     return Ok(());
                 }
-                Ok(Some(_counts)) => {
+                Ok(Some(count_grid)) => {
                     self.scatter.pending_exact_readback = None;
                     if self.render_schedule.work_completed(pending.work) {
-                        self.refresh_scatter_marginal_summary();
+                        self.publish_scatter_density_context(count_grid)?;
                         self.rebuild_scatter_inspection_cache();
                         self.invalidate_scatter_point_reveal();
                         self.update_window_title();
@@ -343,6 +383,7 @@ impl WorkbenchApp {
         }
 
         if matches!(work, ScheduledDensityWork::Exact { .. }) {
+            self.scatter.pending_settled_context_readback = false;
             let begin_result = {
                 let gpu = self.gpu.as_ref().expect("GPU checked above");
                 let renderer = self

@@ -13,16 +13,16 @@ use rawscope_data::{
 use rawscope_evidence::{ScatterSelectionEvidence, TimelineSelectionEvidence};
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    choose_visual_resolution_for_quality, scatter_marginal_summary, BrushScreenPoint,
-    ComparisonFieldRenderStats, ComparisonFieldRenderer, DensityEncoding, DensityPresentation,
-    DensityPresentationConfig, DensityPresentationRenderStats, PaletteGpuResources,
-    ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
-    ScatterBrushSelection, ScatterDensityMode, ScatterDensityPresentation,
-    ScatterInspectionOverlayRenderer, ScatterMarginalSummary, ScatterViewport,
-    SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag,
-    TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
-    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport,
-    VisualFieldQuality, VisualResolutionError, VisualResolutionPolicy,
+    choose_visual_resolution_for_quality, BrushScreenPoint, ComparisonFieldRenderStats,
+    ComparisonFieldRenderer, DensityEncoding, DensityPresentation, DensityPresentationConfig,
+    DensityPresentationRenderStats, PaletteGpuResources, ReliefFieldConfig,
+    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
+    ScatterDensityMode, ScatterDensityPresentation, ScatterInspectionOverlayRenderer,
+    ScatterMarginalSummary, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
+    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
+    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
+    TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport, VisualFieldQuality,
+    VisualResolutionError, VisualResolutionPolicy,
 };
 use tracing::info;
 use winit::{
@@ -141,6 +141,8 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) viewport: Option<ScatterViewport>,
     pub(crate) render_stats: Option<DensityPresentationRenderStats>,
     pub(crate) marginal_summary: Option<ScatterMarginalSummary>,
+    pub(crate) settled_density_context:
+        Option<std::sync::Arc<rawscope_render::SettledDensityContext>>,
     pub(crate) scatter_aggregate_overview: Option<ScatterAggregateOverview>,
     pub(crate) brush_drag_start: Option<BrushScreenPoint>,
     pub(crate) active_brush_drag: Option<ScatterBrushDrag>,
@@ -149,6 +151,7 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) selection_evidence: Option<ScatterSelectionEvidence>,
     pub(crate) selection_drilldown: Option<SelectionDrilldown>,
     pub(crate) pending_exact_readback: Option<crate::app_render_schedule::PendingExactReadback>,
+    pub(crate) pending_settled_context_readback: bool,
 }
 
 /// Timeline-specific workbench state.
@@ -189,6 +192,7 @@ impl Default for ScatterWorkbenchState {
             viewport: None,
             render_stats: None,
             marginal_summary: None,
+            settled_density_context: None,
             scatter_aggregate_overview: None,
             brush_drag_start: None,
             active_brush_drag: None,
@@ -197,6 +201,7 @@ impl Default for ScatterWorkbenchState {
             selection_evidence: None,
             selection_drilldown: None,
             pending_exact_readback: None,
+            pending_settled_context_readback: false,
         }
     }
 }
@@ -433,15 +438,11 @@ impl WorkbenchApp {
             self.scatter.point_count_label = "local".to_string();
             self.scatter.viewport = Some(viewport);
             self.scatter.render_stats = Some(render_stats);
-            self.scatter.marginal_summary = Some(scatter_marginal_summary(
-                &self.scatter.points,
-                viewport.x_range(),
-                viewport.y_range(),
-                MARGINAL_BIN_COUNT,
-                MARGINAL_BIN_COUNT,
-            ));
+            self.scatter.marginal_summary = None;
+            self.scatter.settled_density_context = None;
             self.rebuild_scatter_aggregate_overview();
             self.scatter.density_renderer = Some(scatter_density_renderer);
+            self.queue_scatter_context_readback(gpu)?;
             self.rebuild_scatter_inspection_cache();
             self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
             self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
@@ -502,15 +503,11 @@ impl WorkbenchApp {
         self.clear_dataset_diff_state();
         self.scatter.viewport = Some(viewport);
         self.scatter.render_stats = Some(render_stats);
-        self.scatter.marginal_summary = Some(scatter_marginal_summary(
-            &self.scatter.points,
-            viewport.x_range(),
-            viewport.y_range(),
-            MARGINAL_BIN_COUNT,
-            MARGINAL_BIN_COUNT,
-        ));
+        self.scatter.marginal_summary = None;
+        self.scatter.settled_density_context = None;
         self.rebuild_scatter_aggregate_overview();
         self.scatter.density_renderer = Some(scatter_density_renderer);
+        self.queue_scatter_context_readback(gpu)?;
         self.workbench_state.export_status = crate::ui::ExportStatus::Idle;
         self.scatter_brush_overlay_renderer = Some(scatter_brush_overlay_renderer);
         self.scatter_inspection_overlay_renderer = Some(ScatterInspectionOverlayRenderer::new(

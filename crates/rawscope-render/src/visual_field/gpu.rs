@@ -38,6 +38,16 @@ impl VisualFieldCountGrid {
     pub fn total_count(&self) -> u64 {
         self.counts.total_count()
     }
+
+    /// Borrows the immutable settled count snapshot for analysis consumers.
+    pub fn as_density_count_grid(&self) -> &DensityCountGrid {
+        &self.counts
+    }
+
+    /// Transfers the settled count snapshot into an analysis-owned context.
+    pub fn into_density_count_grid(self) -> DensityCountGrid {
+        self.counts
+    }
 }
 
 #[derive(Debug)]
