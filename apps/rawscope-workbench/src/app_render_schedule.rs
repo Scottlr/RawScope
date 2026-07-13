@@ -3,8 +3,8 @@
 use std::time::Instant;
 
 use rawscope_render::{
-    DensityFieldViewport, DensityQualityTier, DensityReadbackPolicy, ScatterDensityRendererConfig,
-    ScatterDensityUpdate,
+    DensityPresentationConfig, DensityReadbackPolicy, ResidentExactFieldUpdate, VisualFieldQuality,
+    VisualFieldViewport,
 };
 
 use crate::app::{WorkbenchApp, DEMO_GRID_HEIGHT, DEMO_GRID_WIDTH};
@@ -277,19 +277,19 @@ impl WorkbenchApp {
             ScheduledDensityWork::Preview { revision } => (
                 schedule_config.preview_grid_width,
                 schedule_config.preview_grid_height,
-                DensityQualityTier::Preview,
+                VisualFieldQuality::Preview,
                 DensityReadbackPolicy::None,
                 revision,
             ),
             ScheduledDensityWork::Exact { revision } => (
                 DEMO_GRID_WIDTH,
                 DEMO_GRID_HEIGHT,
-                DensityQualityTier::Exact,
+                VisualFieldQuality::Exact,
                 DensityReadbackPolicy::None,
                 revision,
             ),
         };
-        let config = ScatterDensityRendererConfig::new(
+        let config = DensityPresentationConfig::new(
             viewport.x_range(),
             viewport.y_range(),
             grid_width,
@@ -298,7 +298,7 @@ impl WorkbenchApp {
         .with_encoding(self.scatter.density_encoding)
         .with_presentation(self.scatter.density_presentation)
         .with_relief(self.scatter.relief_config);
-        let field = DensityFieldViewport {
+        let field = VisualFieldViewport {
             x_range: viewport.x_range(),
             y_range: viewport.y_range(),
             grid_width,
@@ -316,7 +316,7 @@ impl WorkbenchApp {
             renderer.update_density_for_field(
                 gpu.device(),
                 gpu.queue(),
-                ScatterDensityUpdate { config, readback },
+                ResidentExactFieldUpdate { config, readback },
                 field,
             )
         };

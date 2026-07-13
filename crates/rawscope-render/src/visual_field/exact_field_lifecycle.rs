@@ -1,22 +1,23 @@
 //! Dataset and grid resource replacement for resident scatter density state.
 
-use rawscope_data::{FilterRevision, ScatterPointRecord};
+use rawscope_data::FilterRevision;
 
+use super::super::point_pack::VisualFieldPoint;
 use super::{
     checked_point_count, dispatch_chunks,
     resources::{bind_groups, filter_mask_buffer, grid_buffers, params_buffers, point_buffer},
-    ScatterDensityGpuState,
+    ResidentExactField,
 };
-use crate::GpuScatterDensityError;
+use crate::VisualFieldGpuError;
 
-impl ScatterDensityGpuState {
-    pub fn replace_dataset(
+impl ResidentExactField {
+    pub fn replace_dataset<T: VisualFieldPoint>(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        points: &[ScatterPointRecord],
+        points: &[T],
         dataset_revision: u64,
-    ) -> Result<(), GpuScatterDensityError> {
+    ) -> Result<(), VisualFieldGpuError> {
         if self.dataset_revision == dataset_revision {
             return Ok(());
         }
@@ -39,10 +40,10 @@ impl ScatterDensityGpuState {
         Ok(())
     }
 
-    pub fn validate_dataset(
+    pub fn validate_dataset<T: VisualFieldPoint>(
         &self,
-        points: &[ScatterPointRecord],
-    ) -> Result<(), GpuScatterDensityError> {
+        points: &[T],
+    ) -> Result<(), VisualFieldGpuError> {
         checked_point_count(points).map(|_| ())
     }
 
@@ -51,7 +52,7 @@ impl ScatterDensityGpuState {
         queue: &wgpu::Queue,
         mask: &[u32],
         revision: FilterRevision,
-    ) -> Result<bool, GpuScatterDensityError> {
+    ) -> Result<bool, VisualFieldGpuError> {
         self.validate_filter_mask(mask)?;
         if self.filter_revision == revision {
             return Ok(false);
@@ -61,9 +62,9 @@ impl ScatterDensityGpuState {
         Ok(true)
     }
 
-    pub fn validate_filter_mask(&self, mask: &[u32]) -> Result<(), GpuScatterDensityError> {
+    pub fn validate_filter_mask(&self, mask: &[u32]) -> Result<(), VisualFieldGpuError> {
         if mask.len() != self.point_count as usize {
-            return Err(GpuScatterDensityError::FilterMaskLengthMismatch {
+            return Err(VisualFieldGpuError::FilterMaskLengthMismatch {
                 point_count: self.point_count as usize,
                 mask_len: mask.len(),
             });

@@ -4,8 +4,8 @@ use std::error::Error;
 
 use rawscope_data::{generate_synthetic_points, SyntheticPointConfig};
 use rawscope_render::{
-    scatter_marginal_summary, scatter_marginal_summary_masked, DensityReadbackPolicy,
-    ScatterDensityRendererConfig, ScatterDensityUpdate, ScatterViewport,
+    scatter_marginal_summary, scatter_marginal_summary_masked, DensityPresentationConfig,
+    DensityReadbackPolicy, ResidentExactFieldUpdate, ScatterViewport,
 };
 use tracing::error;
 
@@ -92,7 +92,7 @@ impl WorkbenchApp {
             return Ok(());
         };
 
-        let renderer_config = ScatterDensityRendererConfig::new(
+        let renderer_config = DensityPresentationConfig::new(
             viewport.x_range(),
             viewport.y_range(),
             DEMO_GRID_WIDTH,
@@ -104,7 +104,7 @@ impl WorkbenchApp {
         let stats = scatter_density_renderer.update_density(
             gpu.device(),
             gpu.queue(),
-            ScatterDensityUpdate {
+            ResidentExactFieldUpdate {
                 config: renderer_config,
                 readback: DensityReadbackPolicy::None,
             },

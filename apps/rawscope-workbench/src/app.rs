@@ -12,11 +12,11 @@ use rawscope_data::{
 use rawscope_evidence::{ScatterSelectionEvidence, TimelineSelectionEvidence};
 use rawscope_gpu::GpuContext;
 use rawscope_render::{
-    scatter_marginal_summary, BrushScreenPoint, DensityEncoding, ReliefFieldConfig,
-    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityMode, ScatterDensityPresentation, ScatterDensityRenderStats,
-    ScatterDensityRenderer, ScatterDensityRendererConfig, ScatterDifferenceRenderStats,
-    ScatterDifferenceRenderer, ScatterInspectionOverlayRenderer, ScatterMarginalSummary,
+    scatter_marginal_summary, BrushScreenPoint, ComparisonFieldRenderStats,
+    ComparisonFieldRenderer, DensityEncoding, DensityPresentation, DensityPresentationConfig,
+    DensityPresentationRenderStats, ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag,
+    ScatterBrushOverlayRenderer, ScatterBrushSelection, ScatterDensityMode,
+    ScatterDensityPresentation, ScatterInspectionOverlayRenderer, ScatterMarginalSummary,
     ScatterViewport, SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview,
     TimelineBrushDrag, TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
     TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport,
@@ -109,10 +109,10 @@ pub struct WorkbenchApp {
 
 /// Scatter-specific workbench state.
 pub(crate) struct ScatterWorkbenchState {
-    pub(crate) density_renderer: Option<ScatterDensityRenderer>,
-    pub(crate) difference_renderer: Option<ScatterDifferenceRenderer>,
+    pub(crate) density_renderer: Option<DensityPresentation>,
+    pub(crate) difference_renderer: Option<ComparisonFieldRenderer>,
     pub(crate) density_mode: ScatterDensityMode,
-    pub(crate) difference_stats: Option<ScatterDifferenceRenderStats>,
+    pub(crate) difference_stats: Option<ComparisonFieldRenderStats>,
     pub(crate) difference_baseline_dirty: bool,
     pub(crate) relief_config: ReliefFieldConfig,
     pub(crate) density_dataset_revision: u64,
@@ -123,7 +123,7 @@ pub(crate) struct ScatterWorkbenchState {
     pub(crate) active_preset: PointCountPreset,
     pub(crate) point_count_label: String,
     pub(crate) viewport: Option<ScatterViewport>,
-    pub(crate) render_stats: Option<ScatterDensityRenderStats>,
+    pub(crate) render_stats: Option<DensityPresentationRenderStats>,
     pub(crate) marginal_summary: Option<ScatterMarginalSummary>,
     pub(crate) scatter_aggregate_overview: Option<ScatterAggregateOverview>,
     pub(crate) brush_drag_start: Option<BrushScreenPoint>,
@@ -354,7 +354,7 @@ impl WorkbenchApp {
                 limit,
             )?;
             let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
-            let renderer_config = ScatterDensityRendererConfig::new(
+            let renderer_config = DensityPresentationConfig::new(
                 viewport.x_range(),
                 viewport.y_range(),
                 DEMO_GRID_WIDTH,
@@ -363,7 +363,7 @@ impl WorkbenchApp {
             .with_encoding(self.scatter.density_encoding)
             .with_presentation(self.scatter.density_presentation)
             .with_relief(self.scatter.relief_config);
-            let scatter_density_renderer = ScatterDensityRenderer::new(
+            let scatter_density_renderer = DensityPresentation::new(
                 gpu.device(),
                 gpu.queue(),
                 gpu.surface_format(),
@@ -428,7 +428,7 @@ impl WorkbenchApp {
             active_preset.row_count,
         ));
         let viewport = ScatterViewport::new(dataset.x_range, dataset.y_range);
-        let renderer_config = ScatterDensityRendererConfig::new(
+        let renderer_config = DensityPresentationConfig::new(
             viewport.x_range(),
             viewport.y_range(),
             DEMO_GRID_WIDTH,
@@ -437,7 +437,7 @@ impl WorkbenchApp {
         .with_encoding(self.scatter.density_encoding)
         .with_presentation(self.scatter.density_presentation)
         .with_relief(self.scatter.relief_config);
-        let scatter_density_renderer = ScatterDensityRenderer::new(
+        let scatter_density_renderer = DensityPresentation::new(
             gpu.device(),
             gpu.queue(),
             gpu.surface_format(),

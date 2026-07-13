@@ -4,7 +4,7 @@ use std::error::Error;
 
 use rawscope_data::ScatterPointRecord;
 use rawscope_gpu::GpuContext;
-use rawscope_render::{ScatterDensityRendererConfig, ScatterDifferenceRenderer};
+use rawscope_render::{ComparisonFieldRenderer, DensityPresentationConfig};
 
 use crate::app::WorkbenchApp;
 
@@ -13,9 +13,9 @@ impl WorkbenchApp {
         &mut self,
         gpu: &GpuContext,
         points: &[ScatterPointRecord],
-        config: ScatterDensityRendererConfig,
+        config: DensityPresentationConfig,
     ) -> Result<(), Box<dyn Error>> {
-        let renderer = ScatterDifferenceRenderer::new(
+        let renderer = ComparisonFieldRenderer::new(
             gpu.device(),
             gpu.queue(),
             gpu.surface_format(),
@@ -46,7 +46,7 @@ impl WorkbenchApp {
 
     pub(crate) fn refresh_scatter_difference_density(
         &mut self,
-        config: ScatterDensityRendererConfig,
+        config: DensityPresentationConfig,
         baseline_dirty: bool,
     ) -> Result<(), Box<dyn Error>> {
         let (Some(gpu), Some(renderer)) =

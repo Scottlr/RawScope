@@ -5,8 +5,6 @@ use std::sync::Arc;
 use rawscope_core::RowId;
 use rawscope_data::{ScatterPointKind, ScatterPointRecord};
 
-use crate::visual_field::ProjectedVisualFieldGeneration;
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ProjectedScatterPoint {
     pub row_id: RowId,
@@ -96,26 +94,6 @@ impl ProjectedScatterGeneration {
 
     pub fn points(&self) -> Arc<[ProjectedScatterPoint]> {
         Arc::clone(&self.points)
-    }
-
-    /// Temporary T001-to-T002 adapter for legacy scatter render callers.
-    ///
-    /// The generic visual-field generation is authoritative. T002 removes this
-    /// allocation once the renderer consumes `ProjectedVisualPoint` directly.
-    pub fn from_visual_field(generation: &ProjectedVisualFieldGeneration) -> Self {
-        let points = generation
-            .points()
-            .iter()
-            .map(|point| ProjectedScatterPoint {
-                row_id: point.row_id,
-                x: point.x,
-                y: point.y,
-                kind: ScatterPointKind::Unclassified,
-            })
-            .collect::<Vec<_>>();
-        Self {
-            points: points.into(),
-        }
     }
 }
 

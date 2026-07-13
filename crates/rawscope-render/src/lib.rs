@@ -7,8 +7,6 @@ mod density_render_pipeline;
 mod difference_density;
 mod difference_inspection;
 mod gpu_density_pipeline;
-mod gpu_scatter_density;
-mod gpu_scatter_density_pack;
 mod gpu_timeline_density;
 mod gpu_timeline_density_pack;
 mod mask_alignment;
@@ -16,18 +14,11 @@ mod missingness_reference;
 mod plot_geometry;
 mod scatter_brush;
 mod scatter_brush_overlay;
-mod scatter_density_gpu_state;
-mod scatter_density_renderer;
-mod scatter_density_reprojection;
-mod scatter_difference_renderer;
 mod scatter_inspection;
 mod scatter_inspection_overlay;
 mod scatter_point_renderer;
 mod scatter_point_reveal;
-mod scatter_relief;
-mod scatter_resident;
 mod scatter_selection_export_v3_helpers;
-mod scatter_transition;
 mod scatter_viewport;
 mod selection_comparison;
 mod selection_drilldown;
@@ -39,6 +30,7 @@ mod timeline_selection_export_v3_helpers;
 mod timeline_viewport;
 mod view_axes;
 mod view_summaries;
+mod visual_field;
 mod visual_transition;
 
 pub use aggregate_cache::{
@@ -58,14 +50,6 @@ pub use difference_density::{
 pub use difference_inspection::{
     build_difference_inspection_distribution, DifferenceDirection,
     DifferenceInspectionDistribution, DifferenceInspectionSummary,
-};
-pub use gpu_scatter_density::{
-    gpu_scatter_density, gpu_scatter_density_masked, gpu_scatter_density_on_device,
-    GpuScatterDensityError, GpuScatterDensityGrid,
-};
-pub use gpu_scatter_density_pack::{
-    pack_scatter_points, GpuQuantization, GpuQuantizationDisclosure, PackedScatterPoint,
-    VisualPackingError,
 };
 pub use gpu_timeline_density::{
     gpu_timeline_density, gpu_timeline_density_on_device, GpuTimelineDensityError,
@@ -129,16 +113,6 @@ pub use scatter_brush::{
     SelectedCategoryCounts, SelectedRegionSummary,
 };
 pub use scatter_brush_overlay::ScatterBrushOverlayRenderer;
-pub use scatter_density_gpu_state::{
-    DensityReadbackPolicy, ScatterDensityGpuState, ScatterDensityUpdate,
-};
-pub use scatter_density_renderer::{
-    ScatterDensityRenderStats, ScatterDensityRenderer, ScatterDensityRendererConfig,
-};
-pub use scatter_density_reprojection::{
-    DensityFieldViewport, DensityQualityTier, DensityReprojection,
-};
-pub use scatter_difference_renderer::{ScatterDifferenceRenderStats, ScatterDifferenceRenderer};
 pub use scatter_inspection::{
     build_scatter_inspection_grid, ScatterInspectionBin, ScatterInspectionConfig,
     ScatterInspectionDistribution, ScatterInspectionError, ScatterInspectionGrid,
@@ -153,15 +127,9 @@ pub use scatter_point_reveal::{
     project_point_to_plot_fraction, select_points_for_reveal, PointRevealConfig, PointRevealError,
     PointRevealSelection, PointRevealStats,
 };
-pub use scatter_relief::relief_normal_from_samples;
-pub use scatter_resident::{
-    ScatterDatasetGpuResources, ScatterFieldGeneration, ScatterViewGeneration,
-    ScatterViewGenerationCounter,
-};
 pub use scatter_selection_export_v3_helpers::{
     scatter_aggregate_evidence_context, scatter_aggregate_evidence_context_for_bins,
 };
-pub use scatter_transition::{transition_decision, ScatterTransitionField, TransitionDecision};
 pub use scatter_viewport::ScatterViewport;
 pub use selection_comparison::{
     missingness_selection_comparison, scatter_selection_comparison,
@@ -195,6 +163,22 @@ pub use view_summaries::{
     scatter_marginal_summary, scatter_marginal_summary_masked, timeline_marginal_summary,
     timeline_overview_summary, ScatterMarginalSummary, SummaryBin, TimelineMarginalSummary,
     TimelineOverviewSummary, TimelineOverviewWindow,
+};
+pub use visual_field::{
+    pack_visual_points, relief_normal_from_samples, GpuQuantization, GpuQuantizationDisclosure,
+    PackedVisualPoint, VisualFieldPoint, VisualPackingError,
+};
+pub use visual_field::{
+    transition_decision, ComparisonFieldRenderStats, ComparisonFieldRenderer, DensityPresentation,
+    DensityPresentationConfig, DensityPresentationRenderStats, DensityReadbackPolicy,
+    ResidentExactField, ResidentExactFieldUpdate, TransitionDecision,
+    VisualFieldDatasetGpuResources, VisualFieldGeneration, VisualFieldQuality,
+    VisualFieldReprojection, VisualFieldReprojectionError, VisualFieldTransitionField,
+    VisualFieldViewGeneration, VisualFieldViewGenerationCounter, VisualFieldViewport,
+};
+pub use visual_field::{
+    visual_field_density, visual_field_density_masked, visual_field_density_on_device,
+    VisualFieldCountGrid, VisualFieldGpuError,
 };
 pub use visual_transition::{
     ease_out_cubic, semantic_color_crossfade, transition_progress, validate_transition_config,

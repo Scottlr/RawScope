@@ -1,9 +1,35 @@
 //! GPU-side packing for scatter-density points.
 
 use bytemuck::{Pod, Zeroable};
-use rawscope_analysis::projection::ProjectedScatterPoint;
+use rawscope_analysis::visual_field::ProjectedVisualPoint;
 use rawscope_core::F32Range;
 use rawscope_data::ScatterPointRecord;
+
+/// Minimal coordinate contract consumed by resident visual-field buffers.
+pub trait VisualFieldPoint {
+    fn x(&self) -> f32;
+    fn y(&self) -> f32;
+}
+
+impl VisualFieldPoint for ScatterPointRecord {
+    fn x(&self) -> f32 {
+        self.x
+    }
+
+    fn y(&self) -> f32 {
+        self.y
+    }
+}
+
+impl VisualFieldPoint for ProjectedVisualPoint {
+    fn x(&self) -> f32 {
+        self.x as f32
+    }
+
+    fn y(&self) -> f32 {
+        self.y as f32
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -75,16 +101,16 @@ impl GpuQuantization {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PackedScatterPoint {
+pub struct PackedVisualPoint {
     pub row_id: rawscope_core::RowId,
     pub x: f32,
     pub y: f32,
 }
 
-pub fn pack_scatter_points(
-    points: &[ProjectedScatterPoint],
+pub fn pack_visual_points(
+    points: &[ProjectedVisualPoint],
     quantization: GpuQuantization,
-) -> Result<Vec<PackedScatterPoint>, VisualPackingError> {
+) -> Result<Vec<PackedVisualPoint>, VisualPackingError> {
     let _disclosure = quantization.disclosure()?;
     let x_span = quantization.x_max - quantization.x_min;
     let y_span = quantization.y_max - quantization.y_min;
@@ -114,7 +140,7 @@ pub fn pack_scatter_points(
                     row_id: point.row_id,
                 });
             }
-            Ok(PackedScatterPoint {
+            Ok(PackedVisualPoint {
                 row_id: point.row_id,
                 x,
                 y,
@@ -125,7 +151,7 @@ pub fn pack_scatter_points(
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
-pub(crate) struct ScatterParams {
+pub(crate) struct VisualFieldParams {
     x_min: f32,
     x_max: f32,
     y_min: f32,
@@ -136,7 +162,7 @@ pub(crate) struct ScatterParams {
     dispatch_point_count: u32,
 }
 
-impl ScatterParams {
+impl VisualFieldParams {
     pub(crate) fn new(
         x_range: F32Range,
         y_range: F32Range,
@@ -158,12 +184,12 @@ impl ScatterParams {
     }
 }
 
-pub(crate) fn pack_points(points: &[ScatterPointRecord]) -> Vec<GpuPoint> {
+pub(crate) fn pack_gpu_points<T: VisualFieldPoint>(points: &[T]) -> Vec<GpuPoint> {
     points
         .iter()
         .map(|point| GpuPoint {
-            x: point.x,
-            y: point.y,
+            x: point.x(),
+            y: point.y(),
         })
         .collect()
 }
@@ -173,27 +199,26 @@ mod tests {
     use std::mem::{align_of, size_of};
 
     use super::*;
-    use rawscope_analysis::projection::ProjectedScatterPoint;
+    use rawscope_analysis::visual_field::ProjectedVisualPoint;
     use rawscope_core::RowId;
-    use rawscope_data::ScatterPointKind;
 
     #[test]
     fn scatter_gpu_abis_match_wgsl_scalar_layout() {
         assert_eq!(size_of::<GpuPoint>(), 8);
         assert_eq!(align_of::<GpuPoint>(), 4);
-        assert_eq!(size_of::<ScatterParams>(), 32);
-        assert_eq!(align_of::<ScatterParams>(), 4);
+        assert_eq!(size_of::<VisualFieldParams>(), 32);
+        assert_eq!(align_of::<VisualFieldParams>(), 4);
         assert_eq!(std::mem::offset_of!(GpuPoint, x), 0);
         assert_eq!(std::mem::offset_of!(GpuPoint, y), 4);
-        assert_eq!(std::mem::offset_of!(ScatterParams, x_min), 0);
-        assert_eq!(std::mem::offset_of!(ScatterParams, x_max), 4);
-        assert_eq!(std::mem::offset_of!(ScatterParams, y_min), 8);
-        assert_eq!(std::mem::offset_of!(ScatterParams, y_max), 12);
-        assert_eq!(std::mem::offset_of!(ScatterParams, grid_width), 16);
-        assert_eq!(std::mem::offset_of!(ScatterParams, grid_height), 20);
-        assert_eq!(std::mem::offset_of!(ScatterParams, point_start), 24);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, x_min), 0);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, x_max), 4);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, y_min), 8);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, y_max), 12);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, grid_width), 16);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, grid_height), 20);
+        assert_eq!(std::mem::offset_of!(VisualFieldParams, point_start), 24);
         assert_eq!(
-            std::mem::offset_of!(ScatterParams, dispatch_point_count),
+            std::mem::offset_of!(VisualFieldParams, dispatch_point_count),
             28
         );
     }
@@ -206,24 +231,22 @@ mod tests {
             y_min: 0.0,
             y_max: 1.0,
         };
-        let non_finite = [ProjectedScatterPoint {
+        let non_finite = [ProjectedVisualPoint {
             row_id: RowId(1),
             x: f64::NAN,
             y: 0.5,
-            kind: ScatterPointKind::Unclassified,
         }];
         assert!(matches!(
-            pack_scatter_points(&non_finite, quantization),
+            pack_visual_points(&non_finite, quantization),
             Err(VisualPackingError::NonFinite { .. })
         ));
-        let outside = [ProjectedScatterPoint {
+        let outside = [ProjectedVisualPoint {
             row_id: RowId(2),
             x: 2.0,
             y: 0.5,
-            kind: ScatterPointKind::Unclassified,
         }];
         assert!(matches!(
-            pack_scatter_points(&outside, quantization),
+            pack_visual_points(&outside, quantization),
             Err(VisualPackingError::OutsideDomain { .. })
         ));
     }
@@ -238,7 +261,7 @@ mod tests {
         };
         assert_eq!(invalid.validate(), Err(VisualPackingError::InvalidDomain));
         assert_eq!(
-            pack_scatter_points(&[], invalid),
+            pack_visual_points(&[], invalid),
             Err(VisualPackingError::InvalidDomain)
         );
     }
@@ -262,13 +285,12 @@ mod tests {
 
     #[test]
     fn packed_points_preserve_row_identity_at_the_quantization_boundary() {
-        let points = [ProjectedScatterPoint {
+        let points = [ProjectedVisualPoint {
             row_id: RowId(42),
             x: 1.0,
             y: 3.0,
-            kind: ScatterPointKind::Unclassified,
         }];
-        let packed = pack_scatter_points(
+        let packed = pack_visual_points(
             &points,
             GpuQuantization {
                 x_min: 0.0,

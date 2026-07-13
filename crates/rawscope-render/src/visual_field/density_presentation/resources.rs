@@ -4,12 +4,12 @@ use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
 use std::num::NonZeroU64;
 
-use super::ScatterDensityRendererConfig;
-use crate::DensityFieldViewport;
+use super::DensityPresentationConfig;
+use crate::VisualFieldViewport;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
-pub(super) struct ScatterDensityRenderParams {
+pub(super) struct DensityRenderParams {
     grid_width: u32,
     grid_height: u32,
     max_bin_count: u32,
@@ -45,20 +45,19 @@ pub(super) struct ScatterDensityRenderParams {
     transition_padding: [f32; 3],
 }
 
-const SCATTER_DENSITY_RENDER_PARAMS_SIZE_BYTES: u64 =
-    std::mem::size_of::<ScatterDensityRenderParams>() as u64;
+const DENSITY_RENDER_PARAMS_SIZE_BYTES: u64 = std::mem::size_of::<DensityRenderParams>() as u64;
 
-impl ScatterDensityRenderParams {
+impl DensityRenderParams {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new(
-        config: ScatterDensityRendererConfig,
+        config: DensityPresentationConfig,
         max_bin_count: u32,
-        source: DensityFieldViewport,
+        source: VisualFieldViewport,
         display_x: F32Range,
         display_y: F32Range,
-        previous_config: ScatterDensityRendererConfig,
+        previous_config: DensityPresentationConfig,
         previous_max_bin_count: u32,
-        previous_source: DensityFieldViewport,
+        previous_source: VisualFieldViewport,
         transition_progress: f32,
     ) -> Self {
         Self {
@@ -67,7 +66,7 @@ impl ScatterDensityRenderParams {
             max_bin_count,
             transform_id: config.encoding.transform.shader_id(),
             palette_id: config.encoding.palette.shader_id(),
-            presentation_id: config.presentation.shader_id(),
+            presentation_id: super::presentation_shader_id(config.presentation),
             padding: [0; 2],
             source_x_min: source.x_range.min,
             source_x_max: source.x_range.max,
@@ -88,7 +87,7 @@ impl ScatterDensityRenderParams {
             previous_max_bin_count,
             previous_transform_id: previous_config.encoding.transform.shader_id(),
             previous_palette_id: previous_config.encoding.palette.shader_id(),
-            previous_presentation_id: previous_config.presentation.shader_id(),
+            previous_presentation_id: super::presentation_shader_id(previous_config.presentation),
             previous_source_x_min: previous_source.x_range.min,
             previous_source_x_max: previous_source.x_range.max,
             previous_source_y_min: previous_source.y_range.min,
@@ -102,17 +101,17 @@ impl ScatterDensityRenderParams {
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 mod tests {
-    use super::ScatterDensityRenderParams;
+    use super::DensityRenderParams;
 
     #[test]
     fn relief_render_params_are_wgsl_aligned() {
-        assert_eq!(std::mem::size_of::<ScatterDensityRenderParams>(), 144);
-        assert_eq!(std::mem::align_of::<ScatterDensityRenderParams>(), 4);
-        assert_eq!(std::mem::size_of::<ScatterDensityRenderParams>() % 16, 0);
+        assert_eq!(std::mem::size_of::<DensityRenderParams>(), 144);
+        assert_eq!(std::mem::align_of::<DensityRenderParams>(), 4);
+        assert_eq!(std::mem::size_of::<DensityRenderParams>() % 16, 0);
     }
 }
 
-pub(super) fn scatter_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+pub(super) fn density_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("RawScope Scatter Render Bind Group Layout"),
         entries: &[
@@ -123,7 +122,7 @@ pub(super) fn scatter_render_bind_group_layout(device: &wgpu::Device) -> wgpu::B
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(SCATTER_DENSITY_RENDER_PARAMS_SIZE_BYTES),
+                    min_binding_size: NonZeroU64::new(DENSITY_RENDER_PARAMS_SIZE_BYTES),
                 },
                 count: None,
             },
@@ -146,7 +145,7 @@ fn storage_layout_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     }
 }
 
-pub(super) fn scatter_render_bind_group(
+pub(super) fn density_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     counts: &wgpu::Buffer,
