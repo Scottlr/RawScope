@@ -7,14 +7,16 @@ use std::{
 };
 
 use crate::{
-    parse_session_manifest, DatasetProfileId, RawScopeSessionManifestV1, SessionDataFormat,
-    SessionDatasetV1, SessionManifestError, SessionViewV1, MAX_SESSION_MANIFEST_BYTES,
+    parse_session_manifest_versioned, DatasetProfileId, ParsedSessionManifest,
+    SessionColumnBinding, SessionDataFormat, SessionDatasetV1, SessionManifestError,
+    SessionProfileHint, SessionViewV1, SessionViewV2, MAX_SESSION_MANIFEST_BYTES,
 };
 
 /// A session manifest after local paths and optional profile ids are resolved.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedRawScopeSession {
     pub manifest_path: PathBuf,
+    pub schema_version: u32,
     pub dataset: ResolvedSessionDataset,
     pub view: ResolvedSessionView,
 }
@@ -32,12 +34,19 @@ pub struct ResolvedSessionDataset {
 /// Resolved view binding for workbench startup.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResolvedSessionView {
-    Scatter {
+    NumericPair {
         x: String,
         y: String,
+        category: Option<String>,
         profile: Option<DatasetProfileId>,
     },
-    Timeline {
+    TimeValue {
+        time: String,
+        value: String,
+        category: Option<String>,
+        profile: Option<DatasetProfileId>,
+    },
+    TimelineLane {
         time: String,
         lane: String,
         profile: Option<DatasetProfileId>,
@@ -80,25 +89,37 @@ pub fn load_session_manifest(
         });
     }
     let json = String::from_utf8_lossy(&bytes);
-    let manifest = parse_session_manifest(&json)?;
+    let manifest = parse_session_manifest_versioned(&json)?;
     resolve_manifest(manifest_path, manifest)
 }
 
 fn resolve_manifest(
     manifest_path: PathBuf,
-    manifest: RawScopeSessionManifestV1,
+    manifest: ParsedSessionManifest,
 ) -> Result<ResolvedRawScopeSession, SessionManifestError> {
-    let dataset_path = resolve_dataset_path(&manifest_path, &manifest.dataset)?;
+    let (schema_version, dataset_source, view) = match manifest {
+        ParsedSessionManifest::V1(manifest) => (
+            crate::RAWSCOPE_SESSION_SCHEMA_VERSION,
+            manifest.dataset,
+            resolve_v1_view(manifest.view)?,
+        ),
+        ParsedSessionManifest::V2(manifest) => (
+            crate::RAWSCOPE_SESSION_SCHEMA_VERSION_V2,
+            manifest.source,
+            resolve_v2_view(manifest.view)?,
+        ),
+    };
+    let dataset_path = resolve_dataset_path(&manifest_path, &dataset_source)?;
     let dataset = ResolvedSessionDataset {
         path: dataset_path,
-        format: manifest.dataset.format,
-        display_name: manifest.dataset.display_name,
-        limit: manifest.dataset.limit,
-        evidence_key: manifest.dataset.evidence_key,
+        format: dataset_source.format,
+        display_name: dataset_source.display_name,
+        limit: dataset_source.limit,
+        evidence_key: dataset_source.evidence_key,
     };
-    let view = resolve_view(manifest.view)?;
     Ok(ResolvedRawScopeSession {
         manifest_path,
+        schema_version,
         dataset,
         view,
     })
@@ -129,23 +150,70 @@ fn resolve_dataset_path(
     Ok(resolved_path)
 }
 
-fn resolve_view(view: SessionViewV1) -> Result<ResolvedSessionView, SessionManifestError> {
+fn resolve_v1_view(view: SessionViewV1) -> Result<ResolvedSessionView, SessionManifestError> {
     match view {
-        SessionViewV1::Scatter { x, y, profile } => Ok(ResolvedSessionView::Scatter {
+        SessionViewV1::Scatter { x, y, profile } => Ok(ResolvedSessionView::NumericPair {
             x,
             y,
+            category: None,
             profile: resolve_profile(profile)?,
         }),
         SessionViewV1::Timeline {
             time,
             lane,
             profile,
-        } => Ok(ResolvedSessionView::Timeline {
+        } => Ok(ResolvedSessionView::TimelineLane {
             time,
             lane,
             profile: resolve_profile(profile)?,
         }),
     }
+}
+
+fn resolve_v2_view(view: SessionViewV2) -> Result<ResolvedSessionView, SessionManifestError> {
+    match view {
+        SessionViewV2::NumericPair {
+            x,
+            y,
+            category,
+            profile,
+        } => Ok(ResolvedSessionView::NumericPair {
+            x: binding_name(x),
+            y: binding_name(y),
+            category: category.map(binding_name),
+            profile: resolve_profile_hint(profile)?,
+        }),
+        SessionViewV2::TimeValue {
+            time,
+            value,
+            category,
+            profile,
+        } => Ok(ResolvedSessionView::TimeValue {
+            time: binding_name(time),
+            value: binding_name(value),
+            category: category.map(binding_name),
+            profile: resolve_profile_hint(profile)?,
+        }),
+        SessionViewV2::TimelineLane {
+            time,
+            lane,
+            profile,
+        } => Ok(ResolvedSessionView::TimelineLane {
+            time: binding_name(time),
+            lane: binding_name(lane),
+            profile: resolve_profile_hint(profile)?,
+        }),
+    }
+}
+
+fn binding_name(binding: SessionColumnBinding) -> String {
+    binding.0
+}
+
+fn resolve_profile_hint(
+    profile: Option<SessionProfileHint>,
+) -> Result<Option<DatasetProfileId>, SessionManifestError> {
+    resolve_profile(profile.map(|profile| profile.0))
 }
 
 fn resolve_profile(

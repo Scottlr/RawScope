@@ -109,6 +109,49 @@ class DataframeAdapterTests(unittest.TestCase):
             self.assertEqual(parquet.read_table(from_batch.dataset_path).num_rows, 2)
 
     @unittest.skipUnless(HAS_ARROW, "PyArrow test extra is not installed")
+    def test_category_and_time_value_bindings_share_dataframe_validation(self) -> None:
+        table = pa.table(
+            {
+                "observed_at": [1, 2],
+                "value": [2.5, 3.5],
+                "segment": ["a", "b"],
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            category = rawscope.prepare(
+                table,
+                view=rawscope.ScatterView("value", "observed_at", category="segment"),
+                destination=root / "category",
+            )
+            time_value = rawscope.prepare(
+                table,
+                view=rawscope.TimeValueView("observed_at", "value", category="segment"),
+                destination=root / "time-value",
+            )
+
+            self.assertEqual(
+                json.loads(category.manifest_path.read_text(encoding="utf-8"))["schema_version"],
+                2,
+            )
+            self.assertEqual(
+                json.loads(time_value.manifest_path.read_text(encoding="utf-8"))["view"]["kind"],
+                "time_value",
+            )
+
+    @unittest.skipUnless(HAS_ARROW, "PyArrow test extra is not installed")
+    def test_missing_optional_category_column_is_rejected_when_requested(self) -> None:
+        table = pa.table({"x": [1], "y": [2]})
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(rawscope.DataframeSchemaError, "segment"):
+                rawscope.prepare(
+                    table,
+                    view=rawscope.ScatterView("x", "y", category="segment"),
+                    destination=Path(temporary) / "missing-category",
+                )
+
+    @unittest.skipUnless(HAS_ARROW, "PyArrow test extra is not installed")
     def test_evidence_key_rejects_null_or_duplicate_values(self) -> None:
         duplicate = pa.table({"x": [1, 2], "y": [2, 3], "game_id": ["g-1", "g-1"]})
         missing = pa.table({"x": [1, 2], "y": [2, 3], "game_id": ["g-1", None]})

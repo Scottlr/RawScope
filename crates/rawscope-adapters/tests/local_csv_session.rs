@@ -38,9 +38,10 @@ fn local_csv_adapter_prepares_a_profiled_external_session() {
     assert_eq!(session.dataset.limit, Some(1));
     assert_eq!(
         session.view,
-        ResolvedSessionView::Scatter {
+        ResolvedSessionView::NumericPair {
             x: "white_rating".to_string(),
             y: "black_rating".to_string(),
+            category: None,
             profile: Some(DatasetProfileId::LichessGames),
         }
     );
@@ -65,7 +66,7 @@ fn local_csv_adapter_prepares_a_timeline_session() {
 
     assert_eq!(
         session.view,
-        ResolvedSessionView::Timeline {
+        ResolvedSessionView::TimelineLane {
             time: "sample_index".to_string(),
             lane: "comparison_state".to_string(),
             profile: None,

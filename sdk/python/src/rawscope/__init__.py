@@ -15,6 +15,7 @@ from .models import (
     PreparedSession,
     RawScopeError,
     ScatterView,
+    TimeValueView,
     TimelineView,
     UnsupportedDataSource,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "RawScopeExecutableNotFound",
     "RawScopeProcess",
     "ScatterView",
+    "TimeValueView",
     "TimelineView",
     "UnsupportedDataSource",
     "launch",

@@ -13,6 +13,7 @@ from .models import (
     PreparedSession,
     RawScopeError,
     ScatterView,
+    TimeValueView,
     TimelineView,
     require_text,
     validate_row_limit,
@@ -20,17 +21,19 @@ from .models import (
 
 ARTIFACT_KIND = "rawscope.session"
 SCHEMA_VERSION = 1
+SCHEMA_VERSION_V2 = 2
 MANIFEST_NAME = "analysis.rawscope.json"
 
 
 def prepare(
     source: object,
     *,
-    view: ScatterView | TimelineView,
+    view: ScatterView | TimelineView | TimeValueView,
     destination: str | os.PathLike[str],
     display_name: str | None = None,
     evidence_key: str | None = None,
     limit: int | None = None,
+    schema_version: int | None = None,
 ) -> PreparedSession:
     """Prepare either a file-backed or dataframe-backed local session."""
 
@@ -44,11 +47,12 @@ def prepare(
             display_name=display_name,
             evidence_key=evidence_key,
             limit=limit,
+            schema_version=schema_version,
         )
 
     dataset = source if isinstance(source, DatasetSource) else DatasetSource.from_path(source)
-    if not isinstance(view, (ScatterView, TimelineView)):
-        raise InvalidSession("view must be ScatterView or TimelineView")
+    if not isinstance(view, (ScatterView, TimelineView, TimeValueView)):
+        raise InvalidSession("view must be ScatterView, TimelineView, or TimeValueView")
     if display_name is not None:
         require_text(display_name, "dataset.display_name")
     if evidence_key is not None:
@@ -65,6 +69,7 @@ def prepare(
         display_name=display_name,
         evidence_key=evidence_key,
         limit=limit,
+        schema_version=schema_version,
     )
     _atomic_write_json(manifest_path, payload)
     return PreparedSession(
@@ -78,12 +83,13 @@ def prepare(
 def view(
     source: object,
     *,
-    view: ScatterView | TimelineView,
+    view: ScatterView | TimelineView | TimeValueView,
     destination: str | os.PathLike[str] | None = None,
     executable: str | os.PathLike[str] | None = None,
     display_name: str | None = None,
     evidence_key: str | None = None,
     limit: int | None = None,
+    schema_version: int | None = None,
 ):
     """Prepare a file or dataframe-backed session and launch the native workbench."""
 
@@ -99,6 +105,7 @@ def view(
             display_name=display_name,
             evidence_key=evidence_key,
             limit=limit,
+            schema_version=schema_version,
         )
     else:
         from .bundle import prepare_dataframe
@@ -110,6 +117,7 @@ def view(
             display_name=display_name,
             evidence_key=evidence_key,
             limit=limit,
+            schema_version=schema_version,
         )
     return launch(session, executable=executable)
 
@@ -142,11 +150,21 @@ def _manifest_payload(
     *,
     dataset_path: str,
     data_format: str,
-    view: ScatterView | TimelineView,
+    view: ScatterView | TimelineView | TimeValueView,
     display_name: str | None,
     evidence_key: str | None,
     limit: int | None,
+    schema_version: int | None,
 ) -> dict[str, object]:
+    if schema_version not in (None, SCHEMA_VERSION, SCHEMA_VERSION_V2):
+        raise InvalidSession("schema_version must be 1 or 2")
+    requires_v2 = isinstance(view, TimeValueView) or (
+        isinstance(view, ScatterView) and view.category is not None
+    )
+    if schema_version == SCHEMA_VERSION and requires_v2:
+        raise InvalidSession("the selected view requires session schema v2")
+    use_v2 = schema_version == SCHEMA_VERSION_V2 or requires_v2
+
     dataset: dict[str, object] = {
         "path": dataset_path,
         "format": data_format,
@@ -160,13 +178,23 @@ def _manifest_payload(
 
     if isinstance(view, ScatterView):
         view_payload: dict[str, object] = {
-            "kind": "scatter",
+            "kind": "numeric_pair" if use_v2 else "scatter",
             "x": view.x,
             "y": view.y,
         }
+        if view.category is not None:
+            view_payload["category"] = view.category
+    elif isinstance(view, TimeValueView):
+        view_payload = {
+            "kind": "time_value",
+            "time": view.time,
+            "value": view.value,
+        }
+        if view.category is not None:
+            view_payload["category"] = view.category
     else:
         view_payload = {
-            "kind": "timeline",
+            "kind": "timeline_lane" if use_v2 else "timeline",
             "time": view.time,
             "lane": view.lane,
         }
@@ -175,8 +203,8 @@ def _manifest_payload(
 
     return {
         "artifact_kind": ARTIFACT_KIND,
-        "schema_version": SCHEMA_VERSION,
-        "dataset": dataset,
+        "schema_version": SCHEMA_VERSION_V2 if use_v2 else SCHEMA_VERSION,
+        "source" if use_v2 else "dataset": dataset,
         "view": view_payload,
     }
 

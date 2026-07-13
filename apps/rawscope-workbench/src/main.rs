@@ -29,6 +29,7 @@ mod app_scatter_point_reveal;
 mod app_scatter_projection;
 mod app_selection;
 mod app_session;
+mod app_session_visual_field;
 mod app_timeline;
 mod app_timeline_brush;
 mod app_visual_encoding;

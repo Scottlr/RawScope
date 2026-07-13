@@ -256,6 +256,8 @@ mod tests {
                 path: primary_path.clone(),
                 x_column: None,
                 y_column: None,
+                category_column: None,
+                projection: crate::cli::VisualFieldProjectionKind::NumericPair,
                 limit: None,
                 profile: Some(DatasetProfileId::LichessGames),
             }),
@@ -268,6 +270,8 @@ mod tests {
             path,
             x_column,
             y_column,
+            category_column: _,
+            projection: _,
             limit,
             profile,
         } = app.input.clone().expect("scatter input should exist")

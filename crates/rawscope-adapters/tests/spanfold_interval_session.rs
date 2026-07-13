@@ -163,7 +163,12 @@ fn spanfold_adapter_prepares_a_session_consumed_by_the_rawscope_loader() {
     );
     assert!(matches!(
         session.view,
-        ResolvedSessionView::Scatter { x, y, profile: None }
+        ResolvedSessionView::NumericPair {
+            x,
+            y,
+            category: None,
+            profile: None,
+        }
             if x == RAWSCOPE_SCATTER_START_COLUMN && y == RAWSCOPE_SCATTER_DURATION_COLUMN
     ));
 
@@ -200,7 +205,7 @@ fn spanfold_adapter_prepares_a_family_timeline_with_interval_evidence() {
         .expect("prepared timeline manifest should satisfy session v1");
     assert!(matches!(
         session.view,
-        ResolvedSessionView::Timeline { time, lane, profile: None }
+        ResolvedSessionView::TimelineLane { time, lane, profile: None }
             if time == RAWSCOPE_TIMELINE_START_COLUMN
                 && lane == RAWSCOPE_TIMELINE_FAMILY_COLUMN
     ));

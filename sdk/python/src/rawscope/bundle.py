@@ -20,6 +20,7 @@ from .models import (
     InvalidSession,
     PreparedSession,
     ScatterView,
+    TimeValueView,
     TimelineView,
     require_text,
     validate_row_limit,
@@ -29,11 +30,12 @@ from .models import (
 def prepare_dataframe(
     source: object,
     *,
-    view: ScatterView | TimelineView,
+    view: ScatterView | TimelineView | TimeValueView,
     destination: str | os.PathLike[str] | None,
     display_name: str | None,
     evidence_key: str | None,
     limit: int | None,
+    schema_version: int | None = None,
 ) -> PreparedSession:
     adapter = select_adapter(source)
     _validate_dataframe(adapter, view, display_name, evidence_key, limit)
@@ -62,6 +64,7 @@ def prepare_dataframe(
             display_name=display_name,
             evidence_key=evidence_key,
             limit=limit,
+            schema_version=schema_version,
         )
         _atomic_write_json(manifest_path, payload)
     except Exception:
@@ -103,7 +106,7 @@ def _publish_staged_bundle(staged_bundle: Path, final_bundle: Path) -> None:
 
 def _validate_dataframe(
     adapter: DataframeAdapter,
-    view: ScatterView | TimelineView,
+    view: ScatterView | TimelineView | TimeValueView,
     display_name: str | None,
     evidence_key: str | None,
     limit: int | None,
@@ -114,9 +117,17 @@ def _validate_dataframe(
         require_text(evidence_key, "dataset.evidence_key")
     limit = validate_row_limit(limit)
     names = adapter.column_names()
-    required = (
-        (view.x, view.y) if isinstance(view, ScatterView) else (view.time, view.lane)
+    required = list(
+        (
+            (view.x, view.y)
+            if isinstance(view, ScatterView)
+            else (view.time, view.value)
+            if isinstance(view, TimeValueView)
+            else (view.time, view.lane)
+        )
     )
+    if isinstance(view, (ScatterView, TimeValueView)) and view.category is not None:
+        required.append(view.category)
     validate_required_columns(names, required)
     adapter.row_count()
     if evidence_key is not None:

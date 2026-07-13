@@ -22,6 +22,8 @@ pub(crate) enum WorkbenchInput {
         path: PathBuf,
         x_column: Option<String>,
         y_column: Option<String>,
+        category_column: Option<String>,
+        projection: VisualFieldProjectionKind,
         limit: Option<usize>,
         profile: Option<DatasetProfileId>,
     },
@@ -32,6 +34,12 @@ pub(crate) enum WorkbenchInput {
         limit: Option<usize>,
         profile: Option<DatasetProfileId>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VisualFieldProjectionKind {
+    NumericPair,
+    TimeValue,
 }
 
 impl WorkbenchArgs {
@@ -179,6 +187,8 @@ impl WorkbenchArgs {
                 path,
                 x_column: scatter_x_column(&x_column, &y_column, profile)?,
                 y_column: scatter_y_column(&x_column, &y_column, profile)?,
+                category_column: None,
+                projection: VisualFieldProjectionKind::NumericPair,
                 limit,
                 profile,
             }),

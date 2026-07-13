@@ -385,6 +385,8 @@ impl WorkbenchApp {
             path,
             x_column,
             y_column,
+            category_column,
+            projection,
             limit,
             profile,
         }) = self.input.clone()
@@ -403,6 +405,10 @@ impl WorkbenchApp {
                 limit,
             )?;
             self.activate_session_context(&dataset.source_rows)?;
+            crate::app_session::validate_category_binding(
+                &dataset.source_rows,
+                category_column.as_deref(),
+            )?;
             let comparison_source_rows = self.load_scatter_comparison_source_rows(
                 &resolved_binding.x_column,
                 &resolved_binding.y_column,
@@ -451,6 +457,8 @@ impl WorkbenchApp {
             self.initialize_scatter_projection(
                 &resolved_binding.x_column,
                 &resolved_binding.y_column,
+                category_column.as_deref(),
+                projection,
             );
             self.set_comparison_source_rows(comparison_source_rows);
             self.scatter.point_count_label = "local".to_string();
