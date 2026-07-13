@@ -5,6 +5,7 @@ use rawscope_core::F32Range;
 use std::num::NonZeroU64;
 
 use super::DensityPresentationConfig;
+use crate::PaletteGpuResources;
 use crate::VisualFieldViewport;
 
 #[repr(C)]
@@ -128,6 +129,8 @@ pub(super) fn density_render_bind_group_layout(device: &wgpu::Device) -> wgpu::B
             },
             storage_layout_entry(2),
             storage_layout_entry(3),
+            texture_layout_entry(4),
+            sampler_layout_entry(5),
         ],
     })
 }
@@ -152,6 +155,7 @@ pub(super) fn density_render_bind_group(
     params: &wgpu::Buffer,
     max_count: &wgpu::Buffer,
     previous_counts: &wgpu::Buffer,
+    palette: &PaletteGpuResources,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("RawScope Scatter Render Bind Group"),
@@ -173,6 +177,36 @@ pub(super) fn density_render_bind_group(
                 binding: 3,
                 resource: previous_counts.as_entire_binding(),
             },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: wgpu::BindingResource::TextureView(palette.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::Sampler(palette.sampler()),
+            },
         ],
     })
+}
+
+fn texture_layout_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    }
+}
+
+fn sampler_layout_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        count: None,
+    }
 }

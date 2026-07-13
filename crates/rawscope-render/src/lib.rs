@@ -189,6 +189,10 @@ pub use visual_field::{
     visual_field_density, visual_field_density_masked, visual_field_density_on_device,
     VisualFieldCountGrid, VisualFieldGpuError,
 };
+pub use visual_field::{
+    CategoricalPalette, CategoryPaletteEntries, ContinuousPalette, ContinuousPaletteLut,
+    PaletteGpuResources, CONTINUOUS_PALETTE_ROW_COUNT, PALETTE_LUT_BYTES, PALETTE_LUT_SIZE,
+};
 pub use visual_transition::{
     ease_out_cubic, semantic_color_crossfade, transition_progress, validate_transition_config,
     TransitionKind, TransitionProgress, VisualTransitionConfig, VisualTransitionConfigError,

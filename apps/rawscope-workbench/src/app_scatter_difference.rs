@@ -15,12 +15,13 @@ impl WorkbenchApp {
         points: &[ScatterPointRecord],
         config: DensityPresentationConfig,
     ) -> Result<(), Box<dyn Error>> {
-        let renderer = ComparisonFieldRenderer::new(
+        let renderer = ComparisonFieldRenderer::new_with_palette(
             gpu.device(),
             gpu.queue(),
             gpu.surface_format(),
             points,
             config,
+            self.palette_gpu_resources(gpu),
         )?;
         self.scatter.difference_stats = Some(renderer.stats());
         self.scatter.difference_renderer = Some(renderer);

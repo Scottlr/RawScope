@@ -15,14 +15,14 @@ use rawscope_gpu::GpuContext;
 use rawscope_render::{
     choose_visual_resolution_for_quality, scatter_marginal_summary, BrushScreenPoint,
     ComparisonFieldRenderStats, ComparisonFieldRenderer, DensityEncoding, DensityPresentation,
-    DensityPresentationConfig, DensityPresentationRenderStats, ReliefFieldConfig,
-    ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer, ScatterBrushSelection,
-    ScatterDensityMode, ScatterDensityPresentation, ScatterInspectionOverlayRenderer,
-    ScatterMarginalSummary, ScatterViewport, SelectedRegionSummary, SelectionDrilldown,
-    TimelineAggregateOverview, TimelineBrushDrag, TimelineBrushSelection,
-    TimelineDensityRenderStats, TimelineDensityRenderer, TimelineMarginalSummary,
-    TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport, VisualFieldQuality,
-    VisualResolutionError, VisualResolutionPolicy,
+    DensityPresentationConfig, DensityPresentationRenderStats, PaletteGpuResources,
+    ReliefFieldConfig, ScatterAggregateOverview, ScatterBrushDrag, ScatterBrushOverlayRenderer,
+    ScatterBrushSelection, ScatterDensityMode, ScatterDensityPresentation,
+    ScatterInspectionOverlayRenderer, ScatterMarginalSummary, ScatterViewport,
+    SelectedRegionSummary, SelectionDrilldown, TimelineAggregateOverview, TimelineBrushDrag,
+    TimelineBrushSelection, TimelineDensityRenderStats, TimelineDensityRenderer,
+    TimelineMarginalSummary, TimelineOverviewSummary, TimelineSelectionSummary, TimelineViewport,
+    VisualFieldQuality, VisualResolutionError, VisualResolutionPolicy,
 };
 use tracing::info;
 use winit::{
@@ -87,6 +87,7 @@ pub struct WorkbenchApp {
     pub(crate) compare_input: Option<PathBuf>,
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) gpu: Option<GpuContext>,
+    pub(crate) palette_gpu: Option<Arc<PaletteGpuResources>>,
     pub(crate) egui_context: EguiContext,
     pub(crate) egui_state: Option<EguiWinitState>,
     pub(crate) egui_renderer: Option<EguiRenderer>,
@@ -304,8 +305,23 @@ impl WorkbenchApp {
                 "GPU startup job completed without a durable result",
             )
         })??;
+        self.palette_gpu = Some(Arc::new(PaletteGpuResources::new(
+            gpu.device(),
+            gpu.queue(),
+            rawscope_gpu::DeviceGeneration(0),
+        )));
         self.gpu = Some(gpu);
         Ok(true)
+    }
+
+    pub(crate) fn palette_gpu_resources(&self, gpu: &GpuContext) -> Arc<PaletteGpuResources> {
+        self.palette_gpu.clone().unwrap_or_else(|| {
+            Arc::new(PaletteGpuResources::new(
+                gpu.device(),
+                gpu.queue(),
+                rawscope_gpu::DeviceGeneration(0),
+            ))
+        })
     }
 
     pub(crate) fn new(startup: WorkbenchStartup) -> Self {
@@ -379,12 +395,13 @@ impl WorkbenchApp {
             .with_encoding(self.scatter.density_encoding)
             .with_presentation(self.scatter.density_presentation)
             .with_relief(self.scatter.relief_config);
-            let scatter_density_renderer = DensityPresentation::new(
+            let scatter_density_renderer = DensityPresentation::new_with_palette(
                 gpu.device(),
                 gpu.queue(),
                 gpu.surface_format(),
                 &dataset.points,
                 renderer_config,
+                self.palette_gpu_resources(gpu),
             )?;
             let scatter_brush_overlay_renderer =
                 ScatterBrushOverlayRenderer::new(gpu.device(), gpu.surface_format());
@@ -453,12 +470,13 @@ impl WorkbenchApp {
         .with_encoding(self.scatter.density_encoding)
         .with_presentation(self.scatter.density_presentation)
         .with_relief(self.scatter.relief_config);
-        let scatter_density_renderer = DensityPresentation::new(
+        let scatter_density_renderer = DensityPresentation::new_with_palette(
             gpu.device(),
             gpu.queue(),
             gpu.surface_format(),
             &dataset.points,
             renderer_config,
+            self.palette_gpu_resources(gpu),
         )?;
         let scatter_brush_overlay_renderer =
             ScatterBrushOverlayRenderer::new(gpu.device(), gpu.surface_format());

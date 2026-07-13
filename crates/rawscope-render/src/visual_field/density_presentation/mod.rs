@@ -2,6 +2,8 @@
 
 use rawscope_core::F32Range;
 use rawscope_data::{FilterMask, FilterRevision};
+use rawscope_gpu::DeviceGeneration;
+use std::sync::Arc;
 
 use super::exact_field::{DensityReadbackPolicy, ResidentExactField, ResidentExactFieldUpdate};
 use super::generation::VisualFieldQuality;
@@ -106,6 +108,7 @@ pub struct DensityPresentation {
     pub(super) previous_stats: DensityPresentationRenderStats,
     pub(super) previous_field: VisualFieldViewport,
     pub(super) transition_progress: f32,
+    pub(super) palette: Arc<crate::PaletteGpuResources>,
 }
 
 impl DensityPresentation {
@@ -119,6 +122,28 @@ impl DensityPresentation {
         surface_format: wgpu::TextureFormat,
         points: &[T],
         config: DensityPresentationConfig,
+    ) -> Result<Self, VisualFieldGpuError> {
+        Self::new_with_palette(
+            device,
+            queue,
+            surface_format,
+            points,
+            config,
+            Arc::new(crate::PaletteGpuResources::new(
+                device,
+                queue,
+                DeviceGeneration(0),
+            )),
+        )
+    }
+
+    pub fn new_with_palette<T: VisualFieldPoint>(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        surface_format: wgpu::TextureFormat,
+        points: &[T],
+        config: DensityPresentationConfig,
+        palette: Arc<crate::PaletteGpuResources>,
     ) -> Result<Self, VisualFieldGpuError> {
         let mut gpu_state = ResidentExactField::new(device, queue, points, config, 0)?;
         let output = gpu_state.update_with_output(
@@ -171,6 +196,7 @@ impl DensityPresentation {
                 &params_buffer,
                 gpu_state.max_count_buffer(),
                 gpu_state.count_buffer(1 - index),
+                &palette,
             )
         });
         let pipeline = create_density_render_pipeline(
@@ -198,6 +224,7 @@ impl DensityPresentation {
             previous_stats: output.stats,
             previous_field: completed_field,
             transition_progress: 1.0,
+            palette,
         })
     }
 
@@ -240,6 +267,7 @@ impl DensityPresentation {
                     &self.params_buffer,
                     self.gpu_state.max_count_buffer(),
                     self.gpu_state.count_buffer(1 - index),
+                    &self.palette,
                 )
             });
         }

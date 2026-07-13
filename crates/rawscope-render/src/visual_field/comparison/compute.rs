@@ -3,6 +3,8 @@
 use bytemuck::{Pod, Zeroable};
 use rawscope_core::F32Range;
 use rawscope_data::{FilterMask, FilterRevision};
+use rawscope_gpu::DeviceGeneration;
+use std::sync::Arc;
 
 use super::super::density_presentation::DensityPresentationConfig;
 use super::super::exact_field::{
@@ -21,6 +23,7 @@ const REDUCTION_WORKGROUP_SIZE: u32 = 64;
 use super::resources::{
     compute_pipeline, difference_bind_group, difference_bind_group_layout, render_pipeline,
 };
+use crate::PaletteGpuResources;
 
 use super::presentation::ComparisonFieldRenderStats;
 
@@ -39,6 +42,7 @@ pub struct ComparisonFieldRenderer {
     pub(super) baseline_total: u64,
     pub(super) active_total: u64,
     pub(super) baseline_recompute_count: u64,
+    pub(super) palette: Arc<PaletteGpuResources>,
 }
 
 impl ComparisonFieldRenderer {
@@ -48,6 +52,24 @@ impl ComparisonFieldRenderer {
         surface_format: wgpu::TextureFormat,
         points: &[T],
         config: DensityPresentationConfig,
+    ) -> Result<Self, VisualFieldGpuError> {
+        Self::new_with_palette(
+            device,
+            queue,
+            surface_format,
+            points,
+            config,
+            Arc::new(PaletteGpuResources::new(device, queue, DeviceGeneration(0))),
+        )
+    }
+
+    pub fn new_with_palette<T: VisualFieldPoint>(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        surface_format: wgpu::TextureFormat,
+        points: &[T],
+        config: DensityPresentationConfig,
+        palette: Arc<PaletteGpuResources>,
     ) -> Result<Self, VisualFieldGpuError> {
         let baseline = ResidentExactField::new(device, queue, points, config, 0)?;
         let active = ResidentExactField::new(device, queue, points, config, 0)?;
@@ -113,6 +135,7 @@ impl ComparisonFieldRenderer {
             baseline_total: points.len() as u64,
             active_total: points.len() as u64,
             baseline_recompute_count: 0,
+            palette,
         };
         renderer.update_fields(device, queue, config, true, points.len() as u64, 0)?;
         Ok(renderer)
@@ -256,6 +279,7 @@ impl ComparisonFieldRenderer {
                 .count_buffer(self.active.active_count_buffer_index()),
             &self.max_abs_buffer,
             &self.params_buffer,
+            None,
             "RawScope Difference Reduction Bind Group",
         );
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {

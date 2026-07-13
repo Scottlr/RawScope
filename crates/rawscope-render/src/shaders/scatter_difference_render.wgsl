@@ -26,6 +26,8 @@ struct VertexOutput {
 @group(0) @binding(1) var<storage, read> active_counts: array<u32>;
 @group(0) @binding(2) var<storage, read> max_abs_fixed: array<u32>;
 @group(0) @binding(3) var<uniform> params: Params;
+@group(0) @binding(4) var palette_lut: texture_2d<f32>;
+@group(0) @binding(5) var palette_sampler: sampler;
 
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
@@ -54,13 +56,12 @@ fn source_uv_for_display(display_uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn diverging_colour(value: f32) -> vec3<f32> {
-    let negative = vec3<f32>(0.009, 0.279, 0.319);
-    let neutral = vec3<f32>(0.018, 0.023, 0.030);
-    let positive = vec3<f32>(0.810, 0.162, 0.117);
-    if value < 0.0 {
-        return mix(neutral, negative, -value);
-    }
-    return mix(neutral, positive, value);
+    return textureSampleLevel(
+        palette_lut,
+        palette_sampler,
+        vec2<f32>((clamp(value, -1.0, 1.0) + 1.0) * 0.5, 2.5 / 3.0),
+        0.0,
+    ).rgb;
 }
 
 @fragment
