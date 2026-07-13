@@ -129,7 +129,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         clamp(support_share / params.max_support_share, 0.0, 1.0),
         params.max_support_share > 0.0,
     );
-    let neutral_context = vec3<f32>(0.11, 0.12, 0.14);
+    let baseline_density = density_intensity(baseline_counts[index]);
+    let neutral_context = mix(
+        vec3<f32>(0.05, 0.06, 0.08),
+        vec3<f32>(0.19, 0.20, 0.22),
+        baseline_density,
+    );
     let colour = mix(neutral_context, diverging_colour(normalized), support_visibility);
     return vec4<f32>(colour, 1.0);
 }
