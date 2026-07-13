@@ -69,6 +69,7 @@ pub enum EvidenceArtifactKind {
     Manifest,
     ScatterEvidence,
     TimelineEvidence,
+    VisualFieldEvidence,
     Markdown,
     VisualContext,
 }
