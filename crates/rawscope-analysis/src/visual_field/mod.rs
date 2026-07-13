@@ -6,6 +6,7 @@ mod mapping;
 pub mod mass_context;
 pub mod point_reveal;
 mod projection;
+pub mod ridges;
 
 pub use category_layers::{
     CategoryLayer, CategoryLayerId, CategoryLayerKind, CategoryLayerLookup, CategoryLayerPlan,
@@ -29,4 +30,10 @@ pub use point_reveal::{
 pub use projection::{
     ProjectedVisualFieldGeneration, ProjectedVisualPoint, VisualAxisDomain,
     VisualFieldProjectionError, VisualFieldRowPolicy,
+};
+pub use ridges::{
+    derive_density_ridges, DensityRidgeField, RidgeCell, RidgeConfig, RidgeError, RidgeScale,
+    DEFAULT_RIDGE_MINIMUM_ANISOTROPY_BASIS_POINTS, DEFAULT_RIDGE_MINIMUM_STRENGTH_BASIS_POINTS,
+    RIDGE_BASIS_POINTS_DENOMINATOR, RIDGE_EIGENGAP_EPSILON, RIDGE_FORMULA_VERSION,
+    RIDGE_NORMALIZATION_EPSILON,
 };
